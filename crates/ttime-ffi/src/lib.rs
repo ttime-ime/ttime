@@ -67,14 +67,22 @@ pub unsafe extern "C" fn ttime_session_cancel(s: *mut ttime_session) {
 /// `s` must be null or a live session.
 #[no_mangle]
 pub unsafe extern "C" fn ttime_session_provisional(s: *const ttime_session) -> *mut c_char {
-    to_c(if s.is_null() { String::new() } else { (*s).0.provisional() })
+    to_c(if s.is_null() {
+        String::new()
+    } else {
+        (*s).0.provisional()
+    })
 }
 
 /// # Safety
 /// `s` must be null or a live session.
 #[no_mangle]
 pub unsafe extern "C" fn ttime_session_raw(s: *const ttime_session) -> *mut c_char {
-    to_c(if s.is_null() { String::new() } else { (*s).0.raw().to_string() })
+    to_c(if s.is_null() {
+        String::new()
+    } else {
+        (*s).0.raw().to_string()
+    })
 }
 
 /// # Safety
@@ -88,7 +96,11 @@ pub unsafe extern "C" fn ttime_session_has_provisional(s: *const ttime_session) 
 /// `s` must be null or a live session.
 #[no_mangle]
 pub unsafe extern "C" fn ttime_session_take_committed(s: *mut ttime_session) -> *mut c_char {
-    to_c(if s.is_null() { String::new() } else { (*s).0.take_committed() })
+    to_c(if s.is_null() {
+        String::new()
+    } else {
+        (*s).0.take_committed()
+    })
 }
 
 /// # Safety

@@ -1,0 +1,108 @@
+name: Release
+
+# Push a tag such as v0.1.0-rc.1 (a release candidate, published as a
+# pre-release) or v0.1.0 (a release). The macOS app is signed with a Developer ID
+# certificate and notarized when the secrets in docs/RELEASING.md exist;
+# otherwise the build is ad-hoc signed, labelled UNSIGNED, and will not open on
+# other Macs without overriding Gatekeeper.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal -t aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Work out the version
+        id: v
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          case "$tag" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT";; *) echo "prerelease=false" >> "$GITHUB_OUTPUT";; esac
+
+      - name: Import the signing certificate
+        id: cert
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: |
+          if [ -z "$CERT_P12" ] || [ -z "$IDENTITY" ]; then
+            echo "No signing certificate configured: building UNSIGNED (ad-hoc)."
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          kc="$RUNNER_TEMP/build.keychain-db"
+          pw="$(uuidgen)"
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 3600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          printf '%s' "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$kc" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$pw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" login.keychain-db
+          rm -f "$RUNNER_TEMP/cert.p12"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          UNIVERSAL: "1"
+          VERSION: ${{ steps.v.outputs.version }}
+          BUILD_NUMBER: ${{ github.run_number }}
+          SIGN_IDENTITY: ${{ steps.cert.outputs.signed == 'true' && secrets.MACOS_SIGN_IDENTITY || '-' }}
+        run: scripts/build-macos.sh
+
+      - name: Notarize and staple
+        if: steps.cert.outputs.signed == 'true'
+        env:
+          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          [ -n "$API_KEY_P8" ] || { echo "::error::MACOS_CERT_P12 is set but the notarization secrets are not"; exit 1; }
+          printf '%s' "$API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          ditto -c -k --keepParent build/macos/T-Time.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+          xcrun stapler staple build/macos/T-Time.app
+          xcrun stapler validate build/macos/T-Time.app
+          spctl --assess --type execute --verbose build/macos/T-Time.app
+
+      - name: Package
+        id: pkg
+        run: |
+          name="T-Time-${{ steps.v.outputs.version }}-macos"
+          [ "${{ steps.cert.outputs.signed }}" = true ] || name="$name-UNSIGNED"
+          mkdir -p dist
+          ditto -c -k --keepParent build/macos/T-Time.app "dist/$name.zip"
+          (cd dist && shasum -a 256 "$name.zip" > "$name.zip.sha256")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.name }}
+          path: dist/
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=""
+          [ "${{ steps.v.outputs.prerelease }}" = true ] && flags="--prerelease"
+          notes="Experimental. Install by copying T-Time.app to ~/Library/Input Methods and adding it under System Settings > Keyboard > Input Sources."
+          [ "${{ steps.cert.outputs.signed }}" = true ] || notes="$notes UNSIGNED build: it will not open on other Macs without overriding Gatekeeper."
+          gh release create "$GITHUB_REF_NAME" dist/* $flags --title "T-Time $GITHUB_REF_NAME" --notes "$notes"
