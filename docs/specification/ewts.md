@@ -283,9 +283,22 @@ All 91 word fixtures: 90 identical.
 
 ### 12.5 vs pyewts
 
-Permissive subjoining (3.2); `X`/`~X` (12.3); `oM` (12.2); half numbers.
-Differential script: `scripts/differential/`; pin the pyewts version when
-rerun. *Fuller classification is still to do.*
+`scripts/differential/pyewts_diff.py` (pyewts pinned in `requirements.txt`)
+over all fixtures except `precomposed.tsv` (671 cases; 2026-11-02):
+
+| File | Differences | Cause |
+|---|---|---|
+| corpus.tsv | 0 | — |
+| words, stacks, syllables | 0 | — |
+| alphabet.tsv | 3 | `uo ui ue` (m17n extension; 12.2 of vowels) |
+| punctuation.tsv | 12 | half numbers `-0…-9` (10), `\U` escape, `\x` |
+| sanskrit.tsv | 11 | `oM` (2), `X`/`~X` (2), `k+fa`, `k+va`, `k+Za`, `kuo`; plus `fe`, `le?`, `kA?` which differ only in mark order and are NFC-equal |
+| deviations.tsv | 10 | pinned open items (12.6) |
+| robustness.tsv | 78 | malformed input; pyewts warns, drops or raises (it raised `IndexError` on some), so no meaningful oracle |
+
+Beyond fixtures, 30,000 random well-formed syllables were compared during
+development; the only remaining class is pyewts' permissive subjoining
+(3.2). The random runs are not committed.
 
 ### 12.6 Found while expanding fixtures (open ones pinned in `deviations.tsv`)
 
