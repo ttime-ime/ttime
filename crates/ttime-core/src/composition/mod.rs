@@ -1,6 +1,8 @@
 use crate::ewts::{convert, ewts_to_unicode_with, Diagnostic, Options};
 
+mod dead;
 mod session;
+pub use dead::{compose as compose_dead, is_trigger as is_dead_trigger};
 pub use session::Session;
 
 /// Incremental input state for an IME front end.

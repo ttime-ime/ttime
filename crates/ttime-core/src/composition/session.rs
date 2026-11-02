@@ -1,4 +1,4 @@
-use super::Engine;
+use super::{dead, Engine};
 use crate::ewts::{Diagnostic, Options};
 
 /// A typing session: committed text plus one provisional run.
@@ -18,6 +18,9 @@ pub struct Session {
     precomposed: bool,
     diplomatic: bool,
     latin: bool,
+    dead_keys: bool,
+    /// A dead-key trigger typed in Latin mode, waiting for its second key.
+    pending: Option<char>,
 }
 
 impl Session {
@@ -35,6 +38,8 @@ impl Session {
             precomposed: options.precomposed,
             diplomatic: options.diplomatic,
             latin: false,
+            dead_keys: false,
+            pending: None,
         }
     }
 
@@ -45,9 +50,51 @@ impl Session {
         if on == self.latin {
             return;
         }
+        self.flush_pending();
         let out = self.engine.commit();
         self.committed.push_str(&out);
         self.latin = on;
+    }
+
+    /// Dead keys for the IAST letters (see [`dead`]) work in Latin mode only.
+    /// Turning them off writes a waiting trigger out as typed.
+    pub fn set_dead_keys(&mut self, on: bool) {
+        if !on {
+            self.flush_pending();
+        }
+        self.dead_keys = on;
+    }
+
+    pub fn dead_keys(&self) -> bool {
+        self.dead_keys
+    }
+
+    fn flush_pending(&mut self) {
+        if let Some(t) = self.pending.take() {
+            self.committed.push(t);
+        }
+    }
+
+    /// One typed character in Latin mode. A trigger waits for its second key;
+    /// a pair that is not in the table is written as typed, and the second
+    /// character is then read afresh, so `;:a` is `;` followed by Ā.
+    fn push_latin(&mut self, c: char) {
+        if let Some(t) = self.pending.take() {
+            if c == t {
+                self.committed.push(c); // doubled trigger: one literal character
+                return;
+            }
+            if let Some(letter) = dead::compose(t, c) {
+                self.committed.push(letter);
+                return;
+            }
+            self.committed.push(t);
+        }
+        if self.dead_keys && dead::is_trigger(c) {
+            self.pending = Some(c);
+        } else {
+            self.committed.push(c);
+        }
     }
 
     pub fn latin(&self) -> bool {
@@ -62,7 +109,13 @@ impl Session {
     /// In Latin mode the text is appended as it is.
     pub fn insert_text(&mut self, text: &str) {
         if self.latin {
-            self.committed.push_str(text);
+            if !self.dead_keys {
+                self.committed.push_str(text);
+                return;
+            }
+            for c in text.chars() {
+                self.push_latin(c);
+            }
             return;
         }
         for c in text.chars() {
@@ -98,16 +151,21 @@ impl Session {
     /// Removes the last provisional keystroke. Returns false, changing nothing,
     /// when there is no provisional text.
     pub fn backspace(&mut self) -> bool {
+        if self.pending.take().is_some() {
+            return true;
+        }
         !self.latin && self.engine.backspace()
     }
 
     /// Drops the provisional run, keeping committed text.
     pub fn cancel(&mut self) {
+        self.pending = None;
         self.engine.cancel();
     }
 
     /// Commits whatever is provisional and returns the whole text.
     pub fn finish(&mut self) -> String {
+        self.flush_pending();
         let out = self.engine.commit();
         self.committed.push_str(&out);
         self.committed.clone()
@@ -117,11 +175,13 @@ impl Session {
     /// clears the provisional run.
     pub fn set_committed(&mut self, text: &str) {
         self.committed = text.to_string();
+        self.pending = None;
         self.engine.cancel();
     }
 
     pub fn reset(&mut self) {
         self.committed.clear();
+        self.pending = None;
         self.engine.cancel();
     }
 
@@ -137,12 +197,19 @@ impl Session {
     }
 
     pub fn provisional(&self) -> String {
+        if let Some(t) = self.pending {
+            return t.to_string();
+        }
         self.engine.preedit()
     }
 
     /// The EWTS typed since the last commit.
     pub fn raw(&self) -> &str {
-        self.engine.raw()
+        match self.pending {
+            Some(dead::LOWER_TRIGGER) => ";",
+            Some(_) => ":",
+            None => self.engine.raw(),
+        }
     }
 
     /// Diagnostics for the provisional run only; spans are UTF-8 byte offsets
@@ -255,6 +322,74 @@ mod tests {
         assert_eq!(s.provisional(), "བདེ");
         s.set_latin(true);
         assert_eq!(s.committed(), "བཀྲ་ཤིས (Tashi)་བདེ");
+    }
+
+    fn latin_dead(text: &str) -> Session {
+        let mut s = Session::new(false);
+        s.set_latin(true);
+        s.set_dead_keys(true);
+        s.insert_text(text);
+        s
+    }
+
+    #[test]
+    fn dead_keys_write_the_iast_letters_and_capitals() {
+        assert_eq!(latin_dead(";a;i;u;r;R;l;L;m;h;n;N;y;t;d;s;S").finish(), "āīūṛṝḷḹṃḥṅṇñṭḍśṣ");
+        assert_eq!(latin_dead(":a:R:N:y:S").finish(), "ĀṜṆÑṢ");
+        assert_eq!(latin_dead("K;r;S;Na ;sa;nkara").finish(), "Kṛṣṇa śaṅkara");
+    }
+
+    #[test]
+    fn a_waiting_trigger_is_provisional_and_resolved_by_the_next_key() {
+        let mut s = latin_dead("ab;");
+        assert_eq!(s.committed(), "ab");
+        assert_eq!(s.provisional(), ";");
+        assert_eq!(s.raw(), ";");
+        s.insert_text("a");
+        assert_eq!(s.committed(), "abā");
+        assert_eq!(s.provisional(), "");
+    }
+
+    #[test]
+    fn unmatched_pairs_come_out_as_typed() {
+        assert_eq!(latin_dead("oM; ka; (x); 1:2 a:b ;;a ;:a ;z").finish(), "oM; ka; (x); 1:2 a:b ;a ;Ā ;z");
+    }
+
+    #[test]
+    fn backspace_and_finish_handle_a_waiting_trigger() {
+        let mut s = latin_dead("a;");
+        assert!(s.backspace());
+        assert_eq!(s.provisional(), "");
+        assert!(!s.backspace());
+        s.insert_text(":");
+        assert_eq!(s.finish(), "a:");
+        let mut t = latin_dead("a;");
+        t.cancel();
+        assert_eq!(t.finish(), "a");
+    }
+
+    #[test]
+    fn dead_keys_are_off_by_default_and_for_tibetan_typing() {
+        let mut s = Session::new(false);
+        s.set_latin(true);
+        s.insert_text(";a");
+        assert_eq!(s.committed(), ";a");
+        let mut t = Session::new(false);
+        t.set_dead_keys(true);
+        t.insert_text("ka;a");
+        let mut u = Session::new(false);
+        u.insert_text("ka;a");
+        assert_eq!((t.raw(), t.provisional()), (u.raw(), u.provisional()));
+    }
+
+    #[test]
+    fn turning_dead_keys_off_or_leaving_latin_writes_the_trigger_out() {
+        let mut s = latin_dead("x;");
+        s.set_dead_keys(false);
+        assert_eq!(s.committed(), "x;");
+        let mut t = latin_dead("x:");
+        t.set_latin(false);
+        assert_eq!(t.committed(), "x:");
     }
 
     #[test]

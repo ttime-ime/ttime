@@ -169,6 +169,16 @@ impl Session {
     pub fn latin(&self) -> bool {
         self.inner.latin()
     }
+
+    /// Dead keys for the IAST letters in Latin mode: `;` then a key gives the
+    /// lower-case letter, `:` then a key gives the capital.
+    pub fn set_dead_keys(&mut self, on: bool) {
+        self.inner.set_dead_keys(on);
+    }
+
+    pub fn dead_keys(&self) -> bool {
+        self.inner.dead_keys()
+    }
 }
 
 fn diagnostics_json(diags: &[Diagnostic]) -> String {
