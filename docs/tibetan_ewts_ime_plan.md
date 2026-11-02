@@ -27,6 +27,8 @@ Three independent layers:
 
 **Normalization.** Default output is NFC-stable; an opt-in precomposed mode exists and is not NFC. Status: Proposed — see `docs/decisions/0001-unicode-normalization.md`.
 
+**Web prototype.** `docs/ttime_ewts_rs_audit_and_web_prototype_plan.md` covers the ewts-rs audit (completed; ADR 0002 proposes reference-only) and a browser writing room for a first specialist session (not started).
+
 **Expert review.** `docs/review/expert-review.md` lists every disagreement and unverified claim for a specialist to rule on; nothing there is settled.
 
 **Specification.** `docs/specification/ewts.md` is the behavioural reference and labels each rule Normative / Implemented / Deviation. The THL text has not been consulted (not retrievable), so “Normative” is provisional.
@@ -46,6 +48,8 @@ Three independent layers:
 | Differential testing | **Partial**: Keyman (interpreter), pyewts and ewts-rs; scripts in `scripts/differential/` |
 | cargo-fuzz targets | **Partial**: six targets, 60 s smoke run each, no findings; no long campaign |
 | Performance measurement | **Partial**: rough latency measured; allocations not |
+| ewts-rs audit and ADR 0002 | **Completed** (partial audit; Proposed) |
+| Web prototype (Wasm bridge, Writing Room) | **Planned**; needs `wasm32` target and wasm-bindgen |
 | Orthography (layer 2) | **Deferred** |
 | Lexicon/candidates (layer 3) | **Deferred** |
 | macOS adapter | **Planned** (first) |
