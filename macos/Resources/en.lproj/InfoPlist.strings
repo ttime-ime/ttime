@@ -1,0 +1,4 @@
+/* The input mode ID is the key; macOS shows this name in the input menu and in System Settings. */
+"io.github.ttime-ime.inputmethod.TTime.EWTS" = "T-Time (EWTS)";
+"CFBundleName" = "T-Time";
+"CFBundleDisplayName" = "T-Time";
