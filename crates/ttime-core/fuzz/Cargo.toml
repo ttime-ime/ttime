@@ -1,0 +1,53 @@
+[package]
+name = "ttime-core-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ttime-core = { path = ".." }
+
+[workspace]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "ewts_to_unicode"
+path = "fuzz_targets/ewts_to_unicode.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "unicode_to_ewts"
+path = "fuzz_targets/unicode_to_ewts.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "malformed"
+path = "fuzz_targets/malformed.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "long_stacks"
+path = "fuzz_targets/long_stacks.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "combining"
+path = "fuzz_targets/combining.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "incremental_edit"
+path = "fuzz_targets/incremental_edit.rs"
+test = false
+doc = false

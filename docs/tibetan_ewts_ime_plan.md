@@ -42,8 +42,8 @@ Three independent layers:
 | Specification | **Partial**: draft 1; THL not checked; differential classification incomplete |
 | Curated fixtures | **Completed**: 683 lines (target 500+); 15 pinned known disagreements |
 | Differential testing | **Partial**: Keyman (interpreter) and pyewts run ad hoc; scripts in `scripts/differential/` |
-| cargo-fuzz targets | **Planned** (none run) |
-| Performance measurement | **Planned** |
+| cargo-fuzz targets | **Partial**: six targets, 60 s smoke run each, no findings; no long campaign |
+| Performance measurement | **Partial**: rough latency measured; allocations not |
 | Orthography (layer 2) | **Deferred** |
 | Lexicon/candidates (layer 3) | **Deferred** |
 | macOS adapter | **Planned** (first) |

@@ -219,12 +219,32 @@ is written `.oM`.
 authority: `corpus.tsv` (193, agreed by pyewts), `robustness.tsv` (151 invalid,
 incomplete and degenerate inputs; characterization only) and `deviations.tsv`
 (15 pinned disagreements; not claims of correctness).
-Fuzzing: **none run** (no `cargo-fuzz` targets yet).
+Fuzzing: six `cargo-fuzz` targets in `crates/ttime-core/fuzz` (EWTS→Unicode,
+Unicode→EWTS, malformed input, long stacks, combining sequences, incremental
+insert/delete), each capping input size (4096 bytes, or fewer). One 60-second
+run each on 2026-11-02 (nightly rustc 1.101, cargo-fuzz 0.13.2): about 2.3
+million executions in total, **no crashes or assertion failures**. That is a
+smoke run, not sustained fuzzing; no long campaign has been done. Checked
+properties: no panic, diagnostic spans in range and on char boundaries,
+diagnostics do not change text, `Exact` reverse results re-convert to the
+input, and `Engine` always equals whole-buffer conversion.
 
 ## 11. Performance
 
-Not measured yet. Re-conversion per keystroke is O(n); no optimization is
-attempted until measured.
+Rough wall-clock numbers, release build, one Apple-silicon Mac, no statistics
+(`cargo run --release -p ttime-core --example bench`):
+
+| Operation | Time |
+|---|---|
+| EWTS→Unicode, 1 syllable | ~1.8 µs |
+| EWTS→Unicode, 75-char line | ~15 µs |
+| EWTS→Unicode, 2,300-char page | ~0.43 ms |
+| Unicode→EWTS, same page | ~1.0 ms |
+| Keystroke (preedit), 20 / 200 / 2000-char buffer | ~5 / ~38 / ~366 µs |
+
+Cost per keystroke is linear in buffer length, as designed. Allocations were
+not measured. No optimization has been attempted; ordinary composition buffers
+(one syllable to a line) are far below any perceptible latency.
 
 ## 12. Differences from references
 
