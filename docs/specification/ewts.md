@@ -267,13 +267,12 @@ Permissive subjoining (3.2); `X`/`~X` (12.3); `oM` (12.2); half numbers.
 Differential script: `scripts/differential/`; pin the pyewts version when
 rerun. *Fuller classification is still to do.*
 
-### 12.6 Found while expanding fixtures (pinned in `deviations.tsv`)
+### 12.6 Found while expanding fixtures (open ones pinned in `deviations.tsv`)
 
-- **Suffix versus stack (all three references disagree with T-Time).** In
-  `masti`, `sarba`, `sarga`, `barka`, `maskya` a consonant run after a vowel with
-  no tsheg is read by T-Time as suffix + new root (`mas|ti`); pyewts and
-  Keyman, and m17n for `rb`, stack it (`ma|sti`). **Open**; probably a T-Time
-  defect, not changed yet because it alters syllable splitting.
+- **Suffix versus stack — fixed.** A consonant run after a vowel with no
+  tsheg now takes the longest standard stack ending at the next vowel as its
+  root (`masti` = ma + sti, `sarba` = sa + rba), as pyewts, Keyman and m17n do.
+  `ngo'i`, `mangga` are unchanged. Moved from `deviations.tsv` to `corpus.tsv`.
 - **`pra+dznyA`**: with `+` after an explicit vowel, T-Time joins only the last
   consonant (full ra, then subjoined dz); pyewts stacks p+r+dz. Open.
 - **`kri+shna`**: `+` after a vowel is stray in T-Time (literal `+`, Warning);

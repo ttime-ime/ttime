@@ -312,22 +312,36 @@ fn convert_syllable(toks: &[Tok], out: &mut String, diags: &mut Vec<Diagnostic>)
                 emit_root_run(&run, vowel, out, diags);
             }
         } else {
-            // Suffixes, except that a consonant followed by a vowel starts a
-            // new unit ("ngo'i" -> ngo + 'i).
-            let (suffixes, root) = match (vowel, run.split_last()) {
-                (Some(v), Some((last, rest))) => (rest, Some((*last, v))),
-                _ => (&run[..], None),
-            };
-            for c in suffixes {
+            // Suffixes, except that the consonants before a vowel start a new
+            // unit: the longest standard stack ending at the vowel is its
+            // root ("ngo'i" -> ngo + 'i, "masti" -> ma + sti).
+            let mut split = run.len();
+            if vowel.is_some() {
+                split = run.len().saturating_sub(1);
+                for k in 0..run.len() {
+                    let tail = &run[k..];
+                    if tail.iter().all(|c| !c.forced && c.cons.len() == 1) {
+                        let keys: Vec<&str> = tail.iter().map(|c| c.cons[0].0).collect();
+                        if legal_stack(&keys) {
+                            split = k;
+                            break;
+                        }
+                    }
+                }
+            }
+            for c in &run[..split] {
                 emit_cluster(c, out);
             }
-            match (root, vowel) {
-                (Some((c, v)), _) => {
-                    emit_cluster(c, out);
-                    out.push_str(v);
+            if let Some(v) = vowel {
+                let root: Vec<Cons> = run[split..].iter().map(|c| c.cons[0]).collect();
+                if run[split..].iter().all(|c| c.cons.len() == 1) {
+                    emit_stack(&root, out);
+                } else {
+                    for c in &run[split..] {
+                        emit_cluster(c, out);
+                    }
                 }
-                (None, Some(v)) => out.push_str(v),
-                _ => {}
+                out.push_str(v);
             }
         }
         first = false;
