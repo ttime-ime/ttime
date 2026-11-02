@@ -249,6 +249,8 @@ not measured. No optimization has been attempted; ordinary composition buffers
 
 ## 12. Differences from references
 
+> **Expert review:** every open item is collected, with what each implementation does and a question, in `docs/review/expert-review.md`; the generated per-input table is `docs/review/disagreements.md`.
+
 ### 12.1 vs m17n
 
 (A bare `-` was once swallowed by T-Time; found by pyewts, fixed, now literal.)

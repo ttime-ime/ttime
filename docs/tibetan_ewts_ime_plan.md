@@ -27,6 +27,8 @@ Three independent layers:
 
 **Normalization.** Default output is NFC-stable; an opt-in precomposed mode exists and is not NFC. Status: Proposed — see `docs/decisions/0001-unicode-normalization.md`.
 
+**Expert review.** `docs/review/expert-review.md` lists every disagreement and unverified claim for a specialist to rule on; nothing there is settled.
+
 **Specification.** `docs/specification/ewts.md` is the behavioural reference and labels each rule Normative / Implemented / Deviation. The THL text has not been consulted (not retrievable), so “Normative” is provisional.
 
 **Licensing (undecided).** Repository licence: MIT or Apache-2.0, to be chosen. Reference licences: Keyman keyboard MIT; pyewts Apache-2.0; m17n-db LGPL 2.1+ (behavioural reference only, no tables copied). Botok, Tibetan NLP, TiSpell, OpenPecha and BDRC resources are **unverified** and each needs an individual licence check before any use.
