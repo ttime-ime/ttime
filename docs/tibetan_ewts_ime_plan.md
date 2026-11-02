@@ -164,7 +164,7 @@ Three independent layers:
 **Current crate layout** (two crates; modularity is inside `ttime-core`):
 
 ```text
-t-time/
+ttime/
   crates/
     ttime-core/         # no OS or GUI dependencies
       src/ewts/         #   converter, diagnostics, reverse conversion
