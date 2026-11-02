@@ -1,0 +1,40 @@
+# Expected values use \uXXXX so combining order is explicit.
+Ta Tha Da Na Sha	ཊ་ཋ་ཌ་ཎ་ཥ
+k+Sha	ཀྵ
+gha	གྷ
+dha	དྷ
+bha	བྷ
+dzha	ཛྷ
+Dha	ཌྷ
+g+ha	གྷ
+fa	ཕ༹
+va	བ༹
+Ra	ཪ
+k+fa	ཀྥ༹
+k+va	ཀྦ༹
+k+Ra	ཀྼ
+k+Ya	ཀྻ
+k+Wa	ཀྺ
+k+Za	ཀ༹
+oM	ༀ
+oM ma Ni pad+me hUM	ༀ་མ་ཎི་པདྨེ་ཧཱུཾ
+hUM	ཧཱུཾ
+hU~M	ཧཱུྃ
+kM	ཀཾ
+kH	ཀཿ
+k~M`	ཀྂ
+k~X	ཀ༵
+kX	ཀ༷
+k^	ཀ༹
+k?	ཀ྄
+k&	ཀ྅
+kr-i	ཀྲྀ
+kr-I	ཀྲཱྀ
+kl-i	ཀླྀ
+kl-I	ཀླཱྀ
+k-I	ཀཱྀ
+# Marks are emitted in canonical (NFC) order whatever the typing order.
+fe	\u0F55\u0F7A\u0F39
+le?	\u0F63\u0F84\u0F7A
+kuo	\u0F40\u0F7C\u0F74
+kA?	\u0F40\u0F84\u0F71

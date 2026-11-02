@@ -8,4 +8,4 @@ mod ewts;
 mod engine;
 
 pub use engine::Engine;
-pub use ewts::ewts_to_unicode;
+pub use ewts::{ewts_to_unicode, ewts_to_unicode_with, Options};

@@ -61,6 +61,14 @@ const CONSONANTS: &[Cons] = &[
     ("N", '\u{0F4E}', None),
 ];
 
+/// Letters that exist only as subjoined forms, reachable after `+`:
+/// fixed-form wa (`W`), fixed-form ya (`Y`) and the tsa-phru mark (`Z`).
+const SUBJOINED_ONLY: &[Cons] = &[
+    ("W", '\u{0FBA}', None),
+    ("Y", '\u{0FBB}', None),
+    ("Z", '\u{0F39}', None),
+];
+
 /// Longest keys first. `a` outputs nothing: it is the inherent vowel.
 const VOWELS: &[(&str, &str)] = &[
     ("-I", "\u{0F71}\u{0F80}"),
@@ -171,6 +179,14 @@ fn lex_consonant(chars: &[char]) -> Option<(Cons, usize)> {
     })
 }
 
+fn lex_subjoined_only(chars: &[char]) -> Option<(Cons, usize)> {
+    let &c = chars.first()?;
+    SUBJOINED_ONLY
+        .iter()
+        .find(|(key, _, _)| key.starts_with(c))
+        .map(|&cons| (cons, 1))
+}
+
 fn lex(chars: &[char]) -> Option<(Item, usize)> {
     if let Some((key, out)) = VOWELS.iter().find(|(key, _)| {
         let n = key.chars().count();
@@ -194,7 +210,13 @@ fn lex(chars: &[char]) -> Option<(Item, usize)> {
 }
 
 fn subjoined(cp: char) -> char {
-    char::from_u32(cp as u32 + SUBJOINED_OFFSET).unwrap_or(cp)
+    match cp {
+        // Fixed-form ra has its own subjoined form outside the +0x50 block.
+        '\u{0F6A}' => '\u{0FBC}',
+        // Already subjoined or combining: fixed-form wa and ya, and U+0F39.
+        '\u{0FBA}' | '\u{0FBB}' | '\u{0F39}' => cp,
+        _ => char::from_u32(cp as u32 + SUBJOINED_OFFSET).unwrap_or(cp),
+    }
 }
 
 fn emit_stack(cons: &[Cons], out: &mut String) {
@@ -300,23 +322,114 @@ fn convert_syllable(items: &[Item], out: &mut String) {
     }
 }
 
+/// Output choices.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Options {
+    /// Emit the precomposed code points that Unicode only keeps for
+    /// compatibility (for example U+0F43 for gha and U+0F76 for ra + reversed
+    /// i). The default is the normalised (NFC) decomposed form.
+    pub precomposed: bool,
+}
+
+/// Decomposed sequence to its precomposed code point, longest first.
+const PRECOMPOSED: &[(&str, char)] = &[
+    ("\u{0F40}\u{0FB5}", '\u{0F69}'),
+    ("\u{0F42}\u{0FB7}", '\u{0F43}'),
+    ("\u{0F4C}\u{0FB7}", '\u{0F4D}'),
+    ("\u{0F51}\u{0FB7}", '\u{0F52}'),
+    ("\u{0F56}\u{0FB7}", '\u{0F57}'),
+    ("\u{0F5B}\u{0FB7}", '\u{0F5C}'),
+    ("\u{0F90}\u{0FB5}", '\u{0FB9}'),
+    ("\u{0F92}\u{0FB7}", '\u{0F93}'),
+    ("\u{0F9C}\u{0FB7}", '\u{0F9D}'),
+    ("\u{0FA1}\u{0FB7}", '\u{0FA2}'),
+    ("\u{0FA6}\u{0FB7}", '\u{0FA7}'),
+    ("\u{0FAB}\u{0FB7}", '\u{0FAC}'),
+    ("\u{0F71}\u{0F72}", '\u{0F73}'),
+    ("\u{0F71}\u{0F74}", '\u{0F75}'),
+    ("\u{0F71}\u{0F80}", '\u{0F81}'),
+    ("\u{0FB2}\u{0F80}", '\u{0F76}'),
+    ("\u{0FB3}\u{0F80}", '\u{0F78}'),
+];
+
+/// Canonical combining class of the Tibetan marks, as in the Unicode
+/// Character Database.
+fn combining_class(c: char) -> u8 {
+    match c {
+        '\u{0F84}' => 9,
+        '\u{0F71}' => 129,
+        '\u{0F72}' | '\u{0F7A}'..='\u{0F7D}' | '\u{0F80}' => 130,
+        '\u{0F74}' => 132,
+        '\u{0F39}' => 216,
+        '\u{0F18}' | '\u{0F19}' | '\u{0F35}' | '\u{0F37}' | '\u{0FC6}' => 220,
+        '\u{0F82}' | '\u{0F83}' | '\u{0F86}' | '\u{0F87}' => 230,
+        _ => 0,
+    }
+}
+
+/// Reorders runs of combining marks into canonical order, so the output is
+/// stable under NFC no matter in which order the marks were typed.
+fn canonical_order(text: &str) -> String {
+    let mut chars: Vec<char> = text.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        if combining_class(chars[i]) == 0 {
+            i += 1;
+            continue;
+        }
+        let mut j = i;
+        while j < chars.len() && combining_class(chars[j]) > 0 {
+            j += 1;
+        }
+        chars[i..j].sort_by_key(|&c| combining_class(c));
+        i = j;
+    }
+    chars.into_iter().collect()
+}
+
+fn compose(text: &str) -> String {
+    let mut out = text.to_string();
+    // "\u{0FB2}\u{0F71}\u{0F80}" (ra + long reversed i) must not turn into
+    // U+0F76 + U+0F71, so the long vowel is composed first.
+    for (from, to) in PRECOMPOSED.iter().filter(|(f, _)| f.ends_with('\u{0F80}') && f.starts_with('\u{0F71}')) {
+        out = out.replace(from, &to.to_string());
+    }
+    for (from, to) in PRECOMPOSED {
+        out = out.replace(from, &to.to_string());
+    }
+    out
+}
+
 pub fn ewts_to_unicode(input: &str) -> String {
+    ewts_to_unicode_with(input, Options::default())
+}
+
+pub fn ewts_to_unicode_with(input: &str, options: Options) -> String {
     let chars: Vec<char> = input.chars().collect();
     let mut out = String::new();
     let mut items: Vec<Item> = Vec::new();
     let mut i = 0;
 
-    fn flush(items: &mut Vec<Item>, out: &mut String) {
-        convert_syllable(items, out);
+    let flush = |items: &mut Vec<Item>, out: &mut String| {
+        let mut syllable = String::new();
+        convert_syllable(items, &mut syllable);
         items.clear();
-    }
+        syllable = canonical_order(&syllable);
+        if options.precomposed {
+            syllable = compose(&syllable);
+        }
+        out.push_str(&syllable);
+    };
 
     while i < chars.len() {
         let c = chars[i];
 
         if c == '+' {
             if let (Some(Item::Cons(prev)), Some((cons, n))) =
-                (items.last_mut(), lex_consonant(&chars[i + 1..]))
+                (
+                items.last_mut(),
+                lex_consonant(&chars[i + 1..]).or_else(|| lex_subjoined_only(&chars[i + 1..])),
+            )
             {
                 prev.cons.push(cons);
                 prev.forced = true;
@@ -325,6 +438,17 @@ pub fn ewts_to_unicode(input: &str) -> String {
                 i += 1;
             }
             continue;
+        }
+
+        // Half numbers: -1 .. -9, then -0. Must be tried before `-` lexes as
+        // a separator.
+        if c == '-' {
+            if let Some(d) = chars.get(i + 1).and_then(|d| d.to_digit(10)) {
+                flush(&mut items, &mut out);
+                out.push(char::from_u32(0x0F2A + (d + 9) % 10).unwrap());
+                i += 2;
+                continue;
+            }
         }
 
         if items.is_empty() && chars[i..].starts_with(&['o', 'M']) {
@@ -341,6 +465,35 @@ pub fn ewts_to_unicode(input: &str) -> String {
 
         flush(&mut items, &mut out);
         match c {
+            '[' => {
+                let end = chars[i + 1..].iter().position(|&c| c == ']');
+                let stop = end.map_or(chars.len(), |e| i + 1 + e);
+                out.extend(&chars[i + 1..stop]);
+                i = stop + 1;
+                continue;
+            }
+            '\\' => {
+                let (digits, take) = match chars.get(i + 1) {
+                    Some('u') => (4, 4),
+                    Some('U') => (8, 8),
+                    _ => (0, 0),
+                };
+                let hex: String = chars.iter().skip(i + 2).take(take).collect();
+                let decoded = (digits > 0 && hex.len() == digits)
+                    .then(|| u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32))
+                    .flatten();
+                match decoded {
+                    Some(ch) => {
+                        out.push(ch);
+                        i += 2 + digits;
+                    }
+                    None => {
+                        out.extend(chars.get(i + 1));
+                        i += 2;
+                    }
+                }
+                continue;
+            }
             ' ' => {
                 let after_shad = matches!(out.chars().last(), Some(SHAD | NYIS_SHAD));
                 out.push(if after_shad { ' ' } else { TSHEG });

@@ -1,4 +1,4 @@
-use crate::ewts::ewts_to_unicode;
+use crate::ewts::{ewts_to_unicode_with, Options};
 
 /// Incremental input state for an IME front end.
 ///
@@ -8,11 +8,16 @@ use crate::ewts::ewts_to_unicode;
 #[derive(Debug, Default, Clone)]
 pub struct Engine {
     raw: String,
+    options: Options,
 }
 
 impl Engine {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_options(options: Options) -> Self {
+        Self { raw: String::new(), options }
     }
 
     pub fn push(&mut self, c: char) {
@@ -33,7 +38,7 @@ impl Engine {
     }
 
     pub fn preedit(&self) -> String {
-        ewts_to_unicode(&self.raw)
+        ewts_to_unicode_with(&self.raw, self.options)
     }
 
     pub fn commit(&mut self) -> String {
@@ -62,5 +67,41 @@ mod tests {
         assert_eq!(e.preedit(), "བོ");
         assert_eq!(e.commit(), "བོ");
         assert!(e.is_empty());
+    }
+
+    #[test]
+    fn backspace_on_empty_engine_is_a_no_op() {
+        let mut e = Engine::new();
+        assert!(!e.backspace());
+        assert_eq!(e.preedit(), "");
+        assert_eq!(e.commit(), "");
+    }
+
+    #[test]
+    fn cancel_discards_input() {
+        let mut e = Engine::new();
+        e.push('k');
+        e.cancel();
+        assert!(e.is_empty());
+        assert_eq!(e.commit(), "");
+    }
+
+    #[test]
+    fn options_apply_to_preedit() {
+        let mut e = Engine::with_options(Options { precomposed: true });
+        for c in "gha".chars() {
+            e.push(c);
+        }
+        assert_eq!(e.preedit(), "\u{0F43}");
+        assert_eq!(Engine::new().preedit(), "");
+    }
+
+    #[test]
+    fn engine_is_reusable_after_commit() {
+        let mut e = Engine::new();
+        e.push('k');
+        assert_eq!(e.commit(), "ཀ");
+        e.push('g');
+        assert_eq!(e.commit(), "ག");
     }
 }
