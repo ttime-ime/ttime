@@ -52,6 +52,51 @@ five **before any typing** about 35% of the time on the held-out collections
 - **Counts depend on the converter.** Each syllable's EWTS comes from our own
   reverse conversion, so an error there would shift the numbers.
 
+## Round 2: longer contexts and where the savings fall
+
+Same data, same strict test (Tsadra held out entirely, about 60,000 syllables).
+`experiments/lexicon-spike/ngram.py` adds trigram and 4-gram contexts with stupid
+backoff (alpha 0.4); n-grams seen only once (twice for 4-grams) are dropped.
+
+| Model | Right syllable first in the list, no typing | In top 5, no typing | Letters saved |
+|---|---|---|---|
+| Frequency only | 4.5% | 12.4% | 29.2% |
+| Previous syllable (bigram) | 16.4% | 36.0% | 43.1% |
+| Last two syllables (trigram) | 21.8% | 44.9% | 47.9% |
+| Last three syllables (4-gram) | 25.5% | 48.6% | 49.4% |
+
+Longer contexts help, with sharply diminishing returns: the 4-gram adds only 1.5
+points of saved letters over the trigram, which is roughly 0.05 keystrokes per
+syllable (the average syllable is 3.6 letters). Higher orders also memorize
+repeated passages, which are common in this corpus (formulae, quotations, parallel
+translations), so some of the gain would not carry over to new text. The tables are
+not small: about 4.9 million trigrams and 4.9 million 4-grams survive pruning, tens
+of megabytes before compression, far more than a web page or input method wants to
+carry without aggressive pruning.
+
+Where the savings fall (bigram model, Tsadra held out, 200,000 syllables):
+
+| EWTS letters | Share of syllables | Letters saved | In top 5 before typing |
+|---|---|---|---|
+| 2 | 23% | 31% | 63% |
+| 3 | 26% | 38% | 40% |
+| 4 | 28% | 43% | 24% |
+| 5 | 18% | 49% | 17% |
+| 6+ | 5% | 54% | 17% |
+
+The average syllable is 3.6 letters, so the bigram model saves about 1.5
+keystrokes per syllable, and the space after each syllable (the tsheg) is not saved.
+
+## Conclusion
+
+A conventional statistical model reaches about 43% (bigram) to 49% (4-gram) of
+letters saved on classical prose, under optimistic assumptions about how the user
+reads and uses the list. It cannot predict rare terms, names or Sanskrit, which are
+the costly cases for scholars. The next gains would need a different kind of model
+(word-level, or a neural language model) and, more importantly, evidence from
+users that they want completion at all. Until then, the better-supported direction
+is personal and project dictionaries (see the scholarly functionality roadmap).
+
 ## Data and licensing notes
 
 - Only counts would ever ship, not source texts. The BoCorpus card gives no terms

@@ -20,4 +20,7 @@ ttime-cli --reverse < vocab.txt > ewts.txt;  ttime-cli < ewts.txt > back.txt
 python3 -I eval.py counts.pkl ewts_ok.txt
 ```
 
+`ngram.py` (same inputs plus a held-out collection) trains trigram and 4-gram
+models with stupid backoff and compares them; see the doc for results.
+
 Results and caveats: `docs/reference/lexicon-spike.md`.
