@@ -1,0 +1,58 @@
+# T-Time symbol catalogue (DRAFT, not reviewed by a Tibetologist).
+# Columns, tab-separated: id, category, code points (hex), EWTS, Unicode name, label, note, evidence.
+# Code points and the EWTS column are checked against the engine by tests. Names are from the
+# Unicode Character Database, version 15.1.0 (the 'TIBETAN ' prefix is dropped).
+# Labels and notes are plain descriptions, not scholarly usage guidance. `\s` in the EWTS column is a space.
+# Evidence is the fixture file that lists the same EWTS to Unicode pair, or `engine` when only the engine shows it.
+tsheg	punctuation	0F0B	\s	MARK INTERSYLLABIC TSHEG	tsheg, syllable separator	Typed as the space bar between syllables.	engine
+tsheg-bstar	punctuation	0F0C	*	MARK DELIMITER TSHEG BSTAR	delimiter tsheg (non-breaking)		punctuation.tsv
+shad	punctuation	0F0D	/	MARK SHAD	shad		punctuation.tsv
+nyis-shad	punctuation	0F0E	//	MARK NYIS SHAD	double shad		punctuation.tsv
+tsheg-shad	punctuation	0F0F	;	MARK TSHEG SHAD	tsheg shad		punctuation.tsv
+rin-chen-spungs-shad	punctuation	0F11	|	MARK RIN CHEN SPUNGS SHAD	rin chen spungs shad		punctuation.tsv
+sbrul-shad	punctuation	0F08	!	MARK SBRUL SHAD	sbrul shad		punctuation.tsv
+gter-tsheg	punctuation	0F14	:	MARK GTER TSHEG	gter tsheg		punctuation.tsv
+bsdus-rtags	punctuation	0F34	=	MARK BSDUS RTAGS	bsdus rtags		punctuation.tsv
+yig-mgo-initial	head marks	0F04	@	MARK INITIAL YIG MGO MDUN MA	initial yig mgo mdun ma		engine
+yig-mgo-closing	head marks	0F05	#	MARK CLOSING YIG MGO SGAB MA	closing yig mgo sgab ma		engine
+yig-mgo-pair	head marks	0F04 0F05	@#	MARK INITIAL YIG MGO MDUN MA; MARK CLOSING YIG MGO SGAB MA	opening head mark pair	The two marks typed together, as at the start of many texts.	punctuation.tsv
+yig-mgo-caret	head marks	0F06	$	MARK CARET YIG MGO PHUR SHAD MA	caret yig mgo phur shad ma		engine
+yig-mgo-tsheg-shad	head marks	0F07	%	MARK YIG MGO TSHEG SHAD MA	yig mgo tsheg shad ma		engine
+yig-mgo-pair-caret	head marks	0F06 0F07	$%	MARK CARET YIG MGO PHUR SHAD MA; MARK YIG MGO TSHEG SHAD MA	caret and tsheg shad head marks	The two marks typed together.	punctuation.tsv
+ang-khang-open	brackets	0F3C	(	MARK ANG KHANG GYON	ang khang, opening		engine
+ang-khang-close	brackets	0F3D	)	MARK ANG KHANG GYAS	ang khang, closing		engine
+gug-rtags-open	brackets	0F3A	<	MARK GUG RTAGS GYON	gug rtags, opening		engine
+gug-rtags-close	brackets	0F3B	>	MARK GUG RTAGS GYAS	gug rtags, closing		engine
+digits	numbers	0F20 0F21 0F22 0F23 0F24 0F25 0F26 0F27 0F28 0F29	0123456789	DIGIT ZERO; DIGIT ONE; DIGIT TWO; DIGIT THREE; DIGIT FOUR; DIGIT FIVE; DIGIT SIX; DIGIT SEVEN; DIGIT EIGHT; DIGIT NINE	digits 0 to 9	All ten digits.	punctuation.tsv
+half-one	numbers	0F2A	-1	DIGIT HALF ONE	half digit one	Half digits are typed as a hyphen followed by the digit.	punctuation.tsv
+half-zero	numbers	0F33	-0	DIGIT HALF ZERO	half digit zero		punctuation.tsv
+om	syllables	0F00	oM	SYLLABLE OM	om syllable		sanskrit.tsv
+hum	syllables	0F67 0F71 0F74 0F7E	hUM	LETTER HA; VOWEL SIGN AA; VOWEL SIGN U; SIGN RJES SU NGA RO	hum, with anusvara		sanskrit.tsv
+hum-candrabindu	syllables	0F67 0F71 0F74 0F83	hU~M	LETTER HA; VOWEL SIGN AA; VOWEL SIGN U; SIGN SNA LDAN	hum, with candrabindu		sanskrit.tsv
+kr-i	syllables	0F40 0FB2 0F80	kr-i	LETTER KA; SUBJOINED LETTER RA; VOWEL SIGN REVERSED I	vocalic r (short)	Shown on ka; typed as ka, r, hyphen, i.	alphabet.tsv
+kr-I	syllables	0F40 0FB2 0F71 0F80	kr-I	LETTER KA; SUBJOINED LETTER RA; VOWEL SIGN AA; VOWEL SIGN REVERSED I	vocalic r (long)	Shown on ka.	alphabet.tsv
+kl-i	syllables	0F40 0FB3 0F80	kl-i	LETTER KA; SUBJOINED LETTER LA; VOWEL SIGN REVERSED I	vocalic l (short)	Shown on ka.	alphabet.tsv
+kl-I	syllables	0F40 0FB3 0F71 0F80	kl-I	LETTER KA; SUBJOINED LETTER LA; VOWEL SIGN AA; VOWEL SIGN REVERSED I	vocalic l (long)	Shown on ka.	alphabet.tsv
+retroflex-ta	sanskrit	0F4A	Ta	LETTER TTA	retroflex ta		engine
+retroflex-tha	sanskrit	0F4B	Tha	LETTER TTHA	retroflex tha		engine
+retroflex-da	sanskrit	0F4C	Da	LETTER DDA	retroflex da		engine
+retroflex-na	sanskrit	0F4E	Na	LETTER NNA	retroflex na		engine
+retroflex-sha	sanskrit	0F65	Sha	LETTER SSA	retroflex sha		engine
+ksha	sanskrit	0F40 0FB5	k+Sha	LETTER KA; SUBJOINED LETTER SSA	ksha, stacked	Typed with a plus sign to force the stack.	sanskrit.tsv
+fixed-form-ra	sanskrit	0F6A	Ra	LETTER FIXED-FORM RA	fixed-form ra		sanskrit.tsv
+gha	sanskrit	0F42 0FB7	gha	LETTER GA; SUBJOINED LETTER HA	gha		sanskrit.tsv
+dha	sanskrit	0F51 0FB7	dha	LETTER DA; SUBJOINED LETTER HA	dha		sanskrit.tsv
+bha	sanskrit	0F56 0FB7	bha	LETTER BA; SUBJOINED LETTER HA	bha		sanskrit.tsv
+dzha	sanskrit	0F5B 0FB7	dzha	LETTER DZA; SUBJOINED LETTER HA	dzha		sanskrit.tsv
+retroflex-dha	sanskrit	0F4C 0FB7	Dha	LETTER DDA; SUBJOINED LETTER HA	retroflex dha		sanskrit.tsv
+fa	sanskrit	0F55 0F39	fa	LETTER PHA; MARK TSA -PHRU	fa (pha with tsa phru)		sanskrit.tsv
+va	sanskrit	0F56 0F39	va	LETTER BA; MARK TSA -PHRU	va (ba with tsa phru)		sanskrit.tsv
+anusvara	marks	0F7E	M	SIGN RJES SU NGA RO	anusvara (rjes su nga ro)	Attaches to the letter before it.	engine
+visarga	marks	0F7F	H	SIGN RNAM BCAD	visarga (rnam bcad)	Attaches to the letter before it.	engine
+candrabindu	marks	0F83	~M	SIGN SNA LDAN	candrabindu (sna ldan)	Attaches to the letter before it.	engine
+candrabindu-2	marks	0F82	~M`	SIGN NYI ZLA NAA DA	candrabindu (nyi zla naa da)	Attaches to the letter before it.	engine
+tsa-phru	marks	0F39	^	MARK TSA -PHRU	tsa -phru	Attaches to the letter before it.	engine
+ngas-bzung-nyi-zla	marks	0F35	~X	MARK NGAS BZUNG NYI ZLA	ngas bzung nyi zla	Attaches to the letter before it.	engine
+ngas-bzung-sgor-rtags	marks	0F37	X	MARK NGAS BZUNG SGOR RTAGS	ngas bzung sgor rtags	Attaches to the letter before it.	engine
+halanta	marks	0F84	?	MARK HALANTA	halanta	Attaches to the letter before it.	engine
+paluta	marks	0F85	&	MARK PALUTA	paluta	Attaches to the letter before it.	engine

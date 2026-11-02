@@ -44,6 +44,40 @@ pub fn reverse_json(input: &str) -> String {
     )
 }
 
+/// The symbol catalogue entries matching `query` (all of them when empty), as a
+/// JSON array in display order. Search lives in `ttime-core`.
+#[wasm_bindgen]
+pub fn search_symbols_json(query: &str) -> String {
+    let items: Vec<String> = ttime_core::symbols::search(query)
+        .iter()
+        .map(|s| {
+            format!(
+                "{{\"id\":{},\"category\":{},\"text\":{},\"ewts\":{},\"name\":{},\"label\":{},\"note\":{},\"evidence\":{},\"codePoints\":{}}}",
+                json_string(&s.id),
+                json_string(&s.category),
+                json_string(&s.text),
+                s.ewts.as_deref().map_or("null".to_string(), json_string),
+                json_string(&s.name),
+                json_string(&s.label),
+                json_string(&s.note),
+                json_string(&s.evidence),
+                json_string(&s.code_points())
+            )
+        })
+        .collect();
+    format!("[{}]", items.join(","))
+}
+
+/// Category names in order of first appearance, as a JSON array.
+#[wasm_bindgen]
+pub fn symbol_categories_json() -> String {
+    let items: Vec<String> = ttime_core::symbols::categories()
+        .into_iter()
+        .map(json_string)
+        .collect();
+    format!("[{}]", items.join(","))
+}
+
 #[wasm_bindgen]
 pub struct Session {
     inner: ttime_core::Session,

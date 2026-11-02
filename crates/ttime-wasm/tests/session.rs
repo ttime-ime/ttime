@@ -83,3 +83,15 @@ fn reverse_json_reports_fidelity() {
     assert!(j.contains("\"text\":\"bod skad\""), "{j}");
     assert!(j.contains("\"fidelity\":\"Exact\""), "{j}");
 }
+
+#[test]
+fn symbol_search_json_is_shaped_for_the_palette() {
+    let all = ttime_wasm::search_symbols_json("");
+    assert!(all.starts_with("[{\"id\":"));
+    assert!(all.contains("\"codePoints\":\"U+0F0D\""), "{all}");
+    let one = ttime_wasm::search_symbols_json("double shad");
+    assert!(one.contains("\"id\":\"nyis-shad\""), "{one}");
+    assert!(!one.contains("\"id\":\"shad\""), "{one}");
+    assert_eq!(ttime_wasm::search_symbols_json("zzzzqq"), "[]");
+    assert!(ttime_wasm::symbol_categories_json().starts_with("[\"punctuation\""));
+}

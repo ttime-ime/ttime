@@ -10,6 +10,7 @@
 
 pub mod composition;
 pub mod ewts;
+pub mod symbols;
 
 pub use composition::{Engine, Session};
 pub use ewts::{
