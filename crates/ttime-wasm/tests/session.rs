@@ -1,7 +1,7 @@
 //! The commit policy must never change what the text converts to.
 
 use ttime_core::{ewts_to_unicode_with, Options};
-use ttime_wasm::{convert_json, Session};
+use ttime_wasm::{convert_json, reverse_json, Session};
 
 fn rng(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13;
@@ -75,4 +75,11 @@ fn json_is_valid_for_awkward_text() {
     assert!(j.starts_with("{\"text\":\""));
     assert!(j.contains("\"diagnostics\":["));
     assert!(!j.contains('\n'));
+}
+
+#[test]
+fn reverse_json_reports_fidelity() {
+    let j = reverse_json("བོད་སྐད");
+    assert!(j.contains("\"text\":\"bod skad\""), "{j}");
+    assert!(j.contains("\"fidelity\":\"Exact\""), "{j}");
 }

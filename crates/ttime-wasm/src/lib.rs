@@ -8,7 +8,7 @@
 //! Backspace edits provisional text only; at an empty provisional run it does
 //! nothing and the page's ordinary text editing takes over.
 
-use ttime_core::{convert, Diagnostic, Engine, Options};
+use ttime_core::{convert, unicode_to_ewts, Diagnostic, Engine, Fidelity, Options};
 use wasm_bindgen::prelude::*;
 
 /// Identifies the build in reports. `TTIME_GIT_SHA` is set by the build script.
@@ -30,6 +30,23 @@ pub fn convert_json(input: &str, precomposed: bool) -> String {
         "{{\"text\":{},\"diagnostics\":{}}}",
         json_string(&c.text),
         diagnostics_json(&c.diagnostics)
+    )
+}
+
+/// Unicode to EWTS: `{"text": ..., "fidelity": "Exact"|"Canonical"|"Lossy", "diagnostics": [...]}`.
+#[wasm_bindgen]
+pub fn reverse_json(input: &str) -> String {
+    let r = unicode_to_ewts(input);
+    let fidelity = match r.fidelity {
+        Fidelity::Exact => "Exact",
+        Fidelity::Canonical => "Canonical",
+        Fidelity::Lossy => "Lossy",
+    };
+    format!(
+        "{{\"text\":{},\"fidelity\":\"{}\",\"diagnostics\":{}}}",
+        json_string(&r.text),
+        fidelity,
+        diagnostics_json(&r.diagnostics)
     )
 }
 
