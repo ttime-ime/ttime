@@ -159,6 +159,16 @@ impl Session {
     pub fn diplomatic(&self) -> bool {
         self.inner.diplomatic()
     }
+
+    /// Latin mode passes typed text through unchanged; switching fixes the
+    /// pending run first, so nothing is lost.
+    pub fn set_latin(&mut self, on: bool) {
+        self.inner.set_latin(on);
+    }
+
+    pub fn latin(&self) -> bool {
+        self.inner.latin()
+    }
 }
 
 fn diagnostics_json(diags: &[Diagnostic]) -> String {

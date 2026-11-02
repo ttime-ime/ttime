@@ -17,6 +17,7 @@ pub struct Session {
     engine: Engine,
     precomposed: bool,
     diplomatic: bool,
+    latin: bool,
 }
 
 impl Session {
@@ -33,7 +34,24 @@ impl Session {
             engine: Engine::with_options(options),
             precomposed: options.precomposed,
             diplomatic: options.diplomatic,
+            latin: false,
         }
+    }
+
+    /// Latin mode passes typed text through unchanged: no EWTS is read, and a
+    /// space is a space. Switching to it first fixes the provisional run, so no
+    /// typed text is lost or rewritten; switching back starts a fresh run.
+    pub fn set_latin(&mut self, on: bool) {
+        if on == self.latin {
+            return;
+        }
+        let out = self.engine.commit();
+        self.committed.push_str(&out);
+        self.latin = on;
+    }
+
+    pub fn latin(&self) -> bool {
+        self.latin
     }
 
     pub fn diplomatic(&self) -> bool {
@@ -41,7 +59,12 @@ impl Session {
     }
 
     /// Feeds typed characters one at a time, committing at spaces and newlines.
+    /// In Latin mode the text is appended as it is.
     pub fn insert_text(&mut self, text: &str) {
+        if self.latin {
+            self.committed.push_str(text);
+            return;
+        }
         for c in text.chars() {
             self.engine.push(c);
             if (c == ' ' || c == '\n') && !self.holds_open_construct() {
@@ -75,7 +98,7 @@ impl Session {
     /// Removes the last provisional keystroke. Returns false, changing nothing,
     /// when there is no provisional text.
     pub fn backspace(&mut self) -> bool {
-        self.engine.backspace()
+        !self.latin && self.engine.backspace()
     }
 
     /// Drops the provisional run, keeping committed text.
@@ -204,5 +227,75 @@ mod tests {
         s.insert_text("kh");
         assert!(s.backspace());
         assert_eq!(s.provisional(), "ཀ");
+    }
+
+    #[test]
+    fn latin_text_passes_through_unchanged() {
+        let mut s = Session::new(false);
+        s.set_latin(true);
+        let text = "Bod skad [x] \\u0F40 kha+ya, oM; ka\n";
+        s.insert_text(text);
+        assert_eq!(s.committed(), text);
+        assert_eq!(s.provisional(), "");
+        assert_eq!(s.raw(), "");
+    }
+
+    #[test]
+    fn switching_to_latin_fixes_the_pending_run_and_back_resumes() {
+        let mut s = Session::new(false);
+        s.insert_text("bkra shis");
+        assert_eq!(s.provisional(), "ཤིས");
+        s.set_latin(true);
+        assert_eq!(s.committed(), "བཀྲ་ཤིས");
+        assert_eq!(s.provisional(), "");
+        s.insert_text(" (Tashi)");
+        s.set_latin(false);
+        s.insert_text(" bde");
+        assert_eq!(s.committed(), "བཀྲ་ཤིས (Tashi)་");
+        assert_eq!(s.provisional(), "བདེ");
+        s.set_latin(true);
+        assert_eq!(s.committed(), "བཀྲ་ཤིས (Tashi)་བདེ");
+    }
+
+    #[test]
+    fn latin_mode_leaves_backspace_to_the_host() {
+        let mut s = Session::new(false);
+        s.set_latin(true);
+        s.insert_text("ab");
+        assert!(!s.backspace());
+        assert_eq!(s.committed(), "ab");
+    }
+
+    /// Whatever mix of modes, Latin stretches come out exactly as typed and
+    /// Tibetan stretches as the whole-string conversion would give them.
+    #[test]
+    fn mixed_modes_keep_each_stretch_intact() {
+        let tibetan: Vec<char> = "kgyrlsabdmn'+.~[]\\ _/MHiueo -0123uU".chars().collect();
+        let latin: Vec<char> = "abcXYZ kgy+.[]\\~'\n,;0123 ".chars().collect();
+        let mut seed = 0xA24BAED4963EE407u64;
+        for round in 0..5_000 {
+            let mut s = Session::new(false);
+            let mut want = String::new();
+            let mut tib = String::new();
+            for k in 0..(1 + rng(&mut seed) % 5) {
+                let is_latin = k % 2 == 1;
+                let pool = if is_latin { &latin } else { &tibetan };
+                let part: String = (0..rng(&mut seed) % 10)
+                    .map(|_| pool[(rng(&mut seed) % pool.len() as u64) as usize])
+                    .collect();
+                s.set_latin(is_latin);
+                s.insert_text(&part);
+                if is_latin {
+                    want.push_str(&ewts_to_unicode_with(&tib, Options::default()));
+                    tib.clear();
+                    want.push_str(&part);
+                } else {
+                    tib.push_str(&part);
+                }
+            }
+            s.set_latin(true);
+            want.push_str(&ewts_to_unicode_with(&tib, Options::default()));
+            assert_eq!(s.committed(), want, "round {round}");
+        }
     }
 }
