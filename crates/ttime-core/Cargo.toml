@@ -1,0 +1,5 @@
+[package]
+name = "ttime-core"
+version = "0.1.0"
+edition = "2021"
+description = "Platform-independent Tibetan input engine for T-Time"
