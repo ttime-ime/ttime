@@ -11,47 +11,62 @@ const SHAD: char = '\u{0F0D}';
 const NYIS_SHAD: char = '\u{0F0E}';
 const SUBJOINED_OFFSET: u32 = 0x50;
 
-/// (EWTS key, code point), longest keys first so greedy matching works.
-const CONSONANTS: &[(&str, char)] = &[
-    ("tsh", '\u{0F5A}'),
-    ("ts", '\u{0F59}'),
-    ("dz", '\u{0F5B}'),
-    ("zh", '\u{0F5E}'),
-    ("sh", '\u{0F64}'),
-    ("kh", '\u{0F41}'),
-    ("ng", '\u{0F44}'),
-    ("ch", '\u{0F46}'),
-    ("ny", '\u{0F49}'),
-    ("th", '\u{0F50}'),
-    ("ph", '\u{0F55}'),
-    ("Th", '\u{0F4B}'),
-    ("Sh", '\u{0F65}'),
-    ("k", '\u{0F40}'),
-    ("g", '\u{0F42}'),
-    ("c", '\u{0F45}'),
-    ("j", '\u{0F47}'),
-    ("t", '\u{0F4F}'),
-    ("d", '\u{0F51}'),
-    ("n", '\u{0F53}'),
-    ("p", '\u{0F54}'),
-    ("b", '\u{0F56}'),
-    ("m", '\u{0F58}'),
-    ("w", '\u{0F5D}'),
-    ("z", '\u{0F5F}'),
-    ("'", '\u{0F60}'),
-    ("y", '\u{0F61}'),
-    ("r", '\u{0F62}'),
-    ("l", '\u{0F63}'),
-    ("s", '\u{0F66}'),
-    ("h", '\u{0F67}'),
-    ("T", '\u{0F4A}'),
-    ("D", '\u{0F4C}'),
-    ("N", '\u{0F4E}'),
+/// A consonant: EWTS key, code point, and an optional combining mark that
+/// follows it (`gh` is ga + subjoined ha, `f` is pa + U+0F39).
+type Cons = (&'static str, char, Option<char>);
+
+/// Longest keys first so greedy matching works.
+const CONSONANTS: &[Cons] = &[
+    ("dzh", '\u{0F5B}', Some('\u{0FB7}')),
+    ("tsh", '\u{0F5A}', None),
+    ("gh", '\u{0F42}', Some('\u{0FB7}')),
+    ("dh", '\u{0F51}', Some('\u{0FB7}')),
+    ("bh", '\u{0F56}', Some('\u{0FB7}')),
+    ("Dh", '\u{0F4C}', Some('\u{0FB7}')),
+    ("ts", '\u{0F59}', None),
+    ("dz", '\u{0F5B}', None),
+    ("zh", '\u{0F5E}', None),
+    ("sh", '\u{0F64}', None),
+    ("kh", '\u{0F41}', None),
+    ("ng", '\u{0F44}', None),
+    ("ch", '\u{0F46}', None),
+    ("ny", '\u{0F49}', None),
+    ("th", '\u{0F50}', None),
+    ("ph", '\u{0F55}', None),
+    ("Th", '\u{0F4B}', None),
+    ("Sh", '\u{0F65}', None),
+    ("f", '\u{0F55}', Some('\u{0F39}')),
+    ("v", '\u{0F56}', Some('\u{0F39}')),
+    ("R", '\u{0F6A}', None),
+    ("k", '\u{0F40}', None),
+    ("g", '\u{0F42}', None),
+    ("c", '\u{0F45}', None),
+    ("j", '\u{0F47}', None),
+    ("t", '\u{0F4F}', None),
+    ("d", '\u{0F51}', None),
+    ("n", '\u{0F53}', None),
+    ("p", '\u{0F54}', None),
+    ("b", '\u{0F56}', None),
+    ("m", '\u{0F58}', None),
+    ("w", '\u{0F5D}', None),
+    ("z", '\u{0F5F}', None),
+    ("'", '\u{0F60}', None),
+    ("y", '\u{0F61}', None),
+    ("r", '\u{0F62}', None),
+    ("l", '\u{0F63}', None),
+    ("s", '\u{0F66}', None),
+    ("h", '\u{0F67}', None),
+    ("T", '\u{0F4A}', None),
+    ("D", '\u{0F4C}', None),
+    ("N", '\u{0F4E}', None),
 ];
 
 /// Longest keys first. `a` outputs nothing: it is the inherent vowel.
 const VOWELS: &[(&str, &str)] = &[
     ("-I", "\u{0F71}\u{0F80}"),
+    ("uo", "\u{0F7C}\u{0F74}"),
+    ("ui", "\u{0F72}\u{0F74}"),
+    ("ue", "\u{0F7A}\u{0F74}"),
     ("-i", "\u{0F80}"),
     ("ai", "\u{0F7B}"),
     ("au", "\u{0F7D}"),
@@ -65,7 +80,20 @@ const VOWELS: &[(&str, &str)] = &[
     ("o", "\u{0F7C}"),
 ];
 
-const MARKS: &[(char, char)] = &[('M', '\u{0F7E}'), ('H', '\u{0F7F}')];
+const MARKS: &[(&str, char)] = &[
+    ("~M`", '\u{0F82}'),
+    ("~M", '\u{0F83}'),
+    ("~X", '\u{0F35}'),
+    ("M", '\u{0F7E}'),
+    ("H", '\u{0F7F}'),
+    ("X", '\u{0F37}'),
+    ("^", '\u{0F39}'),
+    ("?", '\u{0F84}'),
+    ("&", '\u{0F85}'),
+];
+
+/// Stacks that the general rules reject but Tibetan uses.
+const EXTRA_STACKS: &[&[&str]] = &[&["s", "n", "r"], &["ph", "y", "w"]];
 
 /// Consonants that can sit on top of a root (ra-mgo, la-mgo, sa-mgo).
 fn superscript_ok(sup: &str, root: &str) -> bool {
@@ -82,7 +110,7 @@ fn superscript_ok(sup: &str, root: &str) -> bool {
 fn subscript_ok(root: &str, sub: &str) -> bool {
     let roots: &[&str] = match sub {
         "y" => &["k", "kh", "g", "p", "ph", "b", "m"],
-        "r" => &["k", "kh", "g", "t", "th", "d", "p", "ph", "b", "m", "s", "h"],
+        "r" => &["k", "kh", "g", "t", "th", "d", "p", "ph", "b", "m", "sh", "s", "h"],
         "l" => &["k", "g", "b", "z", "r", "s"],
         "w" => &[
             "k", "kh", "g", "c", "ny", "t", "d", "ts", "tsh", "zh", "z", "r", "l", "sh", "s", "h",
@@ -92,8 +120,20 @@ fn subscript_ok(root: &str, sub: &str) -> bool {
     roots.contains(&root)
 }
 
+/// `keys` is a root followed by subjoined letters, which must come in the
+/// order ya, ra, wa, or be a lone la.
 fn subscripts_ok(keys: &[&str]) -> bool {
-    keys.windows(2).all(|w| subscript_ok(w[0], w[1]))
+    let rank = |s: &str| match s {
+        "y" => Some(0),
+        "r" => Some(1),
+        "w" => Some(2),
+        _ => None,
+    };
+    let subs = &keys[1..];
+    subs.iter().all(|s| subscript_ok(keys[0], s))
+        && subs
+            .windows(2)
+            .all(|w| matches!((rank(w[0]), rank(w[1])), (Some(a), Some(b)) if a < b))
 }
 
 /// Is this consonant sequence a legal Tibetan stack, so it can be joined
@@ -102,13 +142,14 @@ fn legal_stack(keys: &[&str]) -> bool {
     match keys.len() {
         0 => false,
         1 => true,
+        _ if EXTRA_STACKS.contains(&keys) => true,
         _ => (superscript_ok(keys[0], keys[1]) && subscripts_ok(&keys[1..])) || subscripts_ok(keys),
     }
 }
 
 #[derive(Debug, Clone)]
 struct Cluster {
-    cons: Vec<(&'static str, char)>,
+    cons: Vec<Cons>,
     /// Joined with `+`; never merged with its neighbours.
     forced: bool,
 }
@@ -122,11 +163,11 @@ enum Item {
     Sep,
 }
 
-fn lex_consonant(chars: &[char]) -> Option<((&'static str, char), usize)> {
-    CONSONANTS.iter().find_map(|&(key, cp)| {
+fn lex_consonant(chars: &[char]) -> Option<(Cons, usize)> {
+    CONSONANTS.iter().find_map(|&(key, cp, tail)| {
         let n = key.chars().count();
         let matches = chars.len() >= n && key.chars().zip(chars).all(|(a, &b)| a == b);
-        matches.then_some(((key, cp), n))
+        matches.then_some(((key, cp, tail), n))
     })
 }
 
@@ -140,8 +181,11 @@ fn lex(chars: &[char]) -> Option<(Item, usize)> {
     if let Some((c, n)) = lex_consonant(chars) {
         return Some((Item::Cons(Cluster { cons: vec![c], forced: false }), n));
     }
-    if let Some(&(_, cp)) = MARKS.iter().find(|(k, _)| *k == chars[0]) {
-        return Some((Item::Mark(cp), 1));
+    if let Some(&(key, cp)) = MARKS.iter().find(|(key, _)| {
+        let n = key.chars().count();
+        chars.len() >= n && key.chars().zip(chars).all(|(a, &b)| a == b)
+    }) {
+        return Some((Item::Mark(cp), key.chars().count()));
     }
     if chars[0] == '-' {
         return Some((Item::Sep, 1));
@@ -153,9 +197,10 @@ fn subjoined(cp: char) -> char {
     char::from_u32(cp as u32 + SUBJOINED_OFFSET).unwrap_or(cp)
 }
 
-fn emit_stack(cons: &[(&'static str, char)], out: &mut String) {
-    for (i, &(_, cp)) in cons.iter().enumerate() {
+fn emit_stack(cons: &[Cons], out: &mut String) {
+    for (i, &(_, cp, tail)) in cons.iter().enumerate() {
         out.push(if i == 0 { cp } else { subjoined(cp) });
+        out.extend(tail);
     }
 }
 
@@ -187,7 +232,7 @@ fn emit_root_run(run: &[&Cluster], vowel: Option<&str>, out: &mut String) {
     for c in &run[..start] {
         emit_cluster(c, out);
     }
-    let stack: Vec<(&'static str, char)> = run[start..]
+    let stack: Vec<Cons> = run[start..]
         .iter()
         .flat_map(|c| c.cons.iter().copied())
         .collect();
@@ -282,6 +327,12 @@ pub fn ewts_to_unicode(input: &str) -> String {
             continue;
         }
 
+        if items.is_empty() && chars[i..].starts_with(&['o', 'M']) {
+            out.push('\u{0F00}');
+            i += 2;
+            continue;
+        }
+
         if let Some((item, n)) = lex(&chars[i..]) {
             items.push(item);
             i += n;
@@ -303,6 +354,19 @@ pub fn ewts_to_unicode(input: &str) -> String {
                     out.push(SHAD);
                 }
             }
+            '.' => {}
+            '*' => out.push('\u{0F0C}'),
+            ';' => out.push('\u{0F0F}'),
+            '|' => out.push('\u{0F11}'),
+            '!' => out.push('\u{0F08}'),
+            ':' => out.push('\u{0F14}'),
+            '=' => out.push('\u{0F34}'),
+            '@' => out.push('\u{0F04}'),
+            '#' => out.push('\u{0F05}'),
+            '$' => out.push('\u{0F06}'),
+            '%' => out.push('\u{0F07}'),
+            '<' => out.push('\u{0F3A}'),
+            '>' => out.push('\u{0F3B}'),
             '(' => out.push('\u{0F3C}'),
             ')' => out.push('\u{0F3D}'),
             '0'..='9' => out.push(char::from_u32(0x0F20 + (c as u32 - '0' as u32)).unwrap()),
@@ -378,5 +442,24 @@ mod tests {
         assert_eq!(c("bod/ bod"), "བོད། བོད");
         assert_eq!(c("0123"), "༠༡༢༣");
         assert_eq!(c("a_b"), "ཨ བ");
+    }
+
+    #[test]
+    fn extra_stacks_and_ambiguous_prefixes() {
+        assert_eq!(c("shr"), "\u{0F64}\u{0FB2}");
+        assert_eq!(c("snr"), "\u{0F66}\u{0FA3}\u{0FB2}");
+        assert_eq!(c("phyw"), "\u{0F55}\u{0FB1}\u{0FAD}");
+        // b is a prefix before ra-mgo + la
+        assert_eq!(c("brla"), "\u{0F56}\u{0F62}\u{0FB3}");
+    }
+
+    #[test]
+    fn sanskrit_and_extras() {
+        assert_eq!(c("gha"), "\u{0F42}\u{0FB7}");
+        assert_eq!(c("fa"), "\u{0F55}\u{0F39}");
+        assert_eq!(c("Ra"), "\u{0F6A}");
+        assert_eq!(c("oM"), "\u{0F00}");
+        assert_eq!(c("kuo"), "\u{0F40}\u{0F7C}\u{0F74}");
+        assert_eq!(c("k.ya"), "\u{0F40}\u{0F61}");
     }
 }
