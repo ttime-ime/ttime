@@ -27,7 +27,13 @@ fn committing_at_spaces_equals_whole_string_conversion() {
             let mut s = Session::new(precomposed, None);
             feed(&mut s, &text);
             let got = s.finish();
-            let want = ewts_to_unicode_with(&text, Options { precomposed, diplomatic: false });
+            let want = ewts_to_unicode_with(
+                &text,
+                Options {
+                    precomposed,
+                    diplomatic: false,
+                },
+            );
             assert_eq!(got, want, "round {round}: {text:?}");
         }
     }
@@ -111,6 +117,9 @@ fn diplomatic_session_reports_a_dropped_a_without_changing_text() {
 #[test]
 fn convert_json_with_diplomatic_warns() {
     let j = ttime_wasm::convert_json_with("oM", false, true);
-    assert!(j.contains("ewts.om-syllable") && j.contains("Warning"), "{j}");
+    assert!(
+        j.contains("ewts.om-syllable") && j.contains("Warning"),
+        "{j}"
+    );
     assert!(!ttime_wasm::convert_json("oM", false).contains("ewts.om-syllable"));
 }
