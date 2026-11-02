@@ -2,37 +2,62 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleDevelopmentRegion</key><string>en</string>
-	<key>CFBundleExecutable</key><string>TTime</string>
-	<key>CFBundleIdentifier</key><string>io.github.ttime-ime.inputmethod.TTime</string>
-	<key>CFBundleName</key><string>T-Time</string>
-	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>0.1.0</string>
-	<key>CFBundleVersion</key><string>1</string>
-	<key>LSMinimumSystemVersion</key><string>13.0</string>
-	<key>LSUIElement</key><true/>
-	<key>NSHumanReadableCopyright</key><string>MIT OR Apache-2.0</string>
-	<key>InputMethodConnectionName</key><string>TTime_Connection</string>
-	<key>InputMethodServerControllerClass</key><string>TTimeInputController</string>
-	<key>tsInputMethodCharacterRepertoireKey</key>
-	<array><string>Tibt</string></array>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>TTime</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>io.github.ttime-ime.inputmethod.TTime</string>
+	<key>CFBundleName</key>
+	<string>T-Time</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
 	<key>ComponentInputModeDict</key>
 	<dict>
 		<key>tsInputModeListKey</key>
 		<dict>
 			<key>io.github.ttime-ime.inputmethod.TTime.EWTS</key>
 			<dict>
-				<key>TISInputSourceID</key><string>io.github.ttime-ime.inputmethod.TTime.EWTS</string>
-				<key>TISIntendedLanguage</key><string>bo</string>
-				<key>tsInputModeIsVisibleKey</key><true/>
-				<key>tsInputModeMenuIconFileKey</key><string>icon.tiff</string>
-				<key>tsInputModePaletteIconFileKey</key><string>icon.tiff</string>
-				<key>tsInputModePrimaryInputModeKey</key><true/>
-				<key>tsInputModeScriptKey</key><string>smUnicode</string>
+				<key>TISInputSourceID</key>
+				<string>io.github.ttime-ime.inputmethod.TTime.EWTS</string>
+				<key>TISIntendedLanguage</key>
+				<string>bo</string>
+				<key>tsInputModeIsVisibleKey</key>
+				<true/>
+				<key>tsInputModeMenuIconFileKey</key>
+				<string>icon.tiff</string>
+				<key>tsInputModePaletteIconFileKey</key>
+				<string>icon.tiff</string>
+				<key>tsInputModePrimaryInputModeKey</key>
+				<true/>
+				<key>tsInputModeScriptKey</key>
+				<string>smUnicode</string>
 			</dict>
 		</dict>
 		<key>tsVisibleInputModeOrderedArrayKey</key>
-		<array><string>io.github.ttime-ime.inputmethod.TTime.EWTS</string></array>
+		<array>
+			<string>io.github.ttime-ime.inputmethod.TTime.EWTS</string>
+		</array>
 	</dict>
+	<key>InputMethodConnectionName</key>
+	<string>TTime_Connection</string>
+	<key>InputMethodServerControllerClass</key>
+	<string>TTimeInputController</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>MIT OR Apache-2.0</string>
+	<key>tsInputMethodCharacterRepertoireKey</key>
+	<array>
+		<string>Tibt</string>
+	</array>
 </dict>
 </plist>
