@@ -1,6 +1,6 @@
 # T-Time — `ewts-rs` Evaluation and Web Prototype Plan
 
-**Status:** Proposed; Workstream A completed (see §4), B–C not started · **Date:** 2 November 2026 (revised after the foundation work)  
+**Status:** Proposed; Workstream A completed (§4); B and C prototyped (`crates/ttime-wasm`, `web/`), partly verified (see `web/README.md`) · **Date:** 2 November 2026 (revised after the foundation work)  
 **Scope:** Technical due diligence, reusable browser infrastructure, and an invitation-ready Tibetologist testing experience  
 **Related plan:** `docs/tibetan_ewts_ime_plan.md`  
 **Reference project:** https://github.com/emgyrz/ewts-rs  

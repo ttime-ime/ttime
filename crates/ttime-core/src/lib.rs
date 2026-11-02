@@ -16,3 +16,6 @@ pub use ewts::{
     convert, ewts_to_unicode, ewts_to_unicode_with, unicode_to_ewts, Category, Code, Conversion,
     Diagnostic, Fidelity, Options, Reverse, Severity,
 };
+
+/// Crate version, for builds that report which core produced a result.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

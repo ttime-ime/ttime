@@ -49,7 +49,7 @@ Three independent layers:
 | cargo-fuzz targets | **Partial**: six targets, 60 s smoke run each, no findings; no long campaign |
 | Performance measurement | **Partial**: rough latency measured; allocations not |
 | ewts-rs audit and ADR 0002 | **Completed** (partial audit; Proposed) |
-| Web prototype (Wasm bridge, Writing Room) | **Planned**; needs `wasm32` target and wasm-bindgen |
+| Web prototype (Wasm bridge, Writing Room) | **Partial**: `ttime-wasm` and `web/` built; parity 701/701 in one Chromium-based browser; no CI, no other browsers, not deployed, no specialist session yet |
 | Orthography (layer 2) | **Deferred** |
 | Lexicon/candidates (layer 3) | **Deferred** |
 | macOS adapter | **Planned** (first) |

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T-Time Writing Room</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>T-Time <span class="sub">An experimental Tibetan writing room</span></h1>
+  <p class="build" id="build">loading…</p>
+</header>
+
+<main>
+  <section aria-labelledby="ed-h">
+    <h2 id="ed-h" class="sr">Editor</h2>
+    <p class="hint">Type EWTS (Wylie). Highlighted text is <strong>provisional</strong>: it can still change as you type, and becomes fixed when you press space or Enter.</p>
+    <textarea id="editor" lang="bo" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+      aria-describedby="limits" placeholder="Type here, for example: bkra shis bde legs"></textarea>
+    <div class="controls">
+      <button id="copy">Copy Unicode</button>
+      <button id="clear">Clear</button>
+      <label><input type="checkbox" id="ewts-on" checked> EWTS typing</label>
+      <label><input type="checkbox" id="precomposed"> Precomposed output (not NFC)</label>
+      <label>Font
+        <select id="font">
+          <option value="auto">System default</option>
+          <option value="noto">Noto Serif Tibetan, if installed</option>
+          <option value="jomolhari">Jomolhari, if installed</option>
+          <option value="kailasa">Kailasa (macOS)</option>
+        </select>
+      </label>
+      <span id="status" role="status"></span>
+    </div>
+    <p id="limits" class="limits"><strong>Limits.</strong> Typing is handled only at the end of the text. If you move the cursor into earlier text, typing there becomes ordinary browser editing (no EWTS). Backspace removes the last typed letter of the provisional run, then behaves normally. Not an IME, and no phone or dictionary features exist.</p>
+  </section>
+
+  <section aria-labelledby="ex-h">
+    <h2 id="ex-h">Examples</h2>
+    <p class="hint">Each button replaces the text with a sample. Only the first group is ordinary; the last group shows unsettled questions that a specialist should rule on.</p>
+    <div id="examples"></div>
+  </section>
+
+  <details id="inspector" open>
+    <summary>Inspector</summary>
+    <dl>
+      <dt>Raw EWTS in the provisional run</dt><dd><code id="i-raw"></code></dd>
+      <dt>Provisional Unicode</dt><dd><code id="i-prov" lang="bo"></code></dd>
+      <dt>Committed Unicode</dt><dd><code id="i-comm" lang="bo"></code></dd>
+      <dt>All text: code points</dt><dd><code id="i-cp"></code></dd>
+      <dt>Normalization</dt><dd id="i-nf"></dd>
+      <dt>Diagnostics (provisional run)</dt><dd><ul id="i-diag"></ul></dd>
+    </dl>
+  </details>
+
+  <details id="report-box">
+    <summary>Report a problem</summary>
+    <p class="hint">Nothing is sent anywhere. Fill in what you expected, review the text below, then copy it into an email or a note. It contains the text currently in the editor and nothing else.</p>
+    <label>What you expected <textarea id="expected" rows="2" placeholder="Expected Tibetan or EWTS"></textarea></label>
+    <label>Comment <textarea id="comment" rows="2"></textarea></label>
+    <label><input type="checkbox" id="include-text" checked> Include the editor text in the report</label>
+    <pre id="report" aria-label="Report preview"></pre>
+    <button id="copy-report">Copy report</button>
+  </details>
+</main>
+
+<footer>
+  <p><strong>Experimental.</strong> Conversion runs in your browser; typed text is not sent to any server. The host that serves this page may keep ordinary access logs. The page is public to anyone with the link.</p>
+  <p>Source and licence: see the project repository. Known limitations and open questions: <code>docs/review/expert-review.md</code>. <a href="parity.html">Parity check</a>.</p>
+</footer>
+<script type="module" src="app.js"></script>
+</body>
+</html>
