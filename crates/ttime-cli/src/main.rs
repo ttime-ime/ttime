@@ -14,6 +14,7 @@ fn main() {
     let flag = |name: &str| args.iter().any(|a| a == name);
     let options = Options {
         precomposed: flag("--precomposed"),
+        diplomatic: flag("--diplomatic"),
     };
 
     for line in io::stdin().lock().lines() {

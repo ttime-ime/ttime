@@ -140,6 +140,6 @@ fn at_least_five_hundred_curated_cases() {
 
 #[test]
 fn precomposed_option() {
-    let n = run("precomposed.tsv", Options { precomposed: true });
+    let n = run("precomposed.tsv", Options { precomposed: true, diplomatic: false });
     assert!(n > 0);
 }

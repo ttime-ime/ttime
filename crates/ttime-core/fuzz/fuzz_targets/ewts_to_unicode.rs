@@ -9,9 +9,9 @@ fuzz_target!(|data: &str| {
         return;
     }
     for precomposed in [false, true] {
-        let c = convert(data, Options { precomposed });
+        let c = convert(data, Options { precomposed, diplomatic: false });
         check_spans(data, &c.diagnostics);
         // Diagnostics never change the text.
-        assert_eq!(c.text, ttime_core::ewts_to_unicode_with(data, Options { precomposed }));
+        assert_eq!(c.text, ttime_core::ewts_to_unicode_with(data, Options { precomposed, diplomatic: false }));
     }
 });

@@ -16,15 +16,28 @@ pub struct Session {
     committed: String,
     engine: Engine,
     precomposed: bool,
+    diplomatic: bool,
 }
 
 impl Session {
     pub fn new(precomposed: bool) -> Self {
+        Self::with_options(Options {
+            precomposed,
+            diplomatic: false,
+        })
+    }
+
+    pub fn with_options(options: Options) -> Self {
         Self {
             committed: String::new(),
-            engine: Engine::with_options(Options { precomposed }),
-            precomposed,
+            engine: Engine::with_options(options),
+            precomposed: options.precomposed,
+            diplomatic: options.diplomatic,
         }
+    }
+
+    pub fn diplomatic(&self) -> bool {
+        self.diplomatic
     }
 
     /// Feeds typed characters one at a time, committing at spaces and newlines.
@@ -144,7 +157,7 @@ mod tests {
             for precomposed in [false, true] {
                 let mut s = Session::new(precomposed);
                 s.insert_text(&text);
-                let want = ewts_to_unicode_with(&text, Options { precomposed });
+                let want = ewts_to_unicode_with(&text, Options { precomposed, diplomatic: false });
                 assert_eq!(s.finish(), want, "round {round}: {text:?}");
             }
         }

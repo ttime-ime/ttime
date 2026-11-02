@@ -19,7 +19,14 @@ pub fn version() -> String {
 /// Whole-string conversion: `{"text": ..., "diagnostics": [...]}` as JSON.
 #[wasm_bindgen]
 pub fn convert_json(input: &str, precomposed: bool) -> String {
-    let c = convert(input, Options { precomposed });
+    convert_json_with(input, precomposed, false)
+}
+
+/// Like `convert_json`; in diplomatic mode every choice or ignored input is a
+/// Warning. The text is the same in both modes.
+#[wasm_bindgen]
+pub fn convert_json_with(input: &str, precomposed: bool, diplomatic: bool) -> String {
+    let c = convert(input, Options { precomposed, diplomatic });
     format!(
         "{{\"text\":{},\"diagnostics\":{}}}",
         json_string(&c.text),
@@ -86,9 +93,12 @@ pub struct Session {
 #[wasm_bindgen]
 impl Session {
     #[wasm_bindgen(constructor)]
-    pub fn new(precomposed: bool) -> Session {
+    pub fn new(precomposed: bool, diplomatic: Option<bool>) -> Session {
         Session {
-            inner: ttime_core::Session::new(precomposed),
+            inner: ttime_core::Session::with_options(Options {
+                precomposed,
+                diplomatic: diplomatic.unwrap_or(false),
+            }),
         }
     }
 
@@ -144,6 +154,10 @@ impl Session {
 
     pub fn precomposed(&self) -> bool {
         self.inner.precomposed()
+    }
+
+    pub fn diplomatic(&self) -> bool {
+        self.inner.diplomatic()
     }
 }
 

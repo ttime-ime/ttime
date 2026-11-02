@@ -200,6 +200,10 @@ fn category_and_severity() {
             Category::Ambiguous,
             Severity::Info,
         ),
+        (Code::DroppedInput, Category::Invalid, Severity::Warning),
+        (Code::OmSyllable, Category::Ambiguous, Severity::Info),
+        (Code::XSign, Category::Ambiguous, Severity::Info),
+        (Code::UnstackedSubjoin, Category::Ambiguous, Severity::Info),
         (
             Code::ReverseUnsupportedCodePoint,
             Category::Unsupported,
@@ -245,7 +249,10 @@ fn every_code_is_exercised() {
         "gya",
     ];
     let seen: HashSet<Code> = inputs.iter().flat_map(|i| codes(i)).collect();
-    for code in Code::ALL.iter().filter(|c| c.as_str().starts_with("ewts.")) {
+    for code in Code::ALL
+        .iter()
+        .filter(|c| c.as_str().starts_with("ewts.") && !c.is_diplomatic_only())
+    {
         assert!(seen.contains(code), "{code:?} is never produced");
     }
 }
@@ -258,5 +265,96 @@ fn diagnostics_do_not_change_the_text() {
             ewts_to_unicode(input),
             "{input:?}"
         );
+    }
+}
+
+fn diplomatic(input: &str) -> ttime_core::Conversion {
+    convert(
+        input,
+        Options {
+            precomposed: false,
+            diplomatic: true,
+        },
+    )
+}
+
+/// Diplomatic mode reports; it never changes the text.
+#[test]
+fn diplomatic_mode_does_not_change_the_text() {
+    for input in [
+        "kaa", "k~Ma", "oM", "X", "ka~X", "ghri", "dhru", "gya", "bod skad", "q", "ka [abc",
+    ] {
+        assert_eq!(diplomatic(input).text, ewts_to_unicode(input), "{input:?}");
+    }
+}
+
+/// Each silent choice is reported in diplomatic mode and not otherwise.
+#[test]
+fn diplomatic_mode_reports_each_silent_choice() {
+    let cases = [
+        ("kaa", Code::DroppedInput),
+        ("k~Ma", Code::DroppedInput),
+        ("oM", Code::OmSyllable),
+        ("kX", Code::XSign),
+        ("ka~X", Code::XSign),
+        ("ghri", Code::UnstackedSubjoin),
+        ("dhru", Code::UnstackedSubjoin),
+        ("gya", Code::AmbiguousPrefixStack),
+    ];
+    for (input, code) in cases {
+        let plain = codes(input);
+        let d = diplomatic(input);
+        let hit = d.diagnostics.iter().find(|x| x.code == code);
+        let hit = hit.unwrap_or_else(|| panic!("{input:?}: {code:?} not reported"));
+        assert_eq!(hit.severity, Severity::Warning, "{input:?}");
+        if code.is_diplomatic_only() {
+            assert!(!plain.contains(&code), "{input:?} reports {code:?} outside diplomatic mode");
+        }
+    }
+}
+
+/// Ordinary, unambiguous input reports nothing extra.
+#[test]
+fn diplomatic_mode_is_quiet_for_plain_input() {
+    for input in ["bod skad", "bkra shis bde legs", "rgyal ba'i mdo", "bsgrubs", "gh+ri", "khong [New York] la phebs song /"] {
+        assert!(diplomatic(input).diagnostics.is_empty(), "{input:?}: {:?}", diplomatic(input).diagnostics);
+    }
+}
+
+#[test]
+fn diplomatic_spans_cover_the_input_involved() {
+    let d = diplomatic("kaa");
+    assert_eq!(d.diagnostics[0].span, 2..3);
+    let d = diplomatic("ka oM");
+    let om = d.diagnostics.iter().find(|x| x.code == Code::OmSyllable).unwrap();
+    assert_eq!(&"ka oM"[om.span.clone()], "oM");
+}
+
+#[test]
+fn diplomatic_mode_never_changes_text_on_random_input() {
+    let alphabet: Vec<char> = "kgyrlhsabdmnoMXA~+.[]\\ -/0123iuUe".chars().collect();
+    let mut seed = 0xD1B54A32D192ED03u64;
+    let mut next = || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        seed
+    };
+    for _ in 0..20_000 {
+        let len = (next() % 16) as usize;
+        let s: String = (0..len)
+            .map(|_| alphabet[(next() % alphabet.len() as u64) as usize])
+            .collect();
+        for precomposed in [false, true] {
+            let plain = Options { precomposed, diplomatic: false };
+            let dip = Options { precomposed, diplomatic: true };
+            let (a, b) = (convert(&s, plain), convert(&s, dip));
+            assert_eq!(a.text, b.text, "{s:?}");
+            // diplomatic mode only adds to what plain mode reports
+            assert!(b.diagnostics.len() >= a.diagnostics.len(), "{s:?}");
+            for d in &b.diagnostics {
+                assert!(s.is_char_boundary(d.span.start) && s.is_char_boundary(d.span.end), "{s:?}");
+            }
+        }
     }
 }

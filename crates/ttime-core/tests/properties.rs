@@ -5,7 +5,7 @@ use ttime_core::{
     convert, ewts_to_unicode, ewts_to_unicode_with, unicode_to_ewts, Engine, Fidelity, Options,
 };
 
-const PRECOMPOSED: Options = Options { precomposed: true };
+const PRECOMPOSED: Options = Options { precomposed: true, diplomatic: false };
 
 struct Rng(u64);
 

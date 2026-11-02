@@ -180,7 +180,8 @@ Codes (stable strings): `ewts.stray-plus`, `ewts.dangling-plus`,
 `ewts.mark-without-base`, `ewts.duplicate-mark`, `ewts.unsupported-character`,
 `ewts.stray-tilde`, `ewts.incomplete-tilde`, `ewts.unterminated-literal`,
 `ewts.incomplete-escape`, `ewts.invalid-escape`, `ewts.non-canonical-escape`,
-`ewts.ambiguous-prefix-stack`; reverse: `reverse.unsupported-code-point`,
+`ewts.ambiguous-prefix-stack`; diplomatic mode only: `ewts.dropped-input`,
+`ewts.om-syllable`, `ewts.x-sign`, `ewts.unstacked-subjoin`; reverse: `reverse.unsupported-code-point`,
 `reverse.ambiguous-root`, `reverse.non-canonical-input`.
 
 ## 8. Error handling classes
@@ -195,6 +196,11 @@ Codes (stable strings): `ewts.stray-plus`, `ewts.dangling-plus`,
 
 Scholarly input is never silently corrected: unusual sequences are kept and
 reported, not rewritten.
+
+Diplomatic mode (`Options::diplomatic`, ADR 0003) adds Warnings for the converter's
+own choices and ignored input (`ewts.dropped-input`, `ewts.om-syllable`,
+`ewts.x-sign`, `ewts.unstacked-subjoin`; `ewts.ambiguous-prefix-stack` becomes a
+Warning). The text is unchanged.
 
 ## 9. Reverse conversion (Unicode → EWTS)
 

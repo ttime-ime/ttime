@@ -64,6 +64,19 @@ pub enum Code {
     /// A prefix letter plus ya, ra, la or wa read as a stack (`gya`); the
     /// prefix reading needs `.` (`g.ya`).
     AmbiguousPrefixStack,
+    /// An `a` that follows a vowel or mark and adds nothing, so it is not in
+    /// the output. Reported in diplomatic mode only.
+    DroppedInput,
+    /// `oM` written as the single character U+0F00; some converters write the
+    /// letters instead. Reported in diplomatic mode only.
+    OmSyllable,
+    /// `X` or `~X` written as U+0F37 or U+0F35; some converters use U+0FBE.
+    /// Reported in diplomatic mode only.
+    XSign,
+    /// An aspirated letter followed by y, r, l or w that is not a standard
+    /// stack here (`ghr`); some converters stack it. Reported in diplomatic
+    /// mode only.
+    UnstackedSubjoin,
     /// (Unicode to EWTS) A Tibetan-block character, or a letter with its
     /// marks, that has no EWTS spelling; it is written as a `\uXXXX` escape.
     ReverseUnsupportedCodePoint,
@@ -77,7 +90,7 @@ pub enum Code {
 
 impl Code {
     /// Every code, for tooling and tests.
-    pub const ALL: [Code; 15] = [
+    pub const ALL: [Code; 19] = [
         Code::StrayPlus,
         Code::DanglingPlus,
         Code::MarkWithoutBase,
@@ -90,6 +103,10 @@ impl Code {
         Code::InvalidEscape,
         Code::NonCanonicalEscape,
         Code::AmbiguousPrefixStack,
+        Code::DroppedInput,
+        Code::OmSyllable,
+        Code::XSign,
+        Code::UnstackedSubjoin,
         Code::ReverseUnsupportedCodePoint,
         Code::ReverseAmbiguousRoot,
         Code::ReverseNonCanonicalInput,
@@ -109,6 +126,10 @@ impl Code {
             Code::InvalidEscape => "ewts.invalid-escape",
             Code::NonCanonicalEscape => "ewts.non-canonical-escape",
             Code::AmbiguousPrefixStack => "ewts.ambiguous-prefix-stack",
+            Code::DroppedInput => "ewts.dropped-input",
+            Code::OmSyllable => "ewts.om-syllable",
+            Code::XSign => "ewts.x-sign",
+            Code::UnstackedSubjoin => "ewts.unstacked-subjoin",
             Code::ReverseUnsupportedCodePoint => "reverse.unsupported-code-point",
             Code::ReverseAmbiguousRoot => "reverse.ambiguous-root",
             Code::ReverseNonCanonicalInput => "reverse.non-canonical-input",
@@ -121,13 +142,18 @@ impl Code {
             | Code::MarkWithoutBase
             | Code::DuplicateMark
             | Code::StrayTilde
-            | Code::InvalidEscape => Category::Invalid,
+            | Code::InvalidEscape
+            | Code::DroppedInput => Category::Invalid,
             Code::DanglingPlus
             | Code::IncompleteTilde
             | Code::UnterminatedLiteral
             | Code::IncompleteEscape => Category::Incomplete,
             Code::UnsupportedCharacter | Code::ReverseUnsupportedCodePoint => Category::Unsupported,
-            Code::AmbiguousPrefixStack | Code::ReverseAmbiguousRoot => Category::Ambiguous,
+            Code::AmbiguousPrefixStack
+            | Code::OmSyllable
+            | Code::XSign
+            | Code::UnstackedSubjoin
+            | Code::ReverseAmbiguousRoot => Category::Ambiguous,
             Code::NonCanonicalEscape | Code::ReverseNonCanonicalInput => Category::Unicode,
         }
     }
@@ -135,10 +161,30 @@ impl Code {
     pub fn severity(self) -> Severity {
         match self {
             Code::AmbiguousPrefixStack
+            | Code::OmSyllable
+            | Code::XSign
+            | Code::UnstackedSubjoin
             | Code::ReverseAmbiguousRoot
             | Code::ReverseNonCanonicalInput => Severity::Info,
             _ => Severity::Warning,
         }
+    }
+}
+
+impl Code {
+    /// Codes that report a choice or a silent change the converter makes.
+    /// They are produced only in diplomatic mode, where they are Warnings.
+    pub fn is_diplomatic_only(self) -> bool {
+        matches!(
+            self,
+            Code::DroppedInput | Code::OmSyllable | Code::XSign | Code::UnstackedSubjoin
+        )
+    }
+
+    /// Codes that diplomatic mode raises to Warning so that no choice the
+    /// converter made goes unreported.
+    pub fn is_diplomatic_warning(self) -> bool {
+        self.is_diplomatic_only() || self == Code::AmbiguousPrefixStack
     }
 }
 

@@ -247,6 +247,23 @@ fn emit_root_run(
             .unwrap_or(n - 1)
     };
 
+    if start == n - 1
+        && n >= 2
+        && !last_forced
+        && !run[n - 2].forced
+        && run[n - 2].cons.len() == 1
+        && run[n - 2].cons[0].0.ends_with('h')
+        && run[n - 1].cons.len() == 1
+        && matches!(run[n - 1].cons[0].0, "y" | "r" | "l" | "w")
+    {
+        let (a, b) = (run[n - 2].cons[0].0, run[n - 1].cons[0].0);
+        diags.push(Diagnostic::new(
+            Code::UnstackedSubjoin,
+            run[n - 2].start..run[n - 1].end,
+            format!("\"{a}{b}\" is not a standard stack here; some converters stack it, and \"{a}+{b}\" does"),
+        ));
+    }
+
     // "gya" is the stack g+y; the prefix reading is "g.ya".
     if start == 0 && n == 2 && !run[0].forced && !run[1].forced {
         let (a, b) = (run[0].cons[0].0, run[1].cons[0].0);
@@ -301,6 +318,15 @@ fn convert_syllable(toks: &[Tok], out: &mut String, diags: &mut Vec<Diagnostic>)
             _ => None,
         };
         let have_base = !run.is_empty() || vowel.is_some();
+        if !first && run.is_empty() && vowel == Some("") {
+            let t = &toks[i - 1];
+            diags.push(Diagnostic::new(
+                Code::DroppedInput,
+                t.start..t.end,
+                "this \"a\" adds nothing after the vowel or mark before it, so it is not in the output"
+                    .to_string(),
+            ));
+        }
 
         if first {
             if run.is_empty() {
@@ -367,6 +393,13 @@ fn convert_syllable(toks: &[Tok], out: &mut String, diags: &mut Vec<Diagnostic>)
                     "the same mark is repeated; both are kept".to_string(),
                 ));
             }
+            if matches!(*m, '\u{0F35}' | '\u{0F37}') {
+                diags.push(Diagnostic::new(
+                    Code::XSign,
+                    *start..*end,
+                    "written as U+0F35 or U+0F37; some converters write U+0FBE".to_string(),
+                ));
+            }
             previous = Some(*m);
             out.push(*m);
             i += 1;
@@ -381,6 +414,12 @@ pub struct Options {
     /// compatibility (for example U+0F43 for gha and U+0F76 for ra + reversed
     /// i). The default is the normalised (NFC) decomposed form.
     pub precomposed: bool,
+    /// Diplomatic mode. The text is the same, but every choice the converter
+    /// makes that another converter might make differently, and every
+    /// character it ignores, is reported as a Warning, so a transcription
+    /// that must not be changed silently can be checked. See
+    /// `docs/decisions/0003-diplomatic-mode.md`.
+    pub diplomatic: bool,
 }
 
 /// Decomposed sequence to its precomposed code point, longest first.
@@ -637,6 +676,11 @@ pub fn convert(input: &str, options: Options) -> Conversion {
         }
 
         if toks.is_empty() && chars[i..].starts_with(&['o', 'M']) {
+            note!(
+                Code::OmSyllable,
+                i..i + 2,
+                "\"oM\" is written as the single character U+0F00; some converters write the letters".to_string()
+            );
             out.push('\u{0F00}');
             i += 2;
             continue;
@@ -814,6 +858,15 @@ pub fn convert(input: &str, options: Options) -> Conversion {
 
     for d in &mut diags {
         d.span = offsets[d.span.start]..offsets[d.span.end.min(n)];
+    }
+    if options.diplomatic {
+        for d in &mut diags {
+            if d.code.is_diplomatic_warning() {
+                d.severity = Severity::Warning;
+            }
+        }
+    } else {
+        diags.retain(|d| !d.code.is_diplomatic_only());
     }
     diags.sort_by_key(|d| (d.span.start, d.span.end));
     Conversion {

@@ -24,10 +24,10 @@ fn committing_at_spaces_equals_whole_string_conversion() {
             .map(|_| alphabet[(rng(&mut seed) % alphabet.len() as u64) as usize])
             .collect();
         for precomposed in [false, true] {
-            let mut s = Session::new(precomposed);
+            let mut s = Session::new(precomposed, None);
             feed(&mut s, &text);
             let got = s.finish();
-            let want = ewts_to_unicode_with(&text, Options { precomposed });
+            let want = ewts_to_unicode_with(&text, Options { precomposed, diplomatic: false });
             assert_eq!(got, want, "round {round}: {text:?}");
         }
     }
@@ -35,7 +35,7 @@ fn committing_at_spaces_equals_whole_string_conversion() {
 
 #[test]
 fn provisional_changes_but_committed_does_not() {
-    let mut s = Session::new(false);
+    let mut s = Session::new(false, None);
     s.insert_text("g");
     assert_eq!(s.provisional(), "ག");
     s.insert_text("ya");
@@ -50,7 +50,7 @@ fn provisional_changes_but_committed_does_not() {
 
 #[test]
 fn backspace_edits_only_provisional_text() {
-    let mut s = Session::new(false);
+    let mut s = Session::new(false, None);
     s.insert_text("ka ");
     assert!(!s.backspace());
     assert_eq!(s.committed(), "ཀ་");
@@ -61,7 +61,7 @@ fn backspace_edits_only_provisional_text() {
 
 #[test]
 fn set_committed_replaces_text_and_clears_provisional() {
-    let mut s = Session::new(false);
+    let mut s = Session::new(false, None);
     s.insert_text("ka kh");
     s.set_committed("abc");
     assert_eq!(s.committed(), "abc");
@@ -94,4 +94,23 @@ fn symbol_search_json_is_shaped_for_the_palette() {
     assert!(!one.contains("\"id\":\"shad\""), "{one}");
     assert_eq!(ttime_wasm::search_symbols_json("zzzzqq"), "[]");
     assert!(ttime_wasm::symbol_categories_json().starts_with("[\"punctuation\""));
+}
+
+#[test]
+fn diplomatic_session_reports_a_dropped_a_without_changing_text() {
+    let mut s = Session::new(false, Some(true));
+    assert!(s.diplomatic());
+    s.insert_text("kaa");
+    assert!(s.diagnostics_json().contains("ewts.dropped-input"));
+    assert_eq!(s.finish(), ewts_to_unicode_with("kaa", Options::default()));
+    let mut plain = Session::new(false, None);
+    plain.insert_text("kaa");
+    assert!(!plain.diagnostics_json().contains("ewts.dropped-input"));
+}
+
+#[test]
+fn convert_json_with_diplomatic_warns() {
+    let j = ttime_wasm::convert_json_with("oM", false, true);
+    assert!(j.contains("ewts.om-syllable") && j.contains("Warning"), "{j}");
+    assert!(!ttime_wasm::convert_json("oM", false).contains("ewts.om-syllable"));
 }
