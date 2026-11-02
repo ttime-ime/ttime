@@ -1,0 +1,8 @@
+[package]
+name = "ewts-rs-diff"
+version = "0.0.0"
+edition = "2021"
+[dependencies]
+ewts = "=0.1.4"
+ttime-core = { path = "../../../crates/ttime-core" }
+[workspace]

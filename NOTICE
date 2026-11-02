@@ -8,6 +8,10 @@ honestly; "unverified" means not yet checked.
   `STANDARD_STACKS` (crates/ttime-core/src/ewts/mod.rs) was derived in part from
   its published list, cross-checked against m17n behaviour. Also used as a
   differential oracle (not shipped).
+- ewts-rs / crate `ewts` 0.1.4 (MIT OR Apache-2.0): differential oracle
+  (`scripts/differential/ewts-rs-diff`, not shipped); the 16 inputs and expected
+  outputs in `crates/ttime-core/tests/fixtures/thl_rules.tsv` come from its
+  `rules_test.rs`, which transcribes THL rule examples.
 - Keyman `tibetan_ewts` keyboard (MIT): behavioural reference and differential
   testing only; no rules copied.
 - m17n-db `bo-ewts.mim` (LGPL 2.1+): behavioural reference only; no tables or

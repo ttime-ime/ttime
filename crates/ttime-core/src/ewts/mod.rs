@@ -590,6 +590,16 @@ pub fn convert(input: &str, options: Options) -> Conversion {
                 i += 1 + len;
                 continue;
             }
+            // "bru+e": a plus between vowel signs puts both on one stack
+            // (THL rule 5); the vowels follow each other in the input.
+            if matches!(
+                toks.last(),
+                Some(Tok { item: Item::Vowel(v), .. }) if !v.is_empty()
+            ) && matches!(lex(&chars[i + 1..]), Some((Item::Vowel(v), _)) if !v.is_empty())
+            {
+                i += 1;
+                continue;
+            }
             flush!();
             out.push('+');
             if i + 1 >= n {

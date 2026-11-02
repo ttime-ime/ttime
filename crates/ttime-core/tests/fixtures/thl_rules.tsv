@@ -1,0 +1,20 @@
+# THL EWTS rules 1-16, as transcribed in the test suite of ewts-rs 0.1.4
+# (emgyrz/ewts-rs, MIT OR Apache-2.0). Inputs and expected output are theirs;
+# the THL page itself was not available to check them. Rule 5 expects the
+# canonically ordered form of ewts-rs's (NFC-equal) expectation.
+bsgribs	བསྒྲིབས
+mkhan	མཁན
+gyon g.yon 	གྱོན་གཡོན་
+sat+t+wa	སཏྟྭ
+bru+e rdo+e 	བྲེུ་རྡོེ་
+rta r+ta 	རྟ་རྟ་
+sarba mang+galaM 	སརྦ་མངྒལཾ་
+ka \u0F40	ཀ་ཀ
+khong [New York] la phebs song /	ཁོང་New York་ལ་ཕེབས་སོང་།
+de la \3 yod/	དེ་ལ་3་ཡོད།
+a khu/_ug pa/_aM/	ཨ་ཁུ། ཨུག་པ། ཨཾ།
+mA duH phaT 	མཱ་དུཿ་ཕཊ་
+R+na R+Ya R+ya 	ཪྣ་ཪྻ་ཪྱ་
+rnya rla rwa 	རྙ་རླ་རྭ་
+r+r r+R s+Wa r+Y 	རྲ་རྼ་སྺ་རྻ་
+r+sha l+ra h+wa h+ya 	རྴ་ལྲ་ཧྭ་ཧྱ་

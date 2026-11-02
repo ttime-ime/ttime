@@ -17,6 +17,7 @@ Every rule carries one of three labels:
 | THL EWTS specification | **not retrieved** | THL terms | Intended normative base. The THL URLs I tried returned 404, so **no rule below was checked against the THL text**. Normative labels reflect common knowledge of EWTS and agreement of the references, not a verified reading. |
 | m17n-db `bo-ewts.mim` | git.savannah.gnu.org, as fetched in this project | LGPL 2.1+ | Behavioural reference only. No table or text copied. |
 | Keyman `tibetan_ewts` v2.4 | keymanapp/keyboards `release/t/tibetan_ewts`, commit 8072bb2 (2024-05-17) | MIT | Behavioural reference, run through a small interpreter of the `.kmn` rules (`scripts/differential/keyman_diff.py`). The interpreter is incomplete; see 12.4. |
+| ewts-rs / crate `ewts` 0.1.4 | crates.io, `emgyrz/ewts-rs` | MIT OR Apache-2.0 | Third differential oracle, and its `rules_test.rs` transcribes THL rules 1–16 with examples; used as `thl_rules.tsv`. Its dictionary comes from rogerespel/ewts-js, a descendant of the THL converter family, so it is **not independent of pyewts**. The THL page itself is still unchecked. |
 | pyewts 1.0.0 | PyPI | Apache-2.0 | Differential oracle (`scripts/differential/`). Its stack inventory contributed to `STANDARD_STACKS` (see NOTICE). |
 
 Unverifiable here: behaviour of Keyman on real devices, the original THL text,
@@ -214,11 +215,11 @@ is written `.oM`.
 
 ## 10. Test status
 
-683 curated fixture lines (10 files; target of 500 met), 17 diagnostic tests,
+701 curated fixture lines (11 files; target of 500 met), 17 diagnostic tests,
 14 reverse tests, 15 property tests, 14 unit tests. Three of the files differ in
-authority: `corpus.tsv` (193, agreed by pyewts), `robustness.tsv` (151 invalid,
+authority: `corpus.tsv` (195, agreed by pyewts), `thl_rules.tsv` (16, THL rules as transcribed by ewts-rs), `robustness.tsv` (151 invalid,
 incomplete and degenerate inputs; characterization only) and `deviations.tsv`
-(15 pinned disagreements; not claims of correctness).
+(10 pinned disagreements; not claims of correctness).
 Fuzzing: six `cargo-fuzz` targets in `crates/ttime-core/fuzz` (EWTS→Unicode,
 Unicode→EWTS, malformed input, long stacks, combining sequences, incremental
 insert/delete), each capping input size (4096 bytes, or fewer). One 60-second
@@ -299,6 +300,25 @@ over all fixtures except `precomposed.tsv` (671 cases; 2026-11-02):
 Beyond fixtures, 30,000 random well-formed syllables were compared during
 development; the only remaining class is pyewts' permissive subjoining
 (3.2). The random runs are not committed.
+
+### 12.5a vs ewts-rs 0.1.4
+
+`scripts/differential/ewts-rs-diff` (version pinned) over the same fixtures
+(687 cases): 98 differ, nearly all in `robustness.tsv` (65; ewts-rs does no
+checking and never diagnoses). The rest match the pyewts classes (`uo/ui/ue`,
+half numbers, `\U`, `oM`, `X`, `k+fa/va/Za`, mark order). Differences specific
+to it: `bod/ bod` (it emits a tsheg after a shad, T-Time a real space),
+`sa+rba`, and rule 5's vowel order (NFC-equal).
+
+**Evidence on `oM` (12.2):** both pyewts and ewts-rs give ཨོཾ, and ewts-rs's
+rules suite has no ༀ case. That makes ཨོཾ the common reading among the three
+other implementations, but T-Time does not follow majorities; the choice stays
+open pending the THL text (ADR 0001).
+
+**THL rules 1–16 as transcribed by ewts-rs:** all 16 reproduced (15 exactly,
+rule 5 after canonical ordering). Rule 5, a plus between vowel signs
+(`bru+e`), was **missing** from T-Time and is now implemented. These cases are
+a third party's transcription, not the THL text.
 
 ### 12.6 Found while expanding fixtures (open ones pinned in `deviations.tsv`)
 

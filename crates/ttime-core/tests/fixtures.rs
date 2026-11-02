@@ -106,6 +106,11 @@ fn corpus_agreed_with_pyewts() {
 }
 
 #[test]
+fn thl_rules_via_ewts_rs() {
+    default_mode("thl_rules.tsv");
+}
+
+#[test]
 fn robustness_characterization() {
     default_mode("robustness.tsv");
 }

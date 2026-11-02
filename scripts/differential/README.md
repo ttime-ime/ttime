@@ -14,3 +14,5 @@ Evidence, not authority. Neither oracle is the EWTS standard.
   no script is committed and nothing was copied.
 
 Results and classified differences: `docs/specification/ewts.md`, section 12.
+- `ewts-rs-diff/` — Rust crate comparing all fixtures with `ewts` 0.1.4
+  (pinned). Run `cargo run --release` inside it; it has its own workspace.

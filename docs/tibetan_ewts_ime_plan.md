@@ -40,8 +40,8 @@ Three independent layers:
 | Unicode → EWTS reverse converter | **Completed** (Exact/Canonical/Lossy; Semantic class **planned**) |
 | Incremental composition | **Partial**: whole-buffer re-conversion, no cursor editing |
 | Specification | **Partial**: draft 1; THL not checked; differential classification incomplete |
-| Curated fixtures | **Completed**: 683 lines (target 500+); 15 pinned known disagreements |
-| Differential testing | **Partial**: Keyman (interpreter) and pyewts run ad hoc; scripts in `scripts/differential/` |
+| Curated fixtures | **Completed**: 701 lines (target 500+); 10 pinned known disagreements |
+| Differential testing | **Partial**: Keyman (interpreter), pyewts and ewts-rs; scripts in `scripts/differential/` |
 | cargo-fuzz targets | **Partial**: six targets, 60 s smoke run each, no findings; no long campaign |
 | Performance measurement | **Partial**: rough latency measured; allocations not |
 | Orthography (layer 2) | **Deferred** |
