@@ -20,7 +20,7 @@ jobs:
   release:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable --profile minimal -t aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Tests
@@ -92,7 +92,7 @@ jobs:
           (cd dist && shasum -a 256 "$name.zip" > "$name.zip.sha256")
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.pkg.outputs.name }}
           path: dist/

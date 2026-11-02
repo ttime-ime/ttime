@@ -17,9 +17,9 @@ jobs:
     name: Rust (fmt, clippy, tests)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable --profile minimal -c rustfmt,clippy
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -34,9 +34,9 @@ jobs:
     name: WebAssembly bridge
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable --profile minimal -t wasm32-unknown-unknown
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -54,9 +54,9 @@ jobs:
     name: macOS input method (universal, ad-hoc signed)
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup toolchain install stable --profile minimal -t aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -64,7 +64,7 @@ jobs:
             target
           key: macos-${{ hashFiles('Cargo.lock') }}
       - run: UNIVERSAL=1 scripts/build-macos.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: T-Time-ci-unsigned
           path: build/macos/T-Time.app
