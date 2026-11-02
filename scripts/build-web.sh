@@ -1,9 +1,12 @@
 #!/bin/sh
-# Builds the Wasm bridge into web/pkg and copies fixtures for the parity page.
+# Builds the Wasm bridge and writes it, with the curated fixtures, into the
+# playground checkout (default ../playground, or the directory given as $1).
 # Needs: rustup target wasm32-unknown-unknown, wasm-bindgen-cli (same version as
 # the wasm-bindgen crate pinned in crates/ttime-wasm/Cargo.toml).
 set -eu
 cd "$(dirname "$0")/.."
+OUT="${1:-../playground}"
+[ -d "$OUT" ] || { echo "no such directory: $OUT" >&2; exit 1; }
 
 want=$(sed -n 's/^wasm-bindgen = "=\(.*\)"/\1/p' crates/ttime-wasm/Cargo.toml)
 have=$(wasm-bindgen --version | awk '{print $2}')
@@ -17,10 +20,11 @@ if [ -n "$(git status --porcelain 2>/dev/null)" ]; then TTIME_GIT_SHA="$TTIME_GI
 export TTIME_GIT_SHA
 
 cargo build -p ttime-wasm --release --target wasm32-unknown-unknown
-rm -rf web/pkg web/fixtures
-wasm-bindgen --target web --out-dir web/pkg --no-typescript \
+rm -rf "$OUT/pkg" "$OUT/fixtures"
+wasm-bindgen --target web --out-dir "$OUT/pkg" --no-typescript \
   target/wasm32-unknown-unknown/release/ttime_wasm.wasm
-mkdir -p web/fixtures
-cp crates/ttime-core/tests/fixtures/*.tsv web/fixtures/
-ls web/fixtures > web/fixtures/index.txt
-echo "built web/pkg ($(wc -c < web/pkg/ttime_wasm_bg.wasm) bytes wasm), commit $TTIME_GIT_SHA"
+mkdir -p "$OUT/fixtures"
+cp crates/ttime-core/tests/fixtures/*.tsv "$OUT/fixtures/"
+ls "$OUT/fixtures" | grep '\.tsv$' > "$OUT/fixtures/index.txt"
+printf 'ttime commit: %s\nbuilt: %s\n' "$TTIME_GIT_SHA" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$OUT/BUILD_INFO"
+echo "wrote $OUT/pkg ($(wc -c < "$OUT/pkg/ttime_wasm_bg.wasm") bytes wasm), ttime commit $TTIME_GIT_SHA"
