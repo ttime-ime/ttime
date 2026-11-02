@@ -1,4 +1,4 @@
-use crate::ewts::{ewts_to_unicode_with, Options};
+use crate::ewts::{convert, ewts_to_unicode_with, Diagnostic, Options};
 
 /// Incremental input state for an IME front end.
 ///
@@ -17,7 +17,10 @@ impl Engine {
     }
 
     pub fn with_options(options: Options) -> Self {
-        Self { raw: String::new(), options }
+        Self {
+            raw: String::new(),
+            options,
+        }
     }
 
     pub fn push(&mut self, c: char) {
@@ -39,6 +42,12 @@ impl Engine {
 
     pub fn preedit(&self) -> String {
         ewts_to_unicode_with(&self.raw, self.options)
+    }
+
+    /// Diagnostics for the raw buffer. Spans are UTF-8 byte offsets into
+    /// [`Engine::raw`].
+    pub fn diagnostics(&self) -> Vec<Diagnostic> {
+        convert(&self.raw, self.options).diagnostics
     }
 
     pub fn commit(&mut self) -> String {

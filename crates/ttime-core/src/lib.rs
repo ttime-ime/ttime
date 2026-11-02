@@ -1,11 +1,18 @@
 //! Platform-independent Tibetan input engine.
 //!
-//! Converts Extended Wylie (EWTS) to Tibetan Unicode. The mapping tables are
-//! our own; Keyman's `tibetan_ewts` and m17n's `bo-ewts` were used only as
-//! behavioural references.
+//! Layer 1 (this crate today): deterministic EWTS to Unicode conversion
+//! ([`ewts`]) and the composition state an IME front end drives
+//! ([`composition`]). The mapping tables are our own; Keyman's
+//! `tibetan_ewts`, m17n's `bo-ewts` and pyewts were used as references. See
+//! `docs/specification/ewts.md`.
+//!
+//! The crate has no operating-system or GUI dependencies.
 
-mod ewts;
-mod engine;
+pub mod composition;
+pub mod ewts;
 
-pub use engine::Engine;
-pub use ewts::{ewts_to_unicode, ewts_to_unicode_with, Options};
+pub use composition::Engine;
+pub use ewts::{
+    convert, ewts_to_unicode, ewts_to_unicode_with, unicode_to_ewts, Category, Code, Conversion,
+    Diagnostic, Fidelity, Options, Reverse, Severity,
+};

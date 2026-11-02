@@ -1,0 +1,17 @@
+T-Time
+======
+
+Third-party material and how it is used. Licence verification status is stated
+honestly; "unverified" means not yet checked.
+
+- pyewts 1.0.0 (Apache-2.0): the inventory of standard implicit stacks in
+  `STANDARD_STACKS` (crates/ttime-core/src/ewts/mod.rs) was derived in part from
+  its published list, cross-checked against m17n behaviour. Also used as a
+  differential oracle (not shipped).
+- Keyman `tibetan_ewts` keyboard (MIT): behavioural reference and differential
+  testing only; no rules copied.
+- m17n-db `bo-ewts.mim` (LGPL 2.1+): behavioural reference only; no tables or
+  text copied. Stack inventory agreement was checked by behaviour, not by copying.
+- Botok, Tibetan NLP, TiSpell, OpenPecha, BDRC: unverified; unused.
+
+Repository licence: undecided (MIT or Apache-2.0). Add LICENSE before release.

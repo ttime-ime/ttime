@@ -22,11 +22,16 @@ fn unescape(s: &str) -> String {
 }
 
 fn show(s: &str) -> String {
-    s.chars().map(|c| format!("U+{:04X}", c as u32)).collect::<Vec<_>>().join(" ")
+    s.chars()
+        .map(|c| format!("U+{:04X}", c as u32))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn run(file: &str, options: Options) -> usize {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(file);
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(file);
     let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
     let mut failures = Vec::new();
     let mut checked = 0;
@@ -51,7 +56,12 @@ fn run(file: &str, options: Options) -> usize {
         }
     }
 
-    assert!(failures.is_empty(), "{} of {checked} failed:\n{}", failures.len(), failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "{} of {checked} failed:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
     checked
 }
 

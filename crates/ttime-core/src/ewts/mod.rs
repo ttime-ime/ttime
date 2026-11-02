@@ -5,6 +5,12 @@
 //! stacking with `+`, implicit stacking by the legal-stack tables, digits and
 //! basic punctuation. A space is a tsheg and `_` is a real space.
 
+mod diagnostics;
+mod reverse;
+
+pub use diagnostics::{Category, Code, Conversion, Diagnostic, Severity};
+pub use reverse::{unicode_to_ewts, Fidelity, Reverse};
+
 const A_CHEN: char = '\u{0F68}';
 const TSHEG: char = '\u{0F0B}';
 const SHAD: char = '\u{0F0D}';
@@ -100,58 +106,29 @@ const MARKS: &[(&str, char)] = &[
     ("&", '\u{0F85}'),
 ];
 
-/// Stacks that the general rules reject but Tibetan uses.
-const EXTRA_STACKS: &[&[&str]] = &[&["s", "n", "r"], &["ph", "y", "w"]];
+/// Consonant sequences that stack without an explicit `+`: the standard
+/// Tibetan stacks and the few Sanskrit-derived ones in common use. The
+/// inventory is the intersection-and-union of two independent sources, the
+/// THL "standard stacks" list as published in m17n's `bo-ewts` and in
+/// pyewts (Apache-2.0); see docs/specification/ewts.md, section 3.
+const STANDARD_STACKS: &[&str] = &[
+    "b+l", "b+r", "b+y", "c+w", "d+r", "d+w", "dz+r", "g+l", "g+r", "g+w", "g+y", "h+r", "h+w",
+    "k+l", "k+r", "k+w", "k+y", "kh+r", "kh+w", "kh+y", "l+b", "l+c", "l+d", "l+g", "l+h", "l+j",
+    "l+k", "l+ng", "l+p", "l+t", "l+w", "m+r", "m+y", "n+r", "ny+w", "p+r", "p+y", "ph+r", "ph+y",
+    "r+b", "r+d", "r+dz", "r+g", "r+j", "r+k", "r+l", "r+m", "r+n", "r+ng", "r+ny", "r+t", "r+ts",
+    "r+w", "s+b", "s+d", "s+g", "s+k", "s+l", "s+m", "s+n", "s+ng", "s+ny", "s+p", "s+r", "s+t",
+    "s+ts", "s+w", "sh+r", "sh+w", "t+r", "t+w", "th+r", "ts+w", "tsh+w", "z+l", "z+w", "zh+w",
+    "d+r+w", "g+r+w", "ph+y+w", "r+g+w", "r+g+y", "r+k+y", "r+m+y", "r+ts+w", "s+b+r", "s+b+y",
+    "s+g+r", "s+g+y", "s+k+r", "s+k+y", "s+m+r", "s+m+y", "s+n+r", "s+p+r", "s+p+y",
+];
 
-/// Consonants that can sit on top of a root (ra-mgo, la-mgo, sa-mgo).
-fn superscript_ok(sup: &str, root: &str) -> bool {
-    let roots: &[&str] = match sup {
-        "r" => &["k", "g", "ng", "j", "ny", "t", "d", "n", "b", "m", "ts", "dz"],
-        "l" => &["k", "g", "ng", "c", "j", "t", "d", "p", "b", "h"],
-        "s" => &["k", "g", "ng", "ny", "t", "d", "n", "p", "b", "m", "ts"],
-        _ => return false,
-    };
-    roots.contains(&root)
-}
-
-/// Consonants that can be subjoined under `root` (ya-btags, ra-btags, ...).
-fn subscript_ok(root: &str, sub: &str) -> bool {
-    let roots: &[&str] = match sub {
-        "y" => &["k", "kh", "g", "p", "ph", "b", "m"],
-        "r" => &["k", "kh", "g", "t", "th", "d", "p", "ph", "b", "m", "sh", "s", "h"],
-        "l" => &["k", "g", "b", "z", "r", "s"],
-        "w" => &[
-            "k", "kh", "g", "c", "ny", "t", "d", "ts", "tsh", "zh", "z", "r", "l", "sh", "s", "h",
-        ],
-        _ => return false,
-    };
-    roots.contains(&root)
-}
-
-/// `keys` is a root followed by subjoined letters, which must come in the
-/// order ya, ra, wa, or be a lone la.
-fn subscripts_ok(keys: &[&str]) -> bool {
-    let rank = |s: &str| match s {
-        "y" => Some(0),
-        "r" => Some(1),
-        "w" => Some(2),
-        _ => None,
-    };
-    let subs = &keys[1..];
-    subs.iter().all(|s| subscript_ok(keys[0], s))
-        && subs
-            .windows(2)
-            .all(|w| matches!((rank(w[0]), rank(w[1])), (Some(a), Some(b)) if a < b))
-}
-
-/// Is this consonant sequence a legal Tibetan stack, so it can be joined
-/// without an explicit `+`?
+/// Is this consonant sequence a standard stack, so it can be joined without
+/// an explicit `+`?
 fn legal_stack(keys: &[&str]) -> bool {
     match keys.len() {
         0 => false,
         1 => true,
-        _ if EXTRA_STACKS.contains(&keys) => true,
-        _ => (superscript_ok(keys[0], keys[1]) && subscripts_ok(&keys[1..])) || subscripts_ok(keys),
+        _ => STANDARD_STACKS.contains(&keys.join("+").as_str()),
     }
 }
 
@@ -160,6 +137,9 @@ struct Cluster {
     cons: Vec<Cons>,
     /// Joined with `+`; never merged with its neighbours.
     forced: bool,
+    /// Span in `char` indices of the input.
+    start: usize,
+    end: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -167,8 +147,14 @@ enum Item {
     Cons(Cluster),
     Vowel(&'static str),
     Mark(char),
-    /// `-`: ends the current syllable without output.
-    Sep,
+}
+
+/// A lexed item and its span in `char` indices of the input.
+#[derive(Debug, Clone)]
+struct Tok {
+    item: Item,
+    start: usize,
+    end: usize,
 }
 
 fn lex_consonant(chars: &[char]) -> Option<(Cons, usize)> {
@@ -195,16 +181,21 @@ fn lex(chars: &[char]) -> Option<(Item, usize)> {
         return Some((Item::Vowel(out), key.chars().count()));
     }
     if let Some((c, n)) = lex_consonant(chars) {
-        return Some((Item::Cons(Cluster { cons: vec![c], forced: false }), n));
+        return Some((
+            Item::Cons(Cluster {
+                cons: vec![c],
+                forced: false,
+                start: 0,
+                end: 0,
+            }),
+            n,
+        ));
     }
     if let Some(&(key, cp)) = MARKS.iter().find(|(key, _)| {
         let n = key.chars().count();
         chars.len() >= n && key.chars().zip(chars).all(|(a, &b)| a == b)
     }) {
         return Some((Item::Mark(cp), key.chars().count()));
-    }
-    if chars[0] == '-' {
-        return Some((Item::Sep, 1));
     }
     None
 }
@@ -232,7 +223,12 @@ fn emit_cluster(c: &Cluster, out: &mut String) {
 
 /// A syllable's opening run: any prefix letters, then the root stack that
 /// carries the vowel.
-fn emit_root_run(run: &[&Cluster], vowel: Option<&str>, out: &mut String) {
+fn emit_root_run(
+    run: &[&Cluster],
+    vowel: Option<&str>,
+    out: &mut String,
+    diags: &mut Vec<Diagnostic>,
+) {
     let n = run.len();
     let last_forced = run[n - 1].forced;
     let lower = run[..n - 1]
@@ -251,6 +247,23 @@ fn emit_root_run(run: &[&Cluster], vowel: Option<&str>, out: &mut String) {
             .unwrap_or(n - 1)
     };
 
+    // "gya" is the stack g+y; the prefix reading is "g.ya".
+    if start == 0 && n == 2 && !run[0].forced && !run[1].forced {
+        let (a, b) = (run[0].cons[0].0, run[1].cons[0].0);
+        if matches!(a, "b" | "d" | "g" | "m")
+            && matches!(b, "y" | "r" | "l" | "w")
+            && legal_stack(&[a, b])
+        {
+            diags.push(Diagnostic::new(
+                Code::AmbiguousPrefixStack,
+                run[0].start..run[1].end,
+                format!(
+                    "\"{a}{b}\" is read as one stack; type \"{a}.{b}\" for the prefix \"{a}\" followed by \"{b}\""
+                ),
+            ));
+        }
+    }
+
     for c in &run[..start] {
         emit_cluster(c, out);
     }
@@ -264,22 +277,30 @@ fn emit_root_run(run: &[&Cluster], vowel: Option<&str>, out: &mut String) {
     }
 }
 
-fn convert_syllable(items: &[Item], out: &mut String) {
+fn convert_syllable(toks: &[Tok], out: &mut String, diags: &mut Vec<Diagnostic>) {
     let mut i = 0;
     let mut first = true;
-    while i < items.len() {
+    while i < toks.len() {
         let mut run: Vec<&Cluster> = Vec::new();
-        while let Some(Item::Cons(c)) = items.get(i) {
+        while let Some(Tok {
+            item: Item::Cons(c),
+            ..
+        }) = toks.get(i)
+        {
             run.push(c);
             i += 1;
         }
-        let vowel = match items.get(i) {
-            Some(Item::Vowel(v)) => {
+        let vowel = match toks.get(i) {
+            Some(Tok {
+                item: Item::Vowel(v),
+                ..
+            }) => {
                 i += 1;
                 Some(*v)
             }
             _ => None,
         };
+        let have_base = !run.is_empty() || vowel.is_some();
 
         if first {
             if run.is_empty() {
@@ -288,7 +309,7 @@ fn convert_syllable(items: &[Item], out: &mut String) {
                     out.push_str(v);
                 }
             } else {
-                emit_root_run(&run, vowel, out);
+                emit_root_run(&run, vowel, out, diags);
             }
         } else {
             // Suffixes, except that a consonant followed by a vowel starts a
@@ -311,12 +332,29 @@ fn convert_syllable(items: &[Item], out: &mut String) {
         }
         first = false;
 
-        while let Some(item) = items.get(i) {
-            match item {
-                Item::Mark(m) => out.push(*m),
-                Item::Sep => first = true,
-                _ => break,
+        let mut previous = None;
+        while let Some(Tok {
+            item: Item::Mark(m),
+            start,
+            end,
+        }) = toks.get(i)
+        {
+            if !have_base {
+                diags.push(Diagnostic::new(
+                    Code::MarkWithoutBase,
+                    *start..*end,
+                    "this mark has no letter or vowel to attach to".to_string(),
+                ));
             }
+            if previous == Some(*m) {
+                diags.push(Diagnostic::new(
+                    Code::DuplicateMark,
+                    *start..*end,
+                    "the same mark is repeated; both are kept".to_string(),
+                ));
+            }
+            previous = Some(*m);
+            out.push(*m);
             i += 1;
         }
     }
@@ -391,7 +429,10 @@ fn compose(text: &str) -> String {
     let mut out = text.to_string();
     // "\u{0FB2}\u{0F71}\u{0F80}" (ra + long reversed i) must not turn into
     // U+0F76 + U+0F71, so the long vowel is composed first.
-    for (from, to) in PRECOMPOSED.iter().filter(|(f, _)| f.ends_with('\u{0F80}') && f.starts_with('\u{0F71}')) {
+    for (from, to) in PRECOMPOSED
+        .iter()
+        .filter(|(f, _)| f.ends_with('\u{0F80}') && f.starts_with('\u{0F71}'))
+    {
         out = out.replace(from, &to.to_string());
     }
     for (from, to) in PRECOMPOSED {
@@ -405,95 +446,194 @@ pub fn ewts_to_unicode(input: &str) -> String {
 }
 
 pub fn ewts_to_unicode_with(input: &str, options: Options) -> String {
+    convert(input, options).text
+}
+
+fn flush_unit(
+    toks: &mut Vec<Tok>,
+    out: &mut String,
+    diags: &mut Vec<Diagnostic>,
+    options: Options,
+    floor: usize,
+) {
+    let mut syllable = String::new();
+    convert_syllable(toks, &mut syllable, diags);
+    toks.clear();
+    if options.precomposed {
+        syllable = compose(&canonical_order(&syllable));
+    }
+
+    // A run of combining marks can straddle the join between what is already
+    // written and this unit ("Th~M`" then ".X"), so sort it as one run. Text
+    // before `floor` was typed literally and is never reordered.
+    let mut start = out.len();
+    for (idx, c) in out[floor..].char_indices().rev() {
+        if combining_class(c) == 0 {
+            break;
+        }
+        start = floor + idx;
+    }
+    let lead = syllable
+        .char_indices()
+        .find(|&(_, c)| combining_class(c) == 0)
+        .map_or(syllable.len(), |(i, _)| i);
+    let mut run = out[start..].to_string();
+    run.push_str(&syllable[..lead]);
+    out.truncate(start);
+    out.push_str(&canonical_order(&run));
+    let rest = &syllable[lead..];
+    out.push_str(&if options.precomposed {
+        rest.to_string()
+    } else {
+        canonical_order(rest)
+    });
+}
+
+/// Converts EWTS to Unicode and reports what was unusual about the input.
+///
+/// Diagnostics are advisory: the text is always produced, and unrecognised
+/// input is passed through rather than dropped. Spans are UTF-8 byte offsets
+/// into `input`.
+pub fn convert(input: &str, options: Options) -> Conversion {
     let chars: Vec<char> = input.chars().collect();
+    let n = chars.len();
+    let mut offsets = Vec::with_capacity(n + 1);
+    let mut byte = 0;
+    for c in &chars {
+        offsets.push(byte);
+        byte += c.len_utf8();
+    }
+    offsets.push(byte);
+
     let mut out = String::new();
-    let mut items: Vec<Item> = Vec::new();
+    let mut diags: Vec<Diagnostic> = Vec::new();
+    let mut toks: Vec<Tok> = Vec::new();
     let mut i = 0;
 
-    let flush = |items: &mut Vec<Item>, out: &mut String| {
-        let mut syllable = String::new();
-        convert_syllable(items, &mut syllable);
-        items.clear();
-        syllable = canonical_order(&syllable);
-        if options.precomposed {
-            syllable = compose(&syllable);
-        }
-        out.push_str(&syllable);
-    };
+    // Text that was typed literally (brackets, escapes, passthrough) lies
+    // before `protected` and is never reordered. Anything that grew `out`
+    // since the last flush was not produced by a flush.
+    let mut protected = 0;
+    let mut generated_end = 0;
+    macro_rules! flush {
+        () => {{
+            if out.len() > generated_end {
+                protected = out.len();
+            }
+            flush_unit(&mut toks, &mut out, &mut diags, options, protected);
+            #[allow(unused_assignments)]
+            {
+                generated_end = out.len();
+            }
+        }};
+    }
 
-    while i < chars.len() {
+    // Diagnostics are built with `char` spans and converted at the end.
+    macro_rules! note {
+        ($code:expr, $range:expr, $msg:expr) => {
+            diags.push(Diagnostic::new($code, $range, $msg))
+        };
+    }
+
+    while i < n {
         let c = chars[i];
 
         if c == '+' {
-            if let (Some(Item::Cons(prev)), Some((cons, n))) =
-                (
-                items.last_mut(),
-                lex_consonant(&chars[i + 1..]).or_else(|| lex_subjoined_only(&chars[i + 1..])),
-            )
-            {
-                prev.cons.push(cons);
-                prev.forced = true;
-                i += 1 + n;
-            } else {
-                i += 1;
+            let next =
+                lex_consonant(&chars[i + 1..]).or_else(|| lex_subjoined_only(&chars[i + 1..]));
+            let prev_is_cons = matches!(
+                toks.last(),
+                Some(Tok {
+                    item: Item::Cons(_),
+                    ..
+                })
+            );
+            // "ka+ya": an explicit a does not end the stack.
+            let prev_is_a = matches!(
+                toks.last(),
+                Some(Tok {
+                    item: Item::Vowel(""),
+                    ..
+                })
+            ) && matches!(
+                toks.len().checked_sub(2).and_then(|k| toks.get(k)),
+                Some(Tok {
+                    item: Item::Cons(_),
+                    ..
+                })
+            );
+            if let (Some((cons, len)), true) = (next, prev_is_cons || prev_is_a) {
+                if prev_is_a {
+                    toks.pop();
+                }
+                let tok = toks.last_mut().unwrap();
+                if let Item::Cons(cl) = &mut tok.item {
+                    cl.cons.push(cons);
+                    cl.forced = true;
+                    cl.end = i + 1 + len;
+                }
+                tok.end = i + 1 + len;
+                i += 1 + len;
+                continue;
             }
+            flush!();
+            out.push('+');
+            if i + 1 >= n {
+                note!(
+                    Code::DanglingPlus,
+                    i..i + 1,
+                    "\"+\" is waiting for a consonant to join".to_string()
+                );
+            } else {
+                note!(
+                    Code::StrayPlus,
+                    i..i + 1,
+                    "\"+\" must sit between two consonants".to_string()
+                );
+            }
+            i += 1;
             continue;
         }
 
-        // Half numbers: -1 .. -9, then -0. Must be tried before `-` lexes as
-        // a separator.
+        // "." keeps stacks apart ("g.ya"); anywhere else it is just a dot.
+        if c == '.' && !toks.is_empty() && lex(&chars[i + 1..]).is_some() {
+            flush!();
+            i += 1;
+            continue;
+        }
+
+        // Half numbers: -1 .. -9, then -0. Tried before `-` could be anything else.
         if c == '-' {
             if let Some(d) = chars.get(i + 1).and_then(|d| d.to_digit(10)) {
-                flush(&mut items, &mut out);
+                flush!();
                 out.push(char::from_u32(0x0F2A + (d + 9) % 10).unwrap());
                 i += 2;
                 continue;
             }
         }
 
-        if items.is_empty() && chars[i..].starts_with(&['o', 'M']) {
+        if toks.is_empty() && chars[i..].starts_with(&['o', 'M']) {
             out.push('\u{0F00}');
             i += 2;
             continue;
         }
 
-        if let Some((item, n)) = lex(&chars[i..]) {
-            items.push(item);
-            i += n;
+        if let Some((mut item, len)) = lex(&chars[i..]) {
+            if let Item::Cons(cl) = &mut item {
+                cl.start = i;
+                cl.end = i + len;
+            }
+            toks.push(Tok {
+                item,
+                start: i,
+                end: i + len,
+            });
+            i += len;
             continue;
         }
 
-        flush(&mut items, &mut out);
+        flush!();
         match c {
-            '[' => {
-                let end = chars[i + 1..].iter().position(|&c| c == ']');
-                let stop = end.map_or(chars.len(), |e| i + 1 + e);
-                out.extend(&chars[i + 1..stop]);
-                i = stop + 1;
-                continue;
-            }
-            '\\' => {
-                let (digits, take) = match chars.get(i + 1) {
-                    Some('u') => (4, 4),
-                    Some('U') => (8, 8),
-                    _ => (0, 0),
-                };
-                let hex: String = chars.iter().skip(i + 2).take(take).collect();
-                let decoded = (digits > 0 && hex.len() == digits)
-                    .then(|| u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32))
-                    .flatten();
-                match decoded {
-                    Some(ch) => {
-                        out.push(ch);
-                        i += 2 + digits;
-                    }
-                    None => {
-                        out.extend(chars.get(i + 1));
-                        i += 2;
-                    }
-                }
-                continue;
-            }
             ' ' => {
                 let after_shad = matches!(out.chars().last(), Some(SHAD | NYIS_SHAD));
                 out.push(if after_shad { ' ' } else { TSHEG });
@@ -507,7 +647,6 @@ pub fn ewts_to_unicode_with(input: &str, options: Options) -> String {
                     out.push(SHAD);
                 }
             }
-            '.' => {}
             '*' => out.push('\u{0F0C}'),
             ';' => out.push('\u{0F0F}'),
             '|' => out.push('\u{0F11}'),
@@ -523,12 +662,140 @@ pub fn ewts_to_unicode_with(input: &str, options: Options) -> String {
             '(' => out.push('\u{0F3C}'),
             ')' => out.push('\u{0F3D}'),
             '0'..='9' => out.push(char::from_u32(0x0F20 + (c as u32 - '0' as u32)).unwrap()),
-            other => out.push(other),
+            '~' => {
+                out.push('~');
+                if i + 1 >= n {
+                    note!(
+                        Code::IncompleteTilde,
+                        i..i + 1,
+                        "\"~\" may be the start of \"~M\" or \"~X\"".to_string()
+                    );
+                } else {
+                    note!(
+                        Code::StrayTilde,
+                        i..i + 1,
+                        "\"~\" is only meaningful as \"~M\", \"~M`\" or \"~X\"".to_string()
+                    );
+                }
+            }
+            '[' => {
+                let end = chars[i + 1..].iter().position(|&c| c == ']');
+                let stop = end.map_or(n, |e| i + 1 + e);
+                out.extend(&chars[i + 1..stop]);
+                if end.is_none() {
+                    note!(
+                        Code::UnterminatedLiteral,
+                        i..n,
+                        "\"[\" has no closing \"]\"; the rest is kept as plain text".to_string()
+                    );
+                }
+                i = stop + 1;
+                continue;
+            }
+            '\\' => {
+                let digits = match chars.get(i + 1) {
+                    Some('u') => 4,
+                    Some('U') => 8,
+                    Some(&other) => {
+                        out.push(other);
+                        i += 2;
+                        continue;
+                    }
+                    None => {
+                        out.push('\\');
+                        note!(
+                            Code::IncompleteEscape,
+                            i..i + 1,
+                            "\"\\\" is waiting for the character it escapes".to_string()
+                        );
+                        i += 1;
+                        continue;
+                    }
+                };
+                let hex: String = chars[i + 2..]
+                    .iter()
+                    .take_while(|c| c.is_ascii_hexdigit())
+                    .take(digits)
+                    .collect();
+                let consumed = 2 + hex.len();
+                if hex.len() == digits {
+                    match u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
+                        Some(ch) => {
+                            if let Some((from, _)) = PRECOMPOSED.iter().find(|(_, to)| *to == ch) {
+                                let parts: Vec<String> = from
+                                    .chars()
+                                    .map(|c| format!("U+{:04X}", c as u32))
+                                    .collect();
+                                note!(
+                                    Code::NonCanonicalEscape,
+                                    i..i + consumed,
+                                    format!(
+                                        "U+{:04X} is not in NFC; its NFC form is {}",
+                                        ch as u32,
+                                        parts.join(" ")
+                                    )
+                                );
+                            }
+                            out.push(ch);
+                        }
+                        None => {
+                            out.extend(&chars[i..i + consumed]);
+                            note!(
+                                Code::InvalidEscape,
+                                i..i + consumed,
+                                format!("U+{hex} is not a Unicode scalar value")
+                            );
+                        }
+                    }
+                } else {
+                    out.extend(&chars[i..i + consumed]);
+                    if i + consumed >= n {
+                        note!(
+                            Code::IncompleteEscape,
+                            i..n,
+                            format!(
+                                "expected {digits} hexadecimal digits after \"\\{}\"",
+                                chars[i + 1]
+                            )
+                        );
+                    } else {
+                        note!(
+                            Code::InvalidEscape,
+                            i..i + consumed,
+                            format!(
+                                "expected {digits} hexadecimal digits after \"\\{}\"",
+                                chars[i + 1]
+                            )
+                        );
+                    }
+                }
+                i += consumed;
+                continue;
+            }
+            '.' | '-' => out.push(c),
+            other => {
+                out.push(other);
+                if other.is_ascii_alphabetic() {
+                    note!(
+                        Code::UnsupportedCharacter,
+                        i..i + 1,
+                        format!("\"{other}\" is not an EWTS letter; it is kept as written")
+                    );
+                }
+            }
         }
         i += 1;
     }
-    flush(&mut items, &mut out);
-    out
+    flush!();
+
+    for d in &mut diags {
+        d.span = offsets[d.span.start]..offsets[d.span.end.min(n)];
+    }
+    diags.sort_by_key(|d| (d.span.start, d.span.end));
+    Conversion {
+        text: out,
+        diagnostics: diags,
+    }
 }
 
 #[cfg(test)]
