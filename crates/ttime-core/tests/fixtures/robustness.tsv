@@ -1,0 +1,155 @@
+# Invalid, incomplete and degenerate input. CHARACTERIZATION: expected output is
+# T-Time's reviewed behaviour (never fatal, nothing dropped except where noted
+# in deviations.tsv). No reference defines these; they pin behaviour against
+# regressions and are not authoritative.
++	+
+++	++
+k+	ཀ+
++k	+ཀ
+k+ +k	ཀ+་+ཀ
+ka+	ཀ+
+a+	ཨ+
+k+a+	ཀ+ཨ+
+M	ཾ
+H	ཿ
+MM	ཾཾ
+kMM	ཀཾཾ
+kHH	ཀཿཿ
+kMH	ཀཾཿ
+kHM	ཀཿཾ
+~	~
+~M	ྃ
+~X	༵
+~Z	~Z
+k~	ཀ~
+k~Z	ཀ~Z
+[	
+[]	
+[ab	ab
+]	]
+\	\u005C
+\u	\u005Cu
+\u0	\u005Cu0
+\u0F	\u005Cu0F
+\u0F4	\u005Cu0F4
+ཀ	ཀ
+\U0	\u005CU0
+\U00000F4	\u005CU00000F4
+\uZZZZ	\u005CuZZZZ
+\uD800	\u005CuD800
+\U00110000	\u005CU00110000
+གྷ	གྷ
+ༀ	ༀ
+\q	q
+\\	\u005C
+q	q
+w q	ཝ་q
+Q	Q
+x	x
+J	J
+C	C
+G	G
+B	B
+.	.
+..	..
+k.	ཀ.
+.k	.ཀ
+k.k	ཀཀ
+k.a	ཀཨ
+k..a	ཀ..ཨ
+ka.	ཀ.
+-	-
+--	--
+k-	ཀ-
+-k	-ཀ
+-a	-ཨ
+a-	ཨ-
+-1x	༪x
+-x	-x
+_	 
+__	  
+k_	ཀ 
+_k	 ཀ
+k _ k	ཀ་ ་ཀ
+  	་་
+k  k	ཀ་་ཀ
+ k	་ཀ
+k 	ཀ་
+/	།
+///	༎།
+////	༎༎
+k/	ཀ།
+/k	།ཀ
+k//	ཀ༎
+//k	༎ཀ
+k / k	ཀ་། ཀ
+?	྄
+k?	ཀ྄
+??	྄྄
+^	༹
+k^^	ཀ༹༹
+&	྅
+k&	ཀ྅
+aa	ཨ
+aaa	ཨ
+ii	ཨིི
+ee	ཨེེ
+oo	ཨོོ
+aiai	ཨཻཻ
+auau	ཨཽཽ
+kaa	ཀ
+kii	ཀིི
+kuu	ཀུུ
+ke i	ཀེ་ཨི
+ka-i	ཀྀ
+k-ii	ཀྀི
+kA kA	ཀཱ་ཀཱ
+kAA	ཀཱཱ
+ngng	ངང
+tsts	ཙཙ
+tshtsh	ཚཚ
+dzh dzh	ཛྷ་ཛྷ
+khkh	ཁཁ
+shsh	ཤཤ
+ngg	ངག
+nyy	ཉཡ
+ts+	ཙ+
++ts	+ཙ
+r+r	རྲ
+r+r+r	རྲྲ
+y+y	ཡྱ
+w+w	ཝྭ
+ky+	ཀྱ+
+k+y+	ཀྱ+
+k+y+r+l+w+s+t+b	ཀྱྲླྭྶྟྦ
+s+s+s+s	སྶྶྶ
+Wa	Wཨ
+Ya	Yཨ
+Za	Zཨ
++W	+W
++Y	+Y
++Z	+Z
+k+W	ཀྺ
+k+Y	ཀྻ
+k+Z	ཀ༹
+kZ	ཀZ
+kW	ཀW
+kY	ཀY
+oM	ༀ
+oMM	ༀཾ
+oMa	ༀཨ
+Mo	ཾོ
+ko M	ཀོ་ཾ
+k oM	ཀ་ༀ
+koM	ཀོཾ
+.oM	.ༀ
+ཀྱ	ཀྱ
+ཀ+ཀ	ཀ+ཀ
+ཀa	ཀཨ
+aཀ	ཨཀ
+བོད skad	བོད་སྐད
+ab c	ཨབ་ཅ
+123abc	༡༢༣ཨབཅ
+1 2 3	༡་༢་༣
+-1-2-3	༪༫༬
+0-0	༠༳

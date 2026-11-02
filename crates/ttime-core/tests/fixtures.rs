@@ -101,6 +101,39 @@ fn punctuation_digits_escapes() {
 }
 
 #[test]
+fn corpus_agreed_with_pyewts() {
+    default_mode("corpus.tsv");
+}
+
+#[test]
+fn robustness_characterization() {
+    default_mode("robustness.tsv");
+}
+
+#[test]
+fn known_deviations_are_pinned() {
+    default_mode("deviations.tsv");
+}
+
+#[test]
+fn at_least_five_hundred_curated_cases() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let total: usize = fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "tsv"))
+        .map(|p| {
+            fs::read_to_string(p)
+                .unwrap()
+                .lines()
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .count()
+        })
+        .sum();
+    assert!(total >= 500, "only {total} curated cases");
+}
+
+#[test]
 fn precomposed_option() {
     let n = run("precomposed.tsv", Options { precomposed: true });
     assert!(n > 0);

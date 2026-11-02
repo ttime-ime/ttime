@@ -1,0 +1,18 @@
+# KNOWN DISAGREEMENTS with pyewts (and, for suffix-versus-stack, with Keyman too).
+# Expected = T-Time's current output, pinned so changes are deliberate. These are
+# NOT claims of correctness; see docs/specification/ewts.md, section 12.
+oM maNi padme hUM	ༀ་མཎི་པདམེ་ཧཱུཾ
+oM A hUM	ༀ་ཨཱ་ཧཱུཾ
+oM svasti	ༀ་སབ༹སཏི
+sarba mangga+lam	སརབ་མངགླམ
+kri+shna	ཀྲི+ཤན
+pra+dznyA	པརྫཉཱ
+bhrUM	བྷརཱུཾ
+k~Ma k~M`a	ཀྃ་ཀྂ
+k^ kX	ཀ༹་ཀ༷
+masti	མསཏི
+sarga	སརག
+barka	བརཀ
+maskya	མསཀཡ
+kaa	ཀ
+aa	ཨ

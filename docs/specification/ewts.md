@@ -214,8 +214,11 @@ is written `.oM`.
 
 ## 10. Test status
 
-333 curated fixture lines (7 files), 17 diagnostic tests, 14 reverse tests,
-15 property tests, 14 unit tests; the 500-case target is **not yet met**.
+683 curated fixture lines (10 files; target of 500 met), 17 diagnostic tests,
+14 reverse tests, 15 property tests, 14 unit tests. Three of the files differ in
+authority: `corpus.tsv` (193, agreed by pyewts), `robustness.tsv` (151 invalid,
+incomplete and degenerate inputs; characterization only) and `deviations.tsv`
+(15 pinned disagreements; not claims of correctness).
 Fuzzing: **none run** (no `cargo-fuzz` targets yet).
 
 ## 11. Performance
@@ -264,6 +267,24 @@ Permissive subjoining (3.2); `X`/`~X` (12.3); `oM` (12.2); half numbers.
 Differential script: `scripts/differential/`; pin the pyewts version when
 rerun. *Fuller classification is still to do.*
 
-### 12.6 Other
+### 12.6 Found while expanding fixtures (pinned in `deviations.tsv`)
+
+- **Suffix versus stack (all three references disagree with T-Time).** In
+  `masti`, `sarba`, `sarga`, `barka`, `maskya` a consonant run after a vowel with
+  no tsheg is read by T-Time as suffix + new root (`mas|ti`); pyewts and
+  Keyman, and m17n for `rb`, stack it (`ma|sti`). **Open**; probably a T-Time
+  defect, not changed yet because it alters syllable splitting.
+- **`pra+dznyA`**: with `+` after an explicit vowel, T-Time joins only the last
+  consonant (full ra, then subjoined dz); pyewts stacks p+r+dz. Open.
+- **`kri+shna`**: `+` after a vowel is stray in T-Time (literal `+`, Warning);
+  pyewts subjoins sha after the vowel, producing text that is not a valid
+  stack. T-Time's behaviour is intentional.
+- **`k~Ma`**: pyewts adds a-chen after a mark followed by `a`; T-Time drops
+  the `a`. Open.
+- **`kaa`, `aa`**: the second `a` is dropped silently (while `kii` keeps both
+  vowels). Conflicts with the no-silent-correction principle. Open.
+- `oM`, `X`: see 12.2, 12.3. `bhrUM`: see 3.2.
+
+### 12.7 Other
 
 `k+fa`, `Z`, multiple spaces, space next to `_`: unverified against references.
