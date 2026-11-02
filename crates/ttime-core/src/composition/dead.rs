@@ -53,16 +53,16 @@ mod tests {
         assert_eq!(
             lower,
             [
-                0x101, 0x12B, 0x16B, 0x1E5B, 0x1E5D, 0x1E37, 0x1E39, 0x1E43, 0x1E25, 0x1E45, 0x1E47, 0xF1,
-                0x1E6D, 0x1E0D, 0x15B, 0x1E63
+                0x101, 0x12B, 0x16B, 0x1E5B, 0x1E5D, 0x1E37, 0x1E39, 0x1E43, 0x1E25, 0x1E45,
+                0x1E47, 0xF1, 0x1E6D, 0x1E0D, 0x15B, 0x1E63
             ]
         );
         let upper: Vec<u32> = TABLE.iter().map(|t| t.2 as u32).collect();
         assert_eq!(
             upper,
             [
-                0x100, 0x12A, 0x16A, 0x1E5A, 0x1E5C, 0x1E36, 0x1E38, 0x1E42, 0x1E24, 0x1E44, 0x1E46, 0xD1,
-                0x1E6C, 0x1E0C, 0x15A, 0x1E62
+                0x100, 0x12A, 0x16A, 0x1E5A, 0x1E5C, 0x1E36, 0x1E38, 0x1E42, 0x1E24, 0x1E44,
+                0x1E46, 0xD1, 0x1E6C, 0x1E0C, 0x15A, 0x1E62
             ]
         );
     }
@@ -70,14 +70,20 @@ mod tests {
     #[test]
     fn keys_are_unique_and_capitals_follow_lower_case() {
         for (i, (k, lower, upper)) in TABLE.iter().enumerate() {
-            assert!(TABLE[i + 1..].iter().all(|(o, _, _)| o != k), "duplicate key {k}");
+            assert!(
+                TABLE[i + 1..].iter().all(|(o, _, _)| o != k),
+                "duplicate key {k}"
+            );
             assert_eq!(lower.to_uppercase().to_string(), upper.to_string());
         }
     }
 
     #[test]
     fn the_whole_set_is_reachable() {
-        let got: String = "aiurRlLmhnNytdsS".chars().filter_map(|k| compose(';', k)).collect();
+        let got: String = "aiurRlLmhnNytdsS"
+            .chars()
+            .filter_map(|k| compose(';', k))
+            .collect();
         assert_eq!(got, "āīūṛṝḷḹṃḥṅṇñṭḍśṣ");
     }
 }

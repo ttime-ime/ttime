@@ -308,7 +308,10 @@ fn diplomatic_mode_reports_each_silent_choice() {
         let hit = hit.unwrap_or_else(|| panic!("{input:?}: {code:?} not reported"));
         assert_eq!(hit.severity, Severity::Warning, "{input:?}");
         if code.is_diplomatic_only() {
-            assert!(!plain.contains(&code), "{input:?} reports {code:?} outside diplomatic mode");
+            assert!(
+                !plain.contains(&code),
+                "{input:?} reports {code:?} outside diplomatic mode"
+            );
         }
     }
 }
@@ -316,8 +319,19 @@ fn diplomatic_mode_reports_each_silent_choice() {
 /// Ordinary, unambiguous input reports nothing extra.
 #[test]
 fn diplomatic_mode_is_quiet_for_plain_input() {
-    for input in ["bod skad", "bkra shis bde legs", "rgyal ba'i mdo", "bsgrubs", "gh+ri", "khong [New York] la phebs song /"] {
-        assert!(diplomatic(input).diagnostics.is_empty(), "{input:?}: {:?}", diplomatic(input).diagnostics);
+    for input in [
+        "bod skad",
+        "bkra shis bde legs",
+        "rgyal ba'i mdo",
+        "bsgrubs",
+        "gh+ri",
+        "khong [New York] la phebs song /",
+    ] {
+        assert!(
+            diplomatic(input).diagnostics.is_empty(),
+            "{input:?}: {:?}",
+            diplomatic(input).diagnostics
+        );
     }
 }
 
@@ -326,7 +340,11 @@ fn diplomatic_spans_cover_the_input_involved() {
     let d = diplomatic("kaa");
     assert_eq!(d.diagnostics[0].span, 2..3);
     let d = diplomatic("ka oM");
-    let om = d.diagnostics.iter().find(|x| x.code == Code::OmSyllable).unwrap();
+    let om = d
+        .diagnostics
+        .iter()
+        .find(|x| x.code == Code::OmSyllable)
+        .unwrap();
     assert_eq!(&"ka oM"[om.span.clone()], "oM");
 }
 
@@ -346,14 +364,23 @@ fn diplomatic_mode_never_changes_text_on_random_input() {
             .map(|_| alphabet[(next() % alphabet.len() as u64) as usize])
             .collect();
         for precomposed in [false, true] {
-            let plain = Options { precomposed, diplomatic: false };
-            let dip = Options { precomposed, diplomatic: true };
+            let plain = Options {
+                precomposed,
+                diplomatic: false,
+            };
+            let dip = Options {
+                precomposed,
+                diplomatic: true,
+            };
             let (a, b) = (convert(&s, plain), convert(&s, dip));
             assert_eq!(a.text, b.text, "{s:?}");
             // diplomatic mode only adds to what plain mode reports
             assert!(b.diagnostics.len() >= a.diagnostics.len(), "{s:?}");
             for d in &b.diagnostics {
-                assert!(s.is_char_boundary(d.span.start) && s.is_char_boundary(d.span.end), "{s:?}");
+                assert!(
+                    s.is_char_boundary(d.span.start) && s.is_char_boundary(d.span.end),
+                    "{s:?}"
+                );
             }
         }
     }

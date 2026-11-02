@@ -247,7 +247,13 @@ mod tests {
             for precomposed in [false, true] {
                 let mut s = Session::new(precomposed);
                 s.insert_text(&text);
-                let want = ewts_to_unicode_with(&text, Options { precomposed, diplomatic: false });
+                let want = ewts_to_unicode_with(
+                    &text,
+                    Options {
+                        precomposed,
+                        diplomatic: false,
+                    },
+                );
                 assert_eq!(s.finish(), want, "round {round}: {text:?}");
             }
         }
@@ -334,7 +340,10 @@ mod tests {
 
     #[test]
     fn dead_keys_write_the_iast_letters_and_capitals() {
-        assert_eq!(latin_dead(";a;i;u;r;R;l;L;m;h;n;N;y;t;d;s;S").finish(), "āīūṛṝḷḹṃḥṅṇñṭḍśṣ");
+        assert_eq!(
+            latin_dead(";a;i;u;r;R;l;L;m;h;n;N;y;t;d;s;S").finish(),
+            "āīūṛṝḷḹṃḥṅṇñṭḍśṣ"
+        );
         assert_eq!(latin_dead(":a:R:N:y:S").finish(), "ĀṜṆÑṢ");
         assert_eq!(latin_dead("K;r;S;Na ;sa;nkara").finish(), "Kṛṣṇa śaṅkara");
     }
@@ -352,7 +361,10 @@ mod tests {
 
     #[test]
     fn unmatched_pairs_come_out_as_typed() {
-        assert_eq!(latin_dead("oM; ka; (x); 1:2 a:b ;;a ;:a ;z").finish(), "oM; ka; (x); 1:2 a:b ;a ;Ā ;z");
+        assert_eq!(
+            latin_dead("oM; ka; (x); 1:2 a:b ;;a ;:a ;z").finish(),
+            "oM; ka; (x); 1:2 a:b ;a ;Ā ;z"
+        );
     }
 
     #[test]

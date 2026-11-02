@@ -27,5 +27,6 @@ mkdir -p "$OUT/fixtures"
 cp crates/ttime-core/tests/fixtures/*.tsv "$OUT/fixtures/"
 ls "$OUT/fixtures" | grep '\.tsv$' > "$OUT/fixtures/index.txt"
 printf 'ttime commit: %s\nbuilt: %s\n' "$TTIME_GIT_SHA" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$OUT/BUILD_INFO"
-python3 -I "$OUT/stamp.py"
+# The playground repository stamps its own pages; a scratch directory (CI) has no stamp.py.
+[ ! -f "$OUT/stamp.py" ] || python3 -I "$OUT/stamp.py"
 echo "wrote $OUT/pkg ($(wc -c < "$OUT/pkg/ttime_wasm_bg.wasm") bytes wasm), ttime commit $TTIME_GIT_SHA"

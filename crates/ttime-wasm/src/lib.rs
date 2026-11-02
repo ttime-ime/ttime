@@ -26,7 +26,13 @@ pub fn convert_json(input: &str, precomposed: bool) -> String {
 /// Warning. The text is the same in both modes.
 #[wasm_bindgen]
 pub fn convert_json_with(input: &str, precomposed: bool, diplomatic: bool) -> String {
-    let c = convert(input, Options { precomposed, diplomatic });
+    let c = convert(
+        input,
+        Options {
+            precomposed,
+            diplomatic,
+        },
+    );
     format!(
         "{{\"text\":{},\"diagnostics\":{}}}",
         json_string(&c.text),

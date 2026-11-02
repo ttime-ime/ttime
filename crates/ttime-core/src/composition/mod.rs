@@ -102,7 +102,10 @@ mod tests {
 
     #[test]
     fn options_apply_to_preedit() {
-        let mut e = Engine::with_options(Options { precomposed: true, diplomatic: false });
+        let mut e = Engine::with_options(Options {
+            precomposed: true,
+            diplomatic: false,
+        });
         for c in "gha".chars() {
             e.push(c);
         }
