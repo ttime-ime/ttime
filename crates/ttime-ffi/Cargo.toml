@@ -1,0 +1,13 @@
+[package]
+name = "ttime-ffi"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "C ABI over ttime-core for native input-method shells"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+ttime-core = { path = "../ttime-core" }

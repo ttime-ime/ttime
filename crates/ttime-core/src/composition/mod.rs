@@ -1,5 +1,8 @@
 use crate::ewts::{convert, ewts_to_unicode_with, Diagnostic, Options};
 
+mod session;
+pub use session::Session;
+
 /// Incremental input state for an IME front end.
 ///
 /// The front end feeds keystrokes with [`Engine::push`], shows

@@ -1,14 +1,8 @@
-//! Browser bridge. All transliteration happens in `ttime-core`; this crate only
-//! adds the commit policy a text field needs and carries results to
-//! JavaScript as strings (diagnostics as JSON).
-//!
-//! Commit policy: input is *provisional* until a space or newline is typed.
-//! That keystroke converts the provisional text, appends it to the *committed*
-//! text and starts a new provisional run. Committed text is never rewritten.
-//! Backspace edits provisional text only; at an empty provisional run it does
-//! nothing and the page's ordinary text editing takes over.
+//! Browser bridge. All transliteration and the commit policy live in
+//! `ttime-core`; this crate only carries results to JavaScript as strings
+//! (diagnostics as JSON).
 
-use ttime_core::{convert, unicode_to_ewts, Diagnostic, Engine, Fidelity, Options};
+use ttime_core::{convert, unicode_to_ewts, Diagnostic, Fidelity, Options};
 use wasm_bindgen::prelude::*;
 
 /// Identifies the build in reports. `TTIME_GIT_SHA` is set by the build script.
@@ -52,9 +46,7 @@ pub fn reverse_json(input: &str) -> String {
 
 #[wasm_bindgen]
 pub struct Session {
-    committed: String,
-    engine: Engine,
-    precomposed: bool,
+    inner: ttime_core::Session,
 }
 
 #[wasm_bindgen]
@@ -62,95 +54,62 @@ impl Session {
     #[wasm_bindgen(constructor)]
     pub fn new(precomposed: bool) -> Session {
         Session {
-            committed: String::new(),
-            engine: Engine::with_options(Options { precomposed }),
-            precomposed,
+            inner: ttime_core::Session::new(precomposed),
         }
     }
 
     /// Feeds typed characters one at a time, committing at spaces and newlines.
     pub fn insert_text(&mut self, text: &str) {
-        for c in text.chars() {
-            self.engine.push(c);
-            if (c == ' ' || c == '\n') && !self.holds_open_construct() {
-                let out = self.engine.commit();
-                self.committed.push_str(&out);
-            }
-        }
-    }
-
-    /// A space inside `[literal text]` or right after a backslash belongs to
-    /// that construct, so it must not end the provisional run.
-    fn holds_open_construct(&self) -> bool {
-        let raw = self.engine.raw();
-        let body = &raw[..raw.len() - 1]; // without the space just pushed
-        let mut depth = 0usize;
-        let mut escaped = false;
-        for c in body.chars() {
-            if escaped {
-                escaped = false;
-            } else if c == '\\' {
-                escaped = true;
-            } else if c == '[' {
-                depth += 1;
-            } else if c == ']' {
-                depth = depth.saturating_sub(1);
-            }
-        }
-        depth > 0 || escaped
+        self.inner.insert_text(text);
     }
 
     /// Removes the last provisional keystroke. Returns false, changing nothing,
     /// when there is no provisional text.
     pub fn backspace(&mut self) -> bool {
-        self.engine.backspace()
+        self.inner.backspace()
     }
 
     /// Drops the provisional run, keeping committed text.
     pub fn cancel(&mut self) {
-        self.engine.cancel();
+        self.inner.cancel();
     }
 
     /// Commits whatever is provisional and returns the whole text.
     pub fn finish(&mut self) -> String {
-        let out = self.engine.commit();
-        self.committed.push_str(&out);
-        self.committed.clone()
+        self.inner.finish()
     }
 
     /// Replaces the committed text (after the page edited it directly) and
     /// clears the provisional run.
     pub fn set_committed(&mut self, text: &str) {
-        self.committed = text.to_string();
-        self.engine.cancel();
+        self.inner.set_committed(text);
     }
 
     pub fn reset(&mut self) {
-        self.committed.clear();
-        self.engine.cancel();
+        self.inner.reset();
     }
 
     pub fn committed(&self) -> String {
-        self.committed.clone()
+        self.inner.committed().to_string()
     }
 
     pub fn provisional(&self) -> String {
-        self.engine.preedit()
+        self.inner.provisional()
     }
 
     /// The EWTS typed since the last commit.
     pub fn raw(&self) -> String {
-        self.engine.raw().to_string()
+        self.inner.raw().to_string()
     }
 
     /// Diagnostics for the provisional run only; spans are UTF-8 byte offsets
     /// into [`Session::raw`].
     pub fn diagnostics_json(&self) -> String {
-        diagnostics_json(&self.engine.diagnostics())
+        diagnostics_json(&self.inner.diagnostics())
     }
 
     pub fn precomposed(&self) -> bool {
-        self.precomposed
+        self.inner.precomposed()
     }
 }
 

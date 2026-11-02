@@ -11,7 +11,7 @@
 pub mod composition;
 pub mod ewts;
 
-pub use composition::Engine;
+pub use composition::{Engine, Session};
 pub use ewts::{
     convert, ewts_to_unicode, ewts_to_unicode_with, unicode_to_ewts, Category, Code, Conversion,
     Diagnostic, Fidelity, Options, Reverse, Severity,

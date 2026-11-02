@@ -61,6 +61,13 @@ name = "ttime-core"
 version = "0.1.0"
 
 [[package]]
+name = "ttime-ffi"
+version = "0.1.0"
+dependencies = [
+ "ttime-core",
+]
+
+[[package]]
 name = "ttime-wasm"
 version = "0.1.0"
 dependencies = [
