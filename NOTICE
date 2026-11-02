@@ -18,4 +18,5 @@ honestly; "unverified" means not yet checked.
   text copied. Stack inventory agreement was checked by behaviour, not by copying.
 - Botok, Tibetan NLP, TiSpell, OpenPecha, BDRC: unverified; unused.
 
-Repository licence: undecided (MIT or Apache-2.0). Add LICENSE before release.
+T-Time's own code is licensed under MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE).
+The artwork in design/ is not covered by that grant; see the README.

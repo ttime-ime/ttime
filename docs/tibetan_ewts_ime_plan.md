@@ -35,7 +35,7 @@ Three independent layers:
 
 **Specification.** `docs/specification/ewts.md` is the behavioural reference and labels each rule Normative / Implemented / Deviation. The THL text has not been consulted (not retrievable), so “Normative” is provisional.
 
-**Licensing (undecided).** Repository licence: MIT or Apache-2.0, to be chosen. Reference licences: Keyman keyboard MIT; pyewts Apache-2.0; m17n-db LGPL 2.1+ (behavioural reference only, no tables copied). Botok, Tibetan NLP, TiSpell, OpenPecha and BDRC resources are **unverified** and each needs an individual licence check before any use.
+**Licensing.** Code: dual `MIT OR Apache-2.0` (decided 2026-11-02). Generated artwork in `design/` is outside that grant; provenance to be recorded. Reference licences: Keyman keyboard MIT; pyewts Apache-2.0; m17n-db LGPL 2.1+ (behavioural reference only, no tables copied). Botok, Tibetan NLP, TiSpell, OpenPecha and BDRC resources are **unverified** and each needs an individual licence check before any use.
 
 ### Status by item
 
