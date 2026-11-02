@@ -27,6 +27,8 @@ Three independent layers:
 
 **Normalization.** Default output is NFC-stable; an opt-in precomposed mode exists and is not NFC. Status: Proposed — see `docs/decisions/0001-unicode-normalization.md`.
 
+**Repositories.** `ttime-ime/ttime` (private): Rust engine, composition, native IMEs, documentation, tests. `ttime-ime/playground` (public, licence not chosen): browser pages over the Wasm build; `scripts/build-web.sh` exports the built package into it. `ttime-ime/site`: reserved, intentionally empty; the playground is the public presence for now.
+
 **Web prototype.** `docs/ttime_ewts_rs_audit_and_web_prototype_plan.md` covers the ewts-rs audit (completed; ADR 0002 proposes reference-only) and a browser writing room for a first specialist session (not started).
 
 **Expert review.** `docs/review/expert-review.md` lists every disagreement and unverified claim for a specialist to rule on; nothing there is settled.
@@ -49,7 +51,7 @@ Three independent layers:
 | cargo-fuzz targets | **Partial**: six targets, 60 s smoke run each, no findings; no long campaign |
 | Performance measurement | **Partial**: rough latency measured; allocations not |
 | ewts-rs audit and ADR 0002 | **Completed** (partial audit; Proposed) |
-| Web prototype (Wasm bridge, Writing Room) | **Partial**: `ttime-wasm` and `web/` built; parity 701/701 in one Chromium-based browser; no CI, no other browsers, not deployed, no specialist session yet |
+| Web prototype (Wasm bridge, Writing Room) | **Partial**: `ttime-wasm` in this repository; Writing Room, Converter and parity pages in the `playground` repository; parity 701/701 in one Chromium-based browser; no CI, no other browsers, not deployed, no specialist session yet |
 | Orthography (layer 2) | **Deferred** |
 | Lexicon/candidates (layer 3) | **Deferred** |
 | macOS adapter | **Planned** (first) |

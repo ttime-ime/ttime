@@ -1,6 +1,6 @@
 # T-Time — `ewts-rs` Evaluation and Web Prototype Plan
 
-**Status:** Proposed; Workstream A completed (§4); B and C prototyped (`crates/ttime-wasm`, `web/`), partly verified (see `web/README.md`) · **Date:** 2 November 2026 (revised after the foundation work)  
+**Status:** Proposed; Workstream A completed (§4); B and C prototyped (`crates/ttime-wasm` here; pages in the `playground` repository, whose README records what was checked) · **Date:** 2 November 2026 (revised after the foundation work)  
 **Scope:** Technical due diligence, reusable browser infrastructure, and an invitation-ready Tibetologist testing experience  
 **Related plan:** `docs/tibetan_ewts_ime_plan.md`  
 **Reference project:** https://github.com/emgyrz/ewts-rs  
@@ -142,6 +142,8 @@ A browser text field does not automatically behave like a system-wide IME. Decid
 **Recommended first implementation:** controlled composition at the end of the document, with clear UI affordances and an honest limitation notice. Add arbitrary-caret editing only after the core has a tested edit model. A separate batch-conversion inspector can provide a reliable fallback during early testing.
 
 ## 6. Workstream C — T-Time Writing Room
+
+> **Update:** the site now has two modes, as recommended: a **Converter** (two boxes, bidirectional, diagnostics and round-trip fidelity) to test conversion correctness, and the **Writing Room** to test the typing experience. They test different things, and good conversion does not imply good typing.
 
 ### C1. Purpose and tone
 
