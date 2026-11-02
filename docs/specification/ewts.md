@@ -16,7 +16,7 @@ Every rule carries one of three labels:
 |---|---|---|---|
 | THL EWTS specification | **not retrieved** | THL terms | Intended normative base. The THL URLs I tried returned 404, so **no rule below was checked against the THL text**. Normative labels reflect common knowledge of EWTS and agreement of the references, not a verified reading. |
 | m17n-db `bo-ewts.mim` | git.savannah.gnu.org, as fetched in this project | LGPL 2.1+ | Behavioural reference only. No table or text copied. |
-| Keyman `tibetan_ewts` | keymanapp/keyboards `release/t/tibetan_ewts` | MIT | Behavioural reference, run through a small interpreter of the `.kmn` rules (`scripts/differential/keyman_diff.py`). The interpreter is incomplete; see 12.4. |
+| Keyman `tibetan_ewts` v2.4 | keymanapp/keyboards `release/t/tibetan_ewts`, commit 8072bb2 (2024-05-17) | MIT | Behavioural reference, run through a small interpreter of the `.kmn` rules (`scripts/differential/keyman_diff.py`). The interpreter is incomplete; see 12.4. |
 | pyewts 1.0.0 | PyPI | Apache-2.0 | Differential oracle (`scripts/differential/`). Its stack inventory contributed to `STANDARD_STACKS` (see NOTICE). |
 
 Unverifiable here: behaviour of Keyman on real devices, the original THL text,
