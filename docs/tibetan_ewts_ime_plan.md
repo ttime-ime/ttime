@@ -78,7 +78,7 @@ Three independent layers:
 ### Non-goals for initial release
 
 - Phonetic pronunciation-to-spelling conversion.
-- Replacing native Tibetan direct keyboard layouts.
+- Replacing native Tibetan direct keyboard layouts. (Offering Sambhota, TCC and Monlam layouts as extra schemes is proposed in decision 0004.)
 - Cloud inference, mandatory accounts, or telemetry.
 - Automatic correction of manuscript or historical spellings.
 - Full grammatical parsing or large neural prediction models.
