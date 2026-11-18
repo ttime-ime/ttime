@@ -25,6 +25,17 @@ final class TTimeInputController: IMKInputController {
     }
     private let noRange = NSRange(location: NSNotFound, length: NSNotFound)
 
+    /// The controller whose client currently has focus; the toolbar acts on it.
+    private static weak var active: TTimeInputController?
+    private var client: IMKTextInput?
+
+    private var toolbarState: Toolbar.State {
+        Toolbar.State(latin: composer.isLatin, locked: Self.lock.lockedLatin != nil)
+    }
+    private func refreshToolbar() {
+        if Self.active === self { Toolbar.shared.update(toolbarState) }
+    }
+
     // Shift taps arrive as modifier changes, not key presses.
     override func recognizedEvents(_ sender: Any!) -> Int {
         Int(NSEvent.EventTypeMask([.keyDown, .flagsChanged]).rawValue)
@@ -58,14 +69,49 @@ final class TTimeInputController: IMKInputController {
     override func activateServer(_ sender: Any!) {
         shiftTap.reset()
         composer.reset()
+        client = sender as? IMKTextInput
         // A flip made with a single tap lasts until focus moves; a lock stays.
-        if let client = sender as? IMKTextInput {
+        if let client = client {
             apply(composer.setLatin(Self.lock.modeOnFocus), to: client)
         }
+        Self.active = self
+        let toolbar = Toolbar.shared
+        toolbar.chooseMode = { [weak self] latin in self?.toolbarChoose(latin: latin) }
+        toolbar.toggleLock = { [weak self] in self?.toolbarToggleLock() }
+        toolbar.show(toolbarState)
     }
 
     override func deactivateServer(_ sender: Any!) {
         shiftTap.reset()
+        if Self.active === self { Toolbar.shared.scheduleHide() }
+    }
+
+    /// The input-method menu in the menu bar.
+    override func menu() -> NSMenu! {
+        let menu = NSMenu()
+        let item = NSMenuItem(title: Toolbar.isHidden ? "Show Toolbar" : "Hide Toolbar",
+                              action: #selector(toggleToolbar(_:)), keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+        return menu
+    }
+
+    @objc private func toggleToolbar(_ sender: Any?) {
+        Toolbar.isHidden.toggle()
+        if Toolbar.isHidden { Toolbar.shared.hideNow() } else { Toolbar.shared.show(toolbarState) }
+    }
+
+    private func toolbarChoose(latin: Bool) {
+        if let latin = Self.lock.choose(latin: latin), let client = client {
+            apply(composer.setLatin(latin), to: client)
+        }
+        refreshToolbar()
+    }
+
+    private func toolbarToggleLock() {
+        Self.lock.toggleLock(isLatin: composer.isLatin)
+        Self.saveLock()
+        refreshToolbar()
     }
 
     private func shiftTapped(_ tap: ShiftTapEvent, client: IMKTextInput) {
@@ -75,6 +121,7 @@ final class TTimeInputController: IMKInputController {
                 apply(composer.setLatin(latin), to: client)
             }
             if tap.kind == .double { Self.saveLock() }
+            refreshToolbar()
         case (.right, .double):
             break  // reserved: opens and closes the symbols table, not built yet
         case (.right, .single):

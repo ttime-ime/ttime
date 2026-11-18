@@ -7,6 +7,7 @@ replaced or upgraded without touching the shell.
 
 - `Sources/Composer.swift`: key policy over the C engine; no UI dependencies.
 - `Sources/InputController.swift`: maps `NSEvent` to `Composer` and writes marked and committed text to the client application.
+- `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Tests/main.swift`: tests for the key policy, run by the build script.
 
 Build (nothing is installed):
@@ -27,6 +28,12 @@ does nothing; a double tap is reserved for the symbols table (not built). A tap
 means no other key or modifier in between and a press under 350 ms, so Shift
 for a capital never toggles. There is no on-screen indicator of the mode yet.
 Logic: `Sources/ShiftTap.swift`, `Sources/ModeLock.swift` (both tested).
+
+**Toolbar.** A small cream-and-plum bar shows while T-Time is the active input
+source: the logo, the Tibetan/Latin mode (click either side) and a lock (click,
+or double-tap left Shift). Symbols and Stacker are disabled until those tools
+exist. Drag it anywhere; it remembers where. "Hide Toolbar" is in the
+input-method menu. It stays light in dark mode, because the colours are the brand.
 
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System

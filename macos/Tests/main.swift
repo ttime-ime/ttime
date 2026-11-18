@@ -172,5 +172,14 @@ do {
     if m.modeOnFocus != true { failures += 1; print("FAIL locked Latin survives focus") }
     if ModeLock().modeOnFocus != false { failures += 1; print("FAIL unlocked focus starts Tibetan") }
 }
+do {
+    var m = ModeLock()
+    if m.choose(latin: true) != true || m.choose(latin: false) != false { failures += 1; print("FAIL toolbar click picks a mode") }
+    m.toggleLock(isLatin: true)
+    if m.lockedLatin != true { failures += 1; print("FAIL toolbar lock locks the current mode") }
+    if m.choose(latin: false) != nil { failures += 1; print("FAIL toolbar click is refused while locked") }
+    m.toggleLock(isLatin: true)
+    if m.lockedLatin != nil { failures += 1; print("FAIL toolbar lock button unlocks") }
+}
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)

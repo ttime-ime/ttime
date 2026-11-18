@@ -30,6 +30,15 @@ struct ModeLock: Equatable {
         }
     }
 
+    /// A click on a mode in the toolbar: the Latin setting to switch to, or nil
+    /// when a lock refuses it.
+    func choose(latin: Bool) -> Bool? { lockedLatin == nil ? latin : nil }
+
+    /// The toolbar's lock button: locks the current mode, or unlocks.
+    mutating func toggleLock(isLatin: Bool) {
+        lockedLatin = lockedLatin == nil ? isLatin : nil
+    }
+
     /// The mode a client starts in when it gains focus.
     var modeOnFocus: Bool { lockedLatin ?? false }
 }

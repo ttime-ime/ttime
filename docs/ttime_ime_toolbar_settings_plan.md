@@ -4,6 +4,19 @@
 **Scope:** Native T-Time IME, with related browser/companion tools identified separately  
 **Principle:** Every visible control must solve a recurring user problem. Do not create features to justify a branded toolbar.
 
+## 0. Update, 18 November 2026: toolbar adopted
+
+The project owner decided to ship a **floating toolbar**, reversing the "no permanent toolbar" recommendation in section 1 and bringing Phase 5 forward. This is a product decision, not the result of the user evaluation that section 4 called for; that evaluation is still worth doing, and the toolbar should be judged by it.
+
+What was decided:
+
+- **Form:** a compact, draggable, always-visible bar that follows the active input source. It remembers its position, can be hidden from the input-method menu, and does not take focus.
+- **Contents:** the T-Time branding (bold, from `visual_design/logos`); the Tibetan/Latin mode with a lock; a Symbols button; a Stacker button. The last two are disabled until those tools exist.
+- **Mode control:** a tap of left Shift flips Tibetan/Latin until focus moves; a double tap locks the mode. A double tap of right Shift is reserved for the Symbols table. This also settles the Latin-escape shortcut question in section 3.2 for macOS (to be tested by hand).
+- **Still true:** the branding does not justify further controls. EWTS, Sanskrit, Inspect and Settings stay off the toolbar.
+
+Sections 1 and 2 below record the earlier position and are kept for the reasoning.
+
 ## 1. Executive decision
 
 T-Time is first and foremost a **deterministic EWTS-to-Tibetan Unicode input method**. Its value should come from reliable composition, accurate conversion, predictable editing, and useful access to uncommon characters—not from a crowded floating toolbar.
