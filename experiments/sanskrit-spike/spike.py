@@ -1,5 +1,5 @@
-"""Sanskrit IAST completion spike. Reads Monier-Williams (Cologne, SLP1) from the path
-given as argv[1]; writes nothing but prints the measurements used in
+"""Sanskrit IAST completion spike. Reads Monier-Williams (Cologne, SLP1) from argv[1] and,
+optionally, Edgerton's Buddhist Hybrid Sanskrit Dictionary from argv[2]; writes nothing but prints the measurements used in
 docs/reference/sanskrit-spike.md. The dictionary itself is never stored in the repo."""
 import re, sys, unicodedata, collections, statistics
 
@@ -18,16 +18,23 @@ def fold(s):
     d = unicodedata.normalize('NFD', s)
     return ''.join(c for c in d if not unicodedata.combining(c)).replace('’', '').lower()
 
-entry = re.compile(r'<L>([^<]+)<pc>[^<]*<k1>([^<]+)<k2>[^<]*(?:<h>[^<]*)?<e>[^\n]*\n(.*?)<LEND>', re.S)
-text = open(sys.argv[1], encoding='utf-8').read()
+entry = re.compile(r'<L>([^<]+)<pc>[^<]*<k1>([^<]+)<k2>[^\n]*\n(.*?)<LEND>', re.S)
 heads = collections.OrderedDict()   # slp1 -> buddhist flag
+mwset = set()
 bad = 0
-for m in entry.finditer(text):
-    k1, body = m.group(2), m.group(3)
-    if not re.fullmatch(r"[aAiIuUfFxXeEoOMHkKgGNcCjJYwWqQRtTdDnpPbBmyrlvSzshL~']+", k1):
-        bad += 1; continue
-    b = 'Buddh.' in body
-    heads[k1] = heads.get(k1, False) or b
+bhs_heads = set()
+for i, path in enumerate(sys.argv[1:3]):
+    text = open(path, encoding='utf-8').read()
+    for m in entry.finditer(text):
+        k1, body = m.group(2), m.group(3)
+        if not re.fullmatch(r"[aAiIuUfFxXeEoOMHkKgGNcCjJYwWqQRtTdDnpPbBmyrlvSzshL~']+", k1):
+            bad += 1; continue
+        if i == 0: mwset.add(k1)
+        if i == 1: bhs_heads.add(k1)
+        b = i == 1 or 'Buddh.' in body   # every Edgerton entry is Buddhist Sanskrit
+        heads[k1] = heads.get(k1, False) or b
+if bhs_heads:
+    print(f"BHS headwords: {len(bhs_heads):,}; not in MW: {len(bhs_heads - mwset):,}")
 print(f"entries parsed: {len(heads):,} distinct headwords ({bad} skipped, odd characters)")
 buddh = sum(heads.values())
 print(f"headwords with a Buddh. label in some entry: {buddh:,}")
@@ -81,3 +88,9 @@ for name, r in rankers.items():
     print(f"ranking '{name}': typed {tot_t} of {tot_l} letters ({100*(1-tot_t/tot_l):.0f}% saved) over {len(found)} found terms")
 print(f"of the found terms, {sum(words[t] for t in found)} carry a Buddh. label")
 print("found without label:", ' '.join(t for t in found if not words[t]))
+# Like for like: the 49 terms Monier-Williams alone already had.
+mw_missing = "bodhicitta vajrayāna vipaśyanā tathatā ālayavijñāna catuṣkoṭi trisvabhāva".split()
+same = [t for t in found if t not in mw_missing]
+for name, r in rankers.items():
+    t_ = sum(cost(t, r) for t in same); l_ = sum(len(fold(t)) for t in same)
+    print(f"same {len(same)} terms, ranking '{name}': {100*(1-t_/l_):.0f}% saved")

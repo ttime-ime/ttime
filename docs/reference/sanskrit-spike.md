@@ -43,6 +43,24 @@ substituted unless chosen? Is the Monier-Williams headword list enough to build 
 | Shorter first | 32% |
 | Buddh.-labelled first, then shorter | 42% |
 
+## Second run: adding Edgerton's Buddhist Hybrid Sanskrit Dictionary
+
+Added `csl-orig/v02/bhs/bhs.txt` (7.6 MB, same Cologne repository, same SLP1 format),
+fetched 2026-11-18. Every Edgerton headword counts as Buddhist for the ranking.
+
+- 17,777 BHS headwords, **11,236 of them not in Monier-Williams**. Combined: 205,294
+  distinct IAST words, 188,079 keys, 7.3% of keys ambiguous (13,738).
+- **Coverage rises from 49 to 54 of the 56 sample terms.** Now found: `bodhicitta`,
+  `vajrayāna`, `vipaśyanā`, `tathatā`, `ālayavijñāna`. Still missing: `catuṣkoṭi`
+  (only `catuṣkoṭikā`) and `trisvabhāva`.
+- **Typing saved did not improve.** On the 54 found terms: alphabetical 28%, shorter first
+  31%, Buddhist first 39%. On the same 49 terms as before: 26%, 30%, 38% (was 28%, 32%,
+  42%). The Buddhist pool grew ten-fold (1,951 to 18,770 headwords), so there is more
+  competition inside the top five. More vocabulary helps coverage, not ranking.
+- Only 43 of the 54 found terms are Buddhist-labelled; `nirvāṇa`, `duḥkha`, `anātman`,
+  `bhikṣu`, `mantra`, `āryāṣṭāṅgamārga` are not Edgerton headwords.
+- The repository's licence is CC BY-SA 4.0; the Edgerton text's own terms were not checked.
+
 ## What this does not show
 
 - No real usage frequency exists in this data; the rankings are proxies. A frequency
@@ -63,8 +81,8 @@ above, retrieval date 2026-11-18.
 
 ## Conclusion
 
-The headword list is a usable base (large, mostly covers core Buddhist vocabulary), but
-a general dictionary ranked without usage data saves roughly a third of letters on a
-favourable sample. Worth building only with a Buddhist ranking layer, and worth asking
+Monier-Williams plus Edgerton is a usable base (205,000 words, 54 of 56 sample terms),
+but dictionaries ranked without usage data save roughly a third of letters on a
+favourable sample, and adding vocabulary does not fix that: ranking needs usage counts. Worth building only with a Buddhist ranking layer, and worth asking
 the Tibetologists first. Next steps if wanted: check the licence file, add a curated
-Buddhist list as a ranking and gap-filler, and measure on real Sanskrit passages.
+Buddhist list or corpus counts as the ranking, and measure on real Sanskrit passages.
