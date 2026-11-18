@@ -29,11 +29,13 @@ means no other key or modifier in between and a press under 350 ms, so Shift
 for a capital never toggles. There is no on-screen indicator of the mode yet.
 Logic: `Sources/ShiftTap.swift`, `Sources/ModeLock.swift` (both tested).
 
-**Toolbar.** A small cream-and-plum bar shows while T-Time is the active input
-source: the logo, the Tibetan/Latin mode (click either side) and a lock (click,
+**Toolbar.** A bubblegum-pink bar shows while T-Time is the active input
+source: the logo (its cat paw hangs below the bar), the Tibetan/Latin mode (click either side) and a lock (click,
 or double-tap left Shift). Symbols and Stacker are disabled until those tools
 exist. Drag it anywhere; it remembers where. "Hide Toolbar" is in the
-input-method menu. It stays light in dark mode, because the colours are the brand.
+input-method menu. It stays pink in dark mode, because the colours are the brand. The logo is
+exported from `visual_design/logos/toolbar_logo.svg` by
+`scripts/export-toolbar-logo.sh`.
 
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System

@@ -11,7 +11,7 @@ The project owner decided to ship a **floating toolbar**, reversing the "no perm
 What was decided:
 
 - **Form:** a compact, draggable, always-visible bar that follows the active input source. It remembers its position, can be hidden from the input-method menu, and does not take focus.
-- **Contents:** the T-Time branding (bold, from `visual_design/logos`); the Tibetan/Latin mode with a lock; a Symbols button; a Stacker button. The last two are disabled until those tools exist.
+- **Contents:** the T-Time branding (bold, from `visual_design/logos/toolbar_logo.svg`, on a bubblegum-pink bar with the logo's cat paw hanging below the bar's edge); the Tibetan/Latin mode with a lock; a Symbols button; a Stacker button. The last two are disabled until those tools exist.
 - **Mode control:** a tap of left Shift flips Tibetan/Latin until focus moves; a double tap locks the mode. A double tap of right Shift is reserved for the Symbols table. This also settles the Latin-escape shortcut question in section 3.2 for macOS (to be tested by hand).
 - **Still true:** the branding does not justify further controls. EWTS, Sanskrit, Inspect and Settings stay off the toolbar.
 
