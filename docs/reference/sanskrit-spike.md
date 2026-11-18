@@ -112,5 +112,6 @@ Monier-Williams plus Edgerton is a usable base (205,000 words, 54 of 56 sample t
 but ranked without usage data it saves roughly a third of letters on a favourable sample,
 and more vocabulary does not fix that. Usage counts from the Digital Corpus of Sanskrit
 (CC BY 4.0) lift the same measure to the mid-fifties, with the optimism noted above. Worth building only with a Buddhist ranking layer, and worth asking
-the Tibetologists first. Next steps if wanted: check the licence file, add a curated
-Buddhist list or corpus counts as the ranking, and measure on real Sanskrit passages.
+the Tibetologists first. Next steps if wanted: confirm the licences against the repository files, test on held-out
+passages (fit counts on seven texts, test on two), consider fetching the rest of the
+corpus for general counts, and ask the Tibetologists which texts matter.
