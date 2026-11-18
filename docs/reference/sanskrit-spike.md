@@ -61,6 +61,33 @@ fetched 2026-11-18. Every Edgerton headword counts as Buddhist for the ranking.
   `bhikṣu`, `mantra`, `āryāṣṭāṅgamārga` are not Edgerton headwords.
 - The repository's licence is CC BY-SA 4.0; the Edgerton text's own terms were not checked.
 
+## Third run: usage counts from the Digital Corpus of Sanskrit
+
+Fetched 2026-11-18 from `github.com/OliverHellwig/sanskrit`, `dcs/data/conllu/`: nine
+Buddhist texts (84 files, 17 MB; Abhidharmakośa and bhāṣya, Avadānaśataka,
+Bodhicaryāvatāra, Buddhacarita, Lalitavistara, Laṅkāvatārasūtra, Saddharmapuṇḍarīka,
+Śikṣāsamuccaya) and `lookup/dictionary.csv` (not used further). The repository's readme
+states the data is **CC BY 4.0**; cite Hellwig, *Digital Corpus of Sanskrit*. The other 260
+texts (about 5.3 million of 5.46 million words) were not fetched, so these are counts for
+Buddhist texts only, not corpus-wide.
+
+- 125,552 words, 8,793 distinct lemmas. 87% of the lemmas are headwords in Monier-Williams
+  or Edgerton, covering 96% of running words. Adding the other lemmas to the pool adds
+  1,164 words (206,458 in all) but still does not find `catuṣkoṭi` or `trisvabhāva`.
+- 46 of the 56 sample terms occur as lemmas; the 10 that do not: `āryāṣṭāṅgamārga`,
+  `bodhicitta`, `vajrayāna`, `tantra`, `prātimokṣa`, `nirmāṇakāya`, `sambhogakāya`,
+  `catuṣkoṭi`, `trisvabhāva`, `arhat`. Rare ones: `madhyamaka` 1, `abhidharma` 1,
+  `sukhāvatī` 1.
+- **Ranking by these counts saves 55 to 56% of letters** on the 54 found terms (38% with
+  the labelled ranking; Buddhist-label as a tie-break adds about 1 point). On the same
+  49 terms: 56%, against 42% (Monier-Williams alone) and 38% (with Edgerton).
+
+Caution: the test terms were chosen by me and counted in the same nine texts, so the
+figure is optimistic; and these texts are Mahāyāna sūtras, a poem and a ślokas manual,
+not the commentarial or Madhyamaka prose scholars write about. The honest reading is
+"counts rank far better than any dictionary label", not "56%". Held-out text would be
+the next test.
+
 ## What this does not show
 
 - No real usage frequency exists in this data; the rankings are proxies. A frequency
@@ -82,7 +109,8 @@ above, retrieval date 2026-11-18.
 ## Conclusion
 
 Monier-Williams plus Edgerton is a usable base (205,000 words, 54 of 56 sample terms),
-but dictionaries ranked without usage data save roughly a third of letters on a
-favourable sample, and adding vocabulary does not fix that: ranking needs usage counts. Worth building only with a Buddhist ranking layer, and worth asking
+but ranked without usage data it saves roughly a third of letters on a favourable sample,
+and more vocabulary does not fix that. Usage counts from the Digital Corpus of Sanskrit
+(CC BY 4.0) lift the same measure to the mid-fifties, with the optimism noted above. Worth building only with a Buddhist ranking layer, and worth asking
 the Tibetologists first. Next steps if wanted: check the licence file, add a curated
 Buddhist list or corpus counts as the ranking, and measure on real Sanskrit passages.

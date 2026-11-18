@@ -94,3 +94,42 @@ same = [t for t in found if t not in mw_missing]
 for name, r in rankers.items():
     t_ = sum(cost(t, r) for t in same); l_ = sum(len(fold(t)) for t in same)
     print(f"same {len(same)} terms, ranking '{name}': {100*(1-t_/l_):.0f}% saved")
+
+# ---- Third run: lemma counts from nine Buddhist texts of the Digital Corpus of Sanskrit.
+# argv[3] is the folder holding files/<text>/*.conllu (CC BY 4.0, Hellwig).
+if len(sys.argv) > 3:
+    import glob, os
+    counts = collections.Counter(); per_text = collections.Counter()
+    for f in glob.glob(os.path.join(sys.argv[3], 'files', '*', '*.conllu')):
+        text_name = f.split(os.sep)[-2]
+        for line in open(f, encoding='utf-8'):
+            if not line[:1].isdigit(): continue
+            c = line.rstrip('\n').split('\t')
+            if len(c) < 10 or '-' in c[0] or c[3] in ('PUNCT', '_') or c[2] in ('_', ''): continue
+            lem = unicodedata.normalize('NFC', c[2])
+            counts[lem] += 1; per_text[text_name] += 1
+    total = sum(counts.values())
+    print(f"\nDCS Buddhist texts: {total:,} words, {len(counts):,} distinct lemmas")
+    print("words per text:", dict(per_text.most_common()))
+    in_dict = sum(1 for l in counts if l in words)
+    print(f"lemmas that are dictionary headwords: {in_dict:,} ({100*in_dict/len(counts):.0f}%); "
+          f"covering {100*sum(n for l, n in counts.items() if l in words)/total:.0f}% of running words")
+    att = [t for t in terms if counts[unicodedata.normalize('NFC', t)] > 0]
+    print(f"sample terms attested as lemmas in these texts: {len(att)} of {len(terms)}")
+    print("attested counts:", {t: counts[unicodedata.normalize('NFC', t)] for t in att})
+    print("not attested:", ' '.join(t for t in terms if t not in att))
+    # Candidate pool = dictionaries + DCS lemmas (gap filling).
+    for l in counts:
+        if l not in words:
+            words[l] = False
+            keys[fold(l)].append(l)
+    print(f"pool after adding DCS lemmas: {len(words):,} words; found sample terms: "
+          f"{sum(1 for t in terms if lookup(t))} of {len(terms)}")
+    rank2 = {
+      'corpus count first, then shorter': lambda w: (-counts[w], len(w), w),
+      'corpus count, then Buddh.-labelled, then shorter': lambda w: (-counts[w], not words[w], len(w), w),
+    }
+    for scope, subset in (('all found', [t for t in terms if lookup(t)]), ('the same 49', same)):
+        for name, r in rank2.items():
+            t_ = sum(cost(t, r) for t in subset); l_ = sum(len(fold(t)) for t in subset)
+            print(f"{scope} ({len(subset)} terms), ranking '{name}': {100*(1-t_/l_):.0f}% saved")
