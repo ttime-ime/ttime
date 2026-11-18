@@ -117,6 +117,30 @@ a five-item list are counted. This replaces my hand-picked terms with real runni
 - Caveats: the texts are only these nine; the test types lemmas while users type inflected
   forms; and nothing here tests whether a scholar wants a list for every word.
 
+## Accuracy of the accented form (`accuracy.py`)
+
+Same held-out design (counts from the other texts). Each word of the held-out text is
+"typed" in full without diacritics; the question is whether the correct accented form is
+first (top 1) or in the five offered (top 5). A word outside the pool counts as a miss.
+
+| Words | Count | Alphabetical top-1 / top-5 | Buddhist label | Counts |
+|---|---|---|---|---|
+| All running words | 125,552 | 82.9 / 98.7 | 84.2 / 98.3 | **95.8 / 98.8** |
+| Correct form has diacritics | 57,834 | 63.5 / 97.7 | 70.5 / 97.0 | **92.8 / 97.9** |
+| Key matches several spellings | 68,435 | 70.9 / 99.7 | 73.3 / 99.1 | **94.5 / 99.9** |
+| Both (accented and ambiguous) | 32,148 | 38.0 / 99.5 | 50.5 / 98.2 | **90.6 / 99.9** |
+
+- With counts, the right accented spelling is first for 96% of running words and in the
+  top five for 99%; for the hard case (accented and ambiguous) 91% first, 99.9% in five.
+- Without counts the dictionaries still put it in the top five 98 to 99% of the time, but
+  first only 38% of the time in the hard case. The counts decide the order, not the
+  coverage.
+- Ambiguity is common in running text: 55% of words share their accent-free key with
+  another spelling, because frequent words (`dharma`, `bhava`, and similar) do.
+- Limits: dictionary forms again (inflected forms are not tested); the nine texts; no
+  typo tolerance (a misspelling inside the word matches nothing); the 1.2% outside the pool
+  are misses.
+
 ## What this does not show
 
 - No real usage frequency exists in this data; the rankings are proxies. A frequency
