@@ -7,6 +7,8 @@ enum KeyInput {
     case backspace
     case escape
     case enter
+    /// Navigation keys, used by the stacker and symbols windows when open.
+    case tab, up, down, left, right
     /// Anything else (arrows, tab, shortcuts): commit what is pending, then let
     /// the application handle the key.
     case other
@@ -54,7 +56,7 @@ final class Composer {
             guard composing else { return Outcome() }
             ttime_session_cancel(session)
             return Outcome(handled: true)
-        case .enter, .other:
+        case .enter, .other, .tab, .up, .down, .left, .right:
             // Commit what is pending, then let the application take the key
             // (Return starts a new line).
             return Outcome(insert: commitAll(), handled: false)

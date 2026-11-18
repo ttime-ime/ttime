@@ -157,6 +157,23 @@ pub unsafe extern "C" fn ttime_build_stack_json(
     ))
 }
 
+/// # Safety
+/// `query` must be null (all entries) or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_symbols_json(query: *const c_char) -> *mut c_char {
+    let q = if query.is_null() {
+        String::new()
+    } else {
+        CStr::from_ptr(query).to_string_lossy().into_owned()
+    };
+    to_c(ttime_core::symbols::search_json(&q))
+}
+
+#[no_mangle]
+pub extern "C" fn ttime_symbol_categories_json() -> *mut c_char {
+    to_c(ttime_core::symbols::categories_json())
+}
+
 #[no_mangle]
 pub extern "C" fn ttime_stack_alphabet_json() -> *mut c_char {
     to_c(ttime_core::stack_alphabet_json())
@@ -265,6 +282,17 @@ mod tests {
             ));
             assert!(bad.starts_with("{\"ok\":false"), "{bad}");
             assert!(take(ttime_stack_alphabet_json()).starts_with("{\"consonants\""));
+        }
+    }
+
+    #[test]
+    fn symbols_through_the_c_api() {
+        unsafe {
+            let all = take(ttime_symbols_json(std::ptr::null()));
+            assert!(all.starts_with("[{\"id\":"), "{all}");
+            let q = CString::new("shad").unwrap();
+            assert!(take(ttime_symbols_json(q.as_ptr())).contains("\"id\":\"shad\""));
+            assert!(take(ttime_symbol_categories_json()).starts_with("[\""));
         }
     }
 

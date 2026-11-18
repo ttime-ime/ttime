@@ -67,6 +67,15 @@ char *ttime_build_stack_json(const char *layers, const char *vowel, const char *
  *    "vowels":[...],"marks":[...]} */
 char *ttime_stack_alphabet_json(void);
 
+/* The symbol catalogue (punctuation, marks, Sanskrit letters). `query` is "" or
+ * NULL for all, else matched by name, code point, EWTS or the character.
+ * JSON array: [{"id","category","text","ewts"(or null),"name","label","note",
+ * "evidence","codePoints"}]. */
+char *ttime_symbols_json(const char *query);
+
+/* Category names in order of first appearance, as a JSON array of strings. */
+char *ttime_symbol_categories_json(void);
+
 void ttime_string_free(char *s);
 
 #ifdef __cplusplus

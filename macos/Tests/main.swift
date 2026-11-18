@@ -226,5 +226,28 @@ do {
         failures += 1; print("FAIL alphabet is loaded")
     }
 }
+do {
+    let m = SymbolsModel()
+    if m.results.count < 50 || m.categories.count < 5 { failures += 1; print("FAIL catalogue loads: \(m.results.count)") }
+    m.type("shad")
+    if !m.results.contains(where: { $0.id == "shad" && $0.text == "།" }) { failures += 1; print("FAIL search finds shad") }
+    m.clearQuery()
+    m.setCategory("punctuation")
+    if m.results.isEmpty || m.results.contains(where: { $0.category != "punctuation" }) { failures += 1; print("FAIL category filter") }
+    m.setCategory(nil)
+    for _ in 0...m.categories.count { m.nextCategory() }
+    if m.category != nil { failures += 1; print("FAIL Tab cycles back to all: \(String(describing: m.category))") }
+    m.move(2)
+    if m.selected != 2 { failures += 1; print("FAIL move selects") }
+    m.move(-9)
+    if m.selected != 0 { failures += 1; print("FAIL move stops at the top") }
+    m.type("zzzzzz")
+    if !m.results.isEmpty || m.selectedEntry != nil { failures += 1; print("FAIL no match") }
+    if !m.backspace() { failures += 1; print("FAIL backspace edits the search") }
+    m.clearQuery()
+    if m.backspace() { failures += 1; print("FAIL backspace with an empty search passes through") }
+    let mark = SymbolEntry(id: "x", category: "marks", text: "\u{0F7E}", ewts: "M", name: "", label: "", note: "", codePoints: "")
+    if mark.display != "\u{25CC}\u{0F7E}" { failures += 1; print("FAIL combining mark gets a base") }
+}
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)

@@ -135,3 +135,33 @@ pub fn search(query: &str) -> Vec<&'static Symbol> {
     }
     hits
 }
+
+/// [`search`] as a JSON array in display order:
+/// `[{"id","category","text","ewts"(or null),"name","label","note","evidence","codePoints"}]`.
+pub fn search_json(query: &str) -> String {
+    use crate::json::string;
+    let items: Vec<String> = search(query)
+        .iter()
+        .map(|s| {
+            format!(
+                "{{\"id\":{},\"category\":{},\"text\":{},\"ewts\":{},\"name\":{},\"label\":{},\"note\":{},\"evidence\":{},\"codePoints\":{}}}",
+                string(&s.id),
+                string(&s.category),
+                string(&s.text),
+                s.ewts.as_deref().map_or("null".to_string(), string),
+                string(&s.name),
+                string(&s.label),
+                string(&s.note),
+                string(&s.evidence),
+                string(&s.code_points())
+            )
+        })
+        .collect();
+    format!("[{}]", items.join(","))
+}
+
+/// [`categories`] as a JSON array of strings.
+pub fn categories_json() -> String {
+    let items: Vec<String> = categories().into_iter().map(crate::json::string).collect();
+    format!("[{}]", items.join(","))
+}

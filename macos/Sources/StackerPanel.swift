@@ -101,11 +101,22 @@ final class StackerPanel: NSObject {
 
     // MARK: Showing
 
-    func open() {
+    /// Tab: the symbols window takes over, in the same place.
+    private func switchToSymbols() {
+        let center = panel.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) }
+        close()
+        SymbolsPanel.shared.open(centeredOn: center)
+    }
+
+    func open(centeredOn center: NSPoint? = nil) {
         pendingClose?.cancel()
         let panel = ensurePanel()
         refresh()
-        if !panel.isVisible { place(panel) }
+        if !panel.isVisible {
+            if let c = center {
+                panel.setFrameOrigin(NSPoint(x: c.x - panel.frame.width / 2, y: c.y - panel.frame.height / 2))
+            } else { place(panel) }
+        }
         panel.orderFrontRegardless()
         panel.invalidateShadow()
     }
@@ -150,7 +161,10 @@ final class StackerPanel: NSObject {
             } else {
                 model.type(s)
             }
-        case .other:
+        case .tab:
+            switchToSymbols()
+            return true
+        default:
             return false
         }
         refresh()

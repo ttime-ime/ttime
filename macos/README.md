@@ -10,6 +10,7 @@ replaced or upgraded without touching the shell.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, project artwork, not under the code licence). Checked by rendering, not run in a live input method.
+- `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
 - `Tests/main.swift`: tests for the key policy, run by the build script.
 
 Build (nothing is installed):
@@ -33,7 +34,7 @@ Logic: `Sources/ShiftTap.swift`, `Sources/ModeLock.swift` (both tested).
 
 **Toolbar.** A bubblegum-pink bar shows while T-Time is the active input
 source: the logo (its cat paw hangs below the bar), the Tibetan/Latin mode (click either side) and a lock (click,
-or double-tap left Shift). The Symbols button is disabled until that tool exists; the Stacker button opens the stacker. Drag it anywhere; it remembers where. "Hide Toolbar" is in the
+or double-tap left Shift). The Symbols and Stacker buttons open those windows. Drag it anywhere; it remembers where. "Hide Toolbar" is in the
 input-method menu. It stays pink in dark mode, because the colours are the brand. The logo is
 exported from `visual_design/logos/toolbar_logo.svg` by
 `scripts/export-toolbar-logo.sh`.
@@ -47,6 +48,13 @@ toolbar button or Option+Shift+\` (the key left of 1). While it is open, letters
 go to the stacker, not the document. The engine (`build_stack` in `ttime-core`,
 through `ttime_build_stack_json`) builds every stack, so the window cannot
 disagree with typing.
+
+**Symbols.** Punctuation, head marks, brackets, numbers, syllables, Sanskrit
+letters and marks in one searchable table. Open it by double-tapping right
+Shift or with the toolbar button. Type to search (name, EWTS, code point or the
+character), click a category, arrows move, Return or a click inserts, Esc clears
+the search and then closes. Tab switches between the symbols and the stacker.
+The catalogue is a draft: labels have not been reviewed by a Tibetologist.
 
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System

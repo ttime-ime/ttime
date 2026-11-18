@@ -61,8 +61,9 @@ final class TTimeInputController: IMKInputController {
             return true
         }
         if StackerPanel.shared.isOpen {
-            let key = keyInput(for: event)
-            if StackerPanel.shared.handle(key) { return true }
+            if StackerPanel.shared.handle(keyInput(for: event)) { return true }
+        } else if SymbolsPanel.shared.isOpen {
+            if SymbolsPanel.shared.handle(keyInput(for: event)) { return true }
         }
         let outcome = composer.handle(keyInput(for: event))
         apply(outcome, to: client)
@@ -88,8 +89,11 @@ final class TTimeInputController: IMKInputController {
         toolbar.chooseMode = { [weak self] latin in self?.toolbarChoose(latin: latin) }
         toolbar.toggleLock = { [weak self] in self?.toolbarToggleLock() }
         toolbar.openStacker = { [weak self] in self?.toggleStacker() }
+        toolbar.openSymbols = { [weak self] in self?.toggleSymbols() }
         StackerPanel.shared.cancelClose()
-        StackerPanel.shared.insert = { [weak self] text in self?.insertFromStacker(text) }
+        SymbolsPanel.shared.cancelClose()
+        StackerPanel.shared.insert = { [weak self] text in self?.insertFromTool(text) }
+        SymbolsPanel.shared.insert = { [weak self] text in self?.insertFromTool(text) }
         toolbar.show(toolbarState)
     }
 
@@ -98,6 +102,7 @@ final class TTimeInputController: IMKInputController {
         if Self.active === self {
             Toolbar.shared.scheduleHide()
             StackerPanel.shared.scheduleClose()
+            SymbolsPanel.shared.scheduleClose()
         }
     }
 
@@ -119,13 +124,24 @@ final class TTimeInputController: IMKInputController {
     /// Opens or closes the stacker. What is being typed is fixed first, so the
     /// stack lands after it and nothing is left half-typed.
     private func toggleStacker() {
-        if !StackerPanel.shared.isOpen, let client = client {
-            apply(Outcome(insert: composer.commitAll(), marked: "", handled: true), to: client)
-        }
+        if !StackerPanel.shared.isOpen { commitPending() }
+        SymbolsPanel.shared.close()
         StackerPanel.shared.toggle()
     }
 
-    private func insertFromStacker(_ text: String) {
+    /// The same for the symbols window. Only one of the two is open at a time.
+    private func toggleSymbols() {
+        if !SymbolsPanel.shared.isOpen { commitPending() }
+        StackerPanel.shared.close()
+        SymbolsPanel.shared.toggle()
+    }
+
+    private func commitPending() {
+        guard let client = client else { return }
+        apply(Outcome(insert: composer.commitAll(), marked: "", handled: true), to: client)
+    }
+
+    private func insertFromTool(_ text: String) {
         client?.insertText(text, replacementRange: noRange)
     }
 
@@ -151,7 +167,7 @@ final class TTimeInputController: IMKInputController {
             if tap.kind == .double { Self.saveLock() }
             refreshToolbar()
         case (.right, .double):
-            break  // reserved: opens and closes the symbols table, not built yet
+            toggleSymbols()
         case (.right, .single):
             break
         }
@@ -164,6 +180,11 @@ final class TTimeInputController: IMKInputController {
         case 51: return .backspace
         case 53: return .escape
         case 36, 76: return .enter
+        case 48: return .tab
+        case 126: return .up
+        case 125: return .down
+        case 123: return .left
+        case 124: return .right
         default: break
         }
         if let chars = event.characters, !chars.isEmpty,
