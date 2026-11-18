@@ -5,12 +5,10 @@ private final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
-/// The illustration across the top of the window: the image fills the width and
-/// is cropped to a band, starting a little below its top edge (the faces and
-/// the first cookies), with rounded corners.
+/// The whole illustration, uncropped (the cookies are the symbols), with rounded
+/// corners. Give it the image's own proportions.
 private final class BannerView: NSView {
     private let image: NSImage?
-    private static let topFraction: CGFloat = 0.05
 
     init(image: NSImage?, size: NSSize) {
         self.image = image
@@ -29,12 +27,7 @@ private final class BannerView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let image = image, image.size.width > 0 else { return }
-        let scale = bounds.width / image.size.width
-        let band = bounds.height / scale  // source height covered, in image points
-        let top = image.size.height * Self.topFraction
-        // NSImage's origin is bottom-left.
-        let from = NSRect(x: 0, y: image.size.height - top - band, width: image.size.width, height: band)
-        image.draw(in: bounds, from: from, operation: .sourceOver, fraction: 1)
+        image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
     }
 }
 
@@ -157,7 +150,8 @@ final class SymbolsPanel: NSObject {
         if let url = Bundle.main.url(forResource: "symbols-art", withExtension: "webp") {
             art = NSImage(contentsOf: url)
         }
-        let banner = BannerView(image: art, size: NSSize(width: CGFloat(Self.columns) * (Self.cellSize.width + Self.gap) - Self.gap + 14, height: 170))
+        let artWidth: CGFloat = 450
+        let banner = BannerView(image: art, size: NSSize(width: artWidth, height: artWidth * 1024 / 1536))
 
         let title = NSTextField(labelWithString: "Symbols")
         title.font = NSFont.systemFont(ofSize: 24, weight: .heavy)
@@ -203,21 +197,29 @@ final class SymbolsPanel: NSObject {
         scroll.documentView = documentView
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.widthAnchor.constraint(equalToConstant: width + 14).isActive = true
-        scroll.heightAnchor.constraint(equalToConstant: 240).isActive = true
+        scroll.heightAnchor.constraint(equalToConstant: 338).isActive = true
 
-        let detail = detailCard(width: width + 14)
+        let detail = detailCard(width: artWidth)
 
         hintLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         hintLabel.textColor = plum
 
-        let stack = NSStackView(views: [banner, header, searchLabel, chipRow, scroll, detail, hintLabel])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 9
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 22, bottom: 16, right: 22)
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        // Left: the illustration and the selected symbol. Right: the table.
+        let left = NSStackView(views: [banner, detail])
+        left.orientation = .vertical
+        left.alignment = .leading
+        left.spacing = 12
+        let right = NSStackView(views: [header, searchLabel, chipRow, scroll, hintLabel])
+        right.orientation = .vertical
+        right.alignment = .leading
+        right.spacing = 9
         header.widthAnchor.constraint(equalToConstant: width + 14).isActive = true
-        stack.widthAnchor.constraint(equalToConstant: width + 14 + 44).isActive = true
+        let stack = NSStackView(views: [left, right])
+        stack.orientation = .horizontal
+        stack.alignment = .top
+        stack.spacing = 22
+        stack.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+        stack.translatesAutoresizingMaskIntoConstraints = false
 
         let container = NSView()
         container.wantsLayer = true
@@ -233,8 +235,10 @@ final class SymbolsPanel: NSObject {
             stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         container.layoutSubtreeIfNeeded()
+        var size = container.fittingSize
+        size.height = max(size.height, right.fittingSize.height + 40)
 
-        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: container.fittingSize),
+        let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
         panel.contentView = container
