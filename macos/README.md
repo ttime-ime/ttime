@@ -15,12 +15,12 @@ Build (nothing is installed):
 scripts/build-macos.sh        # tests, then build/macos/T-Time.app (ad-hoc signed)
 ```
 
-Behaviour: typed ASCII is EWTS and shows as marked text; space or Return
-commits; Backspace edits the marked run (and passes through when there is none);
+Behaviour: typed ASCII is EWTS and shows as marked text; space commits
+(with a tsheg); Return commits and then passes through as a new line; Backspace edits the marked run (and passes through when there is none);
 Escape cancels; arrows, Tab and shortcuts commit what is pending and pass through.
 
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System
 Settings, typing in real applications, and the `tsInputModeScriptKey` value.
-There is no icon, no universal (x86_64) build, no Developer ID signing, no
+There is no universal (x86_64) build, no Developer ID signing, no
 notarization and no installer.

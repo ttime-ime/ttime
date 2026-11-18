@@ -54,10 +54,9 @@ final class Composer {
             guard composing else { return Outcome() }
             ttime_session_cancel(session)
             return Outcome(handled: true)
-        case .enter:
-            guard composing else { return Outcome() }
-            return Outcome(insert: take(ttime_session_finish(session)), handled: true)
-        case .other:
+        case .enter, .other:
+            // Commit what is pending, then let the application take the key
+            // (Return starts a new line).
             return Outcome(insert: commitAll(), handled: false)
         }
     }

@@ -37,7 +37,7 @@ do {
 do {
     let c = Composer()
     _ = typed(c, "ka")
-    check(c.handle(.enter), Outcome(insert: "ཀ", marked: "", handled: true), "return commits and is consumed")
+    check(c.handle(.enter), Outcome(insert: "ཀ", marked: "", handled: false), "return commits then passes to the app")
 }
 do {
     let c = Composer()
