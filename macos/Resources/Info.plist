@@ -30,8 +30,6 @@
 		<dict>
 			<key>io.github.ttime-ime.inputmethod.TTime.EWTS</key>
 			<dict>
-				<key>TISIconIsTemplate</key>
-				<true/>
 				<key>TISInputSourceID</key>
 				<string>io.github.ttime-ime.inputmethod.TTime.EWTS</string>
 				<key>TISIntendedLanguage</key>
