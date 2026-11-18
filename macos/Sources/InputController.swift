@@ -118,7 +118,35 @@ final class TTimeInputController: IMKInputController {
                               action: #selector(toggleToolbar(_:)), keyEquivalent: "")
         item.target = self
         menu.addItem(item)
+        menu.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings(_:)), keyEquivalent: "")
+        settings.target = self
+        menu.addItem(settings)
+        let updates = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        updates.target = self
+        menu.addItem(updates)
         return menu
+    }
+
+    @objc private func openSettings(_ sender: Any?) { SettingsWindow.shared.show() }
+
+    @objc private func checkForUpdates(_ sender: Any?) {
+        UpdateManager.shared.check(manual: true) { result in
+            guard case .available = result else {
+                NSApp.activate(ignoringOtherApps: true)
+                let a = NSAlert()
+                switch result {
+                case .failed:
+                    a.messageText = "Could not check for updates"
+                    a.informativeText = "The update server could not be reached."
+                default:
+                    a.messageText = "T-Time is up to date"
+                    a.informativeText = "You have the latest version (\(UpdateManager.shared.currentVersion))."
+                }
+                a.runModal()
+                return
+            }
+        }
     }
 
     @objc private func toggleToolbar(_ sender: Any?) {

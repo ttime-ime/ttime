@@ -272,5 +272,39 @@ do {
     _ = m.flagsChanged(keyCode: L, flags: sh | ShiftTap.commandBit, time: 0)
     expect(m.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "generic bits: Shift+Command is not a tap")
 }
+
+// Updater
+do {
+    func v(_ s: String) -> AppVersion { AppVersion(s)! }
+    func t(_ ok: Bool, _ label: String) { if !ok { failures += 1; print("FAIL \(label)") } }
+    t(v("0.1.0-rc.1") < v("0.1.0-rc.2"), "rc order")
+    t(v("0.1.0-rc.2") < v("0.1.0"), "rc before release")
+    t(v("0.1.0") < v("0.1.1"), "patch")
+    t(v("v0.2") > v("0.1.9"), "v prefix and short")
+    t(v("0.1.0-rc.9") < v("0.1.0-rc.10"), "numeric pre identifiers")
+    t(AppVersion("junk") == nil, "junk")
+
+    let json = """
+    [{"tag_name":"v0.1.0","html_url":"u","prerelease":false,"draft":false,"assets":[
+      {"name":"T-Time-0.1.0-UNSIGNED.pkg","browser_download_url":"a"},
+      {"name":"T-Time-0.1.0.pkg","browser_download_url":"b","digest":"sha256:ABC"}]},
+     {"tag_name":"v0.2.0-rc.1","html_url":"u2","prerelease":true,"draft":false,"assets":[]},
+     {"tag_name":"v9.9.9","html_url":"d","prerelease":false,"draft":true,"assets":[]}]
+    """
+    let rs = Updater.parse(Data(json.utf8))
+    t(rs.count == 3, "parse count")
+    t(Updater.newest(in: rs, than: "0.1.0-rc.2")?.tag == "v0.2.0-rc.1", "prerelease build follows prereleases")
+    t(Updater.newest(in: rs, than: "0.0.9")?.tag == "v0.1.0", "final build skips prereleases and drafts")
+    t(Updater.newest(in: rs, than: "0.1.0") == nil, "up to date")
+    let asset = Updater.installer(of: rs[0])
+    t(asset?.url == "b" && asset?.sha256 == "abc", "installer asset and digest")
+    let now = Date()
+    t(Updater.checkDue(last: nil, now: now), "first check due")
+    t(!Updater.checkDue(last: now.addingTimeInterval(-3600), now: now), "check not due within 6h")
+    t(Updater.checkDue(last: now.addingTimeInterval(-7 * 3600), now: now), "check due after 6h")
+    t(!Updater.offerDue(lastTag: "v1", lastOffered: now.addingTimeInterval(-3600), tag: "v1", now: now), "same release not re-offered within a day")
+    t(Updater.offerDue(lastTag: "v1", lastOffered: now.addingTimeInterval(-3600), tag: "v2", now: now), "newer release offered at once")
+}
+
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)

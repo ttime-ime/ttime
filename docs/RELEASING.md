@@ -63,7 +63,23 @@ To remove T-Time: `sudo sh macos/installer/uninstall.sh`.
 Without the installer secrets the release still publishes the `.pkg`, named
 `...-UNSIGNED.pkg`.
 
+## Installing over an older version, and updates
+
+The installer's `postinstall` stops the old copy, refreshes LaunchServices, and runs
+`TTime --register` in the logged-in user's session (it falls back to rebuilding the
+input source table), then starts the new copy: no logout or restart.
+
+The app checks GitHub releases (`ttime-ime/ttime`) at most every 6 hours and offers a
+newer release once a day. A final build only follows final releases; a prerelease
+build also follows prereleases. The installer asset must be named `T-Time-<version>.pkg`
+(`-UNSIGNED` packages are ignored); GitHub's published SHA-256 digest is checked when present.
+"Install updates in the background" is on by default: the app registers a LaunchDaemon
+(`TTimeUpdateHelper`, inside the app bundle) that downloads and installs the notarized
+package as root every 6 hours. macOS asks the user to approve it once under System
+Settings > Login Items & Extensions; until then the app asks before installing. The helper
+logs to `/var/log/TTimeUpdateHelper.log`. Settings are in the input method's menu.
+
 ## Not covered yet
 
-- Automatic updates, an app icon, Windows and Linux builds.
+- Windows and Linux builds.
 - Signing the Wasm site; it is deployed from the `playground` repository.

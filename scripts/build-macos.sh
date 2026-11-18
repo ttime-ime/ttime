@@ -24,6 +24,7 @@ rm -rf "$OUT"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 triple() { [ "$1" = arm64 ] && echo aarch64-apple-darwin || echo x86_64-apple-darwin; }
 SWIFTFLAGS="-swift-version 5 -O -import-objc-header crates/ttime-ffi/include/ttime.h"
 BINS=""
+HELPERS=""
 for arch in $ARCHS; do
   T=$(triple "$arch")
   cargo build --release -p ttime-ffi --target "$T"
@@ -33,7 +34,7 @@ for arch in $ARCHS; do
   # Key-policy tests: Composer + test driver, no UI frameworks. An architecture
   # the host cannot execute (x86_64 without Rosetta) is built but not tested.
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/composer-tests-$arch" \
-    macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
+    macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift macos/Sources/Updater.swift \
     macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Tests/main.swift "$LIB"
   if arch -"$arch" /usr/bin/true 2>/dev/null; then
     "$OUT/composer-tests-$arch" || { echo "key-policy tests failed ($arch)" >&2; exit 1; }
@@ -44,25 +45,38 @@ for arch in $ARCHS; do
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
     macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
-    macos/Sources/InputController.swift macos/Sources/main.swift \
-    "$LIB" -framework Cocoa -framework InputMethodKit
+    macos/Sources/Updater.swift macos/Sources/UpdateSettings.swift macos/Sources/InputController.swift macos/Sources/main.swift \
+    "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement
   BINS="$BINS $OUT/TTime-$arch"
+
+  # The background update helper: no engine, no UI.
+  swiftc -swift-version 5 -O -target "$TARGET" -o "$OUT/helper-$arch" -parse-as-library \
+    macos/Sources/Updater.swift macos/Sources/UpdateHelper.swift
+  HELPERS="$HELPERS $OUT/helper-$arch"
 done
 lipo -create $BINS -output "$APP/Contents/MacOS/TTime"
-rm -f "$OUT"/composer-tests-* "$OUT"/TTime-*
+lipo -create $HELPERS -output "$APP/Contents/MacOS/TTimeUpdateHelper"
+rm -f "$OUT"/composer-tests-* "$OUT"/TTime-* "$OUT"/helper-*
 
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
 cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp \
    macos/Resources/NotoSerifTibetan.ttf macos/Resources/OFL-NotoSerifTibetan.txt "$APP/Contents/Resources/"
 cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
+mkdir -p "$APP/Contents/Library/LaunchDaemons"
+cp macos/Resources/LaunchDaemons/*.plist "$APP/Contents/Library/LaunchDaemons/"
 [ -n "${VERSION:-}" ] && plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
 [ -n "${BUILD_NUMBER:-}" ] && plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
 
 IDENTITY="${SIGN_IDENTITY:--}"
+# The helper is nested code in Contents/MacOS, which signing the bundle does not
+# reach, so it is signed first.
+HELPER="$APP/Contents/MacOS/TTimeUpdateHelper"
 if [ "$IDENTITY" = "-" ]; then
+  codesign --force --sign - "$HELPER"
   codesign --force --sign - "$APP"
 else
+  codesign --force --sign "$IDENTITY" --options runtime --timestamp "$HELPER"
   codesign --force --sign "$IDENTITY" --options runtime --timestamp "$APP"
 fi
 codesign --verify --strict --verbose=2 "$APP"

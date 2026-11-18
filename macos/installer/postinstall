@@ -1,5 +1,66 @@
 #!/bin/sh
-# Stop a running copy so the new one is loaded the next time the input source is
-# used. Not an error if none is running.
-killall TTime 2>/dev/null || true
+# Installs T-Time over any earlier version without a logout or restart.
+#
+# Runs as root. Registering an input source only works inside the logged-in user's
+# own session, so this joins that session (as marinaMoji's installer does). It never
+# fails the installation: a problem is logged to /var/log/install.log and the user can
+# still add T-Time under System Settings > Keyboard > Input Sources after a logout.
+
+APP="/Library/Input Methods/T-Time.app"
+BIN="$APP/Contents/MacOS/TTime"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+# The system's input source table is built at login; these caches make macOS rebuild
+# it, so a first install appears at once instead of after a logout.
+INTL_CACHES="/System/Library/Caches/com.apple.IntlDataCache.le /System/Library/Caches/com.apple.IntlDataCache.le.kbdx"
+
+say() { echo "T-Time postinstall: $*"; }
+
+USER_NAME=$(/usr/bin/stat -f%Su /dev/console)
+USER_ID=$(/usr/bin/id -u "$USER_NAME" 2>/dev/null)
+
+as_user() { /bin/launchctl asuser "$USER_ID" /usr/bin/sudo -u "$USER_NAME" "$@"; }
+
+HAVE_USER=1
+if [ -z "$USER_NAME" ] || [ "$USER_NAME" = root ] || [ -z "$USER_ID" ]; then
+  HAVE_USER=0
+  say "no console user; registration happens at the next login"
+fi
+
+# Stop the old copy. The system starts the new one the next time the input source is
+# used, and the registration below starts it now. The background updater that may be
+# running this script is a separate program and is not touched.
+if [ "$HAVE_USER" = 1 ]; then
+  /usr/bin/sudo -u "$USER_NAME" /usr/bin/killall TTime >/dev/null 2>&1
+else
+  /usr/bin/killall TTime >/dev/null 2>&1
+fi
+
+# Refresh LaunchServices' record of the new bundle (it may serve the old version's).
+if [ -x "$LSREGISTER" ]; then
+  "$LSREGISTER" -f "$APP" >/dev/null 2>&1
+  [ "$HAVE_USER" = 1 ] && as_user "$LSREGISTER" -f "$APP" >/dev/null 2>&1
+fi
+
+if [ "$HAVE_USER" = 1 ] && [ -x "$BIN" ]; then
+  # Only a first install needs the table rebuilt; an update keeps the input source
+  # where it is, so a running session is not disturbed.
+  if ! as_user "$BIN" --register >/dev/null 2>&1; then
+    for cache in $INTL_CACHES; do /bin/rm -f "$cache" 2>/dev/null; done
+    as_user /usr/bin/killall TextInputMenuAgent >/dev/null 2>&1
+    as_user /usr/bin/killall imklaunchagent >/dev/null 2>&1
+    /bin/sleep 3
+    attempt=1
+    while [ "$attempt" -le 3 ]; do
+      if as_user "$BIN" --register; then say "registered (attempt $attempt)"; break; fi
+      say "registration attempt $attempt failed"
+      as_user /usr/bin/killall TextInputMenuAgent >/dev/null 2>&1
+      as_user /usr/bin/killall imklaunchagent >/dev/null 2>&1
+      /bin/sleep 2
+      attempt=$((attempt + 1))
+    done
+  fi
+  # Start the new version now, in the background, so the background updater and the
+  # settings are in place without waiting for the next keystroke.
+  as_user /usr/bin/open -g "$APP" >/dev/null 2>&1
+fi
 exit 0
