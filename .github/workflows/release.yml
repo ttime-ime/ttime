@@ -18,7 +18,7 @@ env:
 
 jobs:
   release:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
       - run: rustup toolchain install stable --profile minimal -t aarch64-apple-darwin,x86_64-apple-darwin
