@@ -18,6 +18,14 @@ enum Prefs {
         set { d.set(newValue, forKey: "StartInLatin") }
     }
 
+    /// Sanskrit (IAST) suggestions while typing in Latin mode. On by default. The
+    /// suggestions are not built yet (docs/reference/sanskrit-spike.md); this is the
+    /// switch they will honour, so a user's choice is kept from the start.
+    static var sanskritSuggestions: Bool {
+        get { d.object(forKey: "SanskritSuggestions") as? Bool ?? true }
+        set { d.set(newValue, forKey: "SanskritSuggestions") }
+    }
+
     /// The opt-in key log, see DebugLog.
     static var debugKeys: Bool {
         get { d.bool(forKey: "DebugKeys") }

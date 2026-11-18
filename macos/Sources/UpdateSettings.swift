@@ -164,6 +164,7 @@ final class SettingsWindow: NSObject {
 
     private let output = NSPopUpButton(frame: .zero, pullsDown: false)
     private let startMode = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let sanskrit = NSButton(checkboxWithTitle: "Suggest Sanskrit (IAST) words in Latin mode", target: nil, action: nil)
     private let toolbarBox = NSButton(checkboxWithTitle: "Show the floating toolbar", target: nil, action: nil)
     private let debug = NSButton(checkboxWithTitle: "Record a key log (for troubleshooting)", target: nil, action: nil)
     private let showLog = NSButton(title: "Show Log", target: nil, action: nil)
@@ -197,6 +198,7 @@ final class SettingsWindow: NSObject {
         output.target = self; output.action = #selector(outputChanged)
         startMode.addItems(withTitles: ["Tibetan", "Latin"])
         startMode.target = self; startMode.action = #selector(startChanged)
+        sanskrit.target = self; sanskrit.action = #selector(toggleSanskrit)
         toolbarBox.target = self; toolbarBox.action = #selector(toggleToolbarBox)
         debug.target = self; debug.action = #selector(toggleDebug)
         showLog.target = self; showLog.action = #selector(revealLog)
@@ -220,6 +222,8 @@ final class SettingsWindow: NSObject {
             labelled("Output form:", output),
             note("Normalised is the Unicode standard form. Precomposed uses the single compatibility characters some older fonts and tools expect."),
             labelled("A text field starts in:", startMode),
+            sanskrit,
+            note("Offers accented Sanskrit words as you type Latin letters; Tab accepts, arrows move, nothing is replaced unless you choose it. Not available yet: this keeps your choice for when it arrives."),
             heading("Updates"),
             background, status, approval, auto, pre, check,
             heading("Other"),
@@ -249,6 +253,7 @@ final class SettingsWindow: NSObject {
 
     @objc private func outputChanged() { Prefs.precomposed = output.indexOfSelectedItem == 1 }
     @objc private func startChanged() { Prefs.startLatin = startMode.indexOfSelectedItem == 1 }
+    @objc private func toggleSanskrit() { Prefs.sanskritSuggestions = sanskrit.state == .on }
     @objc private func toggleToolbarBox() {
         Toolbar.isHidden = toolbarBox.state == .off
         if Toolbar.isHidden { Toolbar.shared.hideNow() } else { Toolbar.shared.show(Toolbar.shared.state) }
@@ -266,6 +271,7 @@ final class SettingsWindow: NSObject {
     private func refresh() {
         output.selectItem(at: Prefs.precomposed ? 1 : 0)
         startMode.selectItem(at: Prefs.startLatin ? 1 : 0)
+        sanskrit.state = Prefs.sanskritSuggestions ? .on : .off
         toolbarBox.state = Toolbar.isHidden ? .off : .on
         debug.state = Prefs.debugKeys ? .on : .off
         background.state = UpdatePrefs.background ? .on : .off
