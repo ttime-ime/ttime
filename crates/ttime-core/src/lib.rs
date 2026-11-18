@@ -14,8 +14,9 @@ pub mod symbols;
 
 pub use composition::{Engine, Session};
 pub use ewts::{
-    convert, ewts_to_unicode, ewts_to_unicode_with, unicode_to_ewts, Category, Code, Conversion,
-    Diagnostic, Fidelity, Options, Reverse, Severity,
+    build_stack, convert, ewts_to_unicode, ewts_to_unicode_with, stack_alphabet, unicode_to_ewts,
+    Alphabet, Category, Code, Conversion, Diagnostic, Fidelity, Letter, Options, Reverse, Severity,
+    Stack, StackError,
 };
 
 /// Crate version, for builds that report which core produced a result.
