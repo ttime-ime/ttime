@@ -43,7 +43,7 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
+    macos/Sources/DebugLog.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
     macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit
   BINS="$BINS $OUT/TTime-$arch"

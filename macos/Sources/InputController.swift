@@ -44,9 +44,11 @@ final class TTimeInputController: IMKInputController {
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event = event, let client = sender as? IMKTextInput else { return false }
         if event.type == .flagsChanged {
+            DebugLog.log("flagsChanged keyCode=\(event.keyCode) flags=0x\(String(event.modifierFlags.rawValue, radix: 16)) t=\(event.timestamp) latin=\(composer.isLatin)")
             if let tap = shiftTap.flagsChanged(keyCode: event.keyCode,
                                                flags: UInt(event.modifierFlags.rawValue),
                                                time: event.timestamp) {
+                DebugLog.log("  tap \(tap.side) \(tap.kind) -> lock=\(String(describing: Self.lock.lockedLatin))")
                 shiftTapped(tap, client: client)
             }
             // Never consume a modifier change: the application must see the
@@ -54,6 +56,7 @@ final class TTimeInputController: IMKInputController {
             return false
         }
         guard event.type == .keyDown else { return false }
+        DebugLog.log("keyDown keyCode=\(event.keyCode) flags=0x\(String(event.modifierFlags.rawValue, radix: 16))")
         shiftTap.keyDown()
         // Option+Shift+` (the key left of 1) opens and closes the stacker.
         if event.keyCode == 50, event.modifierFlags.contains([.option, .shift]) {
@@ -77,6 +80,7 @@ final class TTimeInputController: IMKInputController {
     }
 
     override func activateServer(_ sender: Any!) {
+        DebugLog.log("activateServer client=\((sender as? IMKTextInput)?.bundleIdentifier() ?? "?")")
         shiftTap.reset()
         composer.reset()
         client = sender as? IMKTextInput
@@ -98,6 +102,7 @@ final class TTimeInputController: IMKInputController {
     }
 
     override func deactivateServer(_ sender: Any!) {
+        DebugLog.log("deactivateServer")
         shiftTap.reset()
         if Self.active === self {
             Toolbar.shared.scheduleHide()
