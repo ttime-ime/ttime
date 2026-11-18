@@ -54,7 +54,7 @@ letters and marks in one searchable table. Open it by double-tapping right
 Shift or with the toolbar button. Type to search (name, EWTS, code point or the
 character), click a category, arrows move, Return or a click inserts, Esc clears
 the search and then closes. Tab switches between the symbols and the stacker.
-The catalogue is a draft: labels have not been reviewed by a Tibetologist.
+The window opens with the cookie-icing illustration (`Resources/symbols-art.webp`, cropped to a banner; project artwork, not under the code licence, provenance unrecorded). The catalogue is a draft: labels have not been reviewed by a Tibetologist.
 
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System

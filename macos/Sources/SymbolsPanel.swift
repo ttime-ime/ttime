@@ -5,6 +5,39 @@ private final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
+/// The illustration across the top of the window: the image fills the width and
+/// is cropped to a band, starting a little below its top edge (the faces and
+/// the first cookies), with rounded corners.
+private final class BannerView: NSView {
+    private let image: NSImage?
+    private static let topFraction: CGFloat = 0.05
+
+    init(image: NSImage?, size: NSSize) {
+        self.image = image
+        super.init(frame: NSRect(origin: .zero, size: size))
+        wantsLayer = true
+        layer?.cornerRadius = 20
+        layer?.masksToBounds = true
+        layer?.borderWidth = 2
+        layer?.borderColor = StackerPanel.pinkStrong.cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+        widthAnchor.constraint(equalToConstant: size.width).isActive = true
+        heightAnchor.constraint(equalToConstant: size.height).isActive = true
+        setAccessibilityLabel("A cat-maid icing Tibetan symbol cookies, and a yak sniffing them")
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let image = image, image.size.width > 0 else { return }
+        let scale = bounds.width / image.size.width
+        let band = bounds.height / scale  // source height covered, in image points
+        let top = image.size.height * Self.topFraction
+        // NSImage's origin is bottom-left.
+        let from = NSRect(x: 0, y: image.size.height - top - band, width: image.size.width, height: band)
+        image.draw(in: bounds, from: from, operation: .sourceOver, fraction: 1)
+    }
+}
+
 /// The symbols window: Tibetan punctuation, head marks, marks, numbers and
 /// Sanskrit letters in one searchable table, in the same pink as the stacker.
 /// Type to search (by name, EWTS, code point or the character), arrows move,
@@ -120,6 +153,12 @@ final class SymbolsPanel: NSObject {
         if let panel = panel { return panel }
         let plum = Toolbar.plum
 
+        var art: NSImage?
+        if let url = Bundle.main.url(forResource: "symbols-art", withExtension: "webp") {
+            art = NSImage(contentsOf: url)
+        }
+        let banner = BannerView(image: art, size: NSSize(width: CGFloat(Self.columns) * (Self.cellSize.width + Self.gap) - Self.gap + 14, height: 170))
+
         let title = NSTextField(labelWithString: "Symbols")
         title.font = NSFont.systemFont(ofSize: 24, weight: .heavy)
         title.textColor = plum
@@ -164,14 +203,14 @@ final class SymbolsPanel: NSObject {
         scroll.documentView = documentView
         scroll.translatesAutoresizingMaskIntoConstraints = false
         scroll.widthAnchor.constraint(equalToConstant: width + 14).isActive = true
-        scroll.heightAnchor.constraint(equalToConstant: 300).isActive = true
+        scroll.heightAnchor.constraint(equalToConstant: 240).isActive = true
 
         let detail = detailCard(width: width + 14)
 
         hintLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         hintLabel.textColor = plum
 
-        let stack = NSStackView(views: [header, searchLabel, chipRow, scroll, detail, hintLabel])
+        let stack = NSStackView(views: [banner, header, searchLabel, chipRow, scroll, detail, hintLabel])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 9

@@ -52,7 +52,7 @@ lipo -create $BINS -output "$APP/Contents/MacOS/TTime"
 rm -f "$OUT"/composer-tests-* "$OUT"/TTime-*
 
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
-cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/stacker-art.webp "$APP/Contents/Resources/"
+cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp "$APP/Contents/Resources/"
 cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
 [ -n "${VERSION:-}" ] && plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
 [ -n "${BUILD_NUMBER:-}" ] && plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$APP/Contents/Info.plist"
