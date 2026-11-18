@@ -88,6 +88,36 @@ not the commentarial or Madhyamaka prose scholars write about. The honest readin
 "counts rank far better than any dictionary label", not "56%". Held-out text would be
 the next test.
 
+## Held-out test (`heldout.py`)
+
+Each text in turn is held out (the three Abhidharma files together). Counts and extra
+lemmas come only from the other texts; every word of the held-out text is then "typed"
+(target: its lemma, as the dictionary spells it) and the letters needed to get it into
+a five-item list are counted. This replaces my hand-picked terms with real running text.
+
+| Held-out text | Words | Letters saved: alphabetical / shorter / Buddhist label / counts from the rest |
+|---|---|---|
+| Saddharmapuṇḍarīka | 31,910 | 20.2 / 24.9 / 28.5 / **56.8** |
+| Lalitavistara | 25,310 | 19.3 / 24.5 / 27.1 / **52.6** |
+| Avadānaśataka | 19,890 | 17.3 / 23.0 / 27.4 / **52.2** |
+| Buddhacarita | 19,067 | 16.5 / 23.5 / 23.1 / **43.2** |
+| Bodhicaryāvatāra | 13,775 | 16.5 / 24.1 / 22.6 / **46.1** |
+| Laṅkāvatārasūtra | 13,599 | 18.6 / 23.5 / 28.9 / **48.6** |
+| Abhidharma (3 files) | 1,209 | 15.2 / 23.1 / 27.3 / **49.8** |
+| Śikṣāsamuccaya | 792 | 19.9 / 25.8 / 27.9 / **53.1** |
+| All, weighted by words | 125,552 | 18.5 / 24.1 / 26.7 / **51.3** |
+
+- Counts from other texts save **43 to 57%** on text they have not seen, against 27% for
+  the Buddhist label and 24% for shorter-first. The earlier 56% survives, at 51%.
+- Only 1.2% of running words are outside the pool (dictionaries plus the other texts'
+  lemmas), and 92% of them occur in the training texts. The vocabulary is not the limit.
+- The weakest results are the two verse works (Buddhacarita 43%, Bodhicaryāvatāra 46%).
+- Caveats: the texts are only these nine; the savings are weighted by running words, so
+  very frequent short words (`ca`, `iti`, `tu`) are counted and lengthen nothing; users type
+  inflected forms, the test types lemmas; and nothing here tests whether a scholar wants a
+  list for every word. A fairer product figure would count only words of five letters or
+  more.
+
 ## What this does not show
 
 - No real usage frequency exists in this data; the rankings are proxies. A frequency
