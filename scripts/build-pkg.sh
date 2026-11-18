@@ -55,7 +55,13 @@ pkgbuild --root "$W/root" --component-plist "$W/components.plist" --scripts "$W/
   echo "The illustrations and logos were made for T-Time and are not covered by the"
   echo "licences above."
 } > "$W/res/license.txt"
-cp macos/installer/welcome.html macos/installer/conclusion.html "$W/res/"
+# productbuild keeps only the resources it knows (such as the background), not
+# images an HTML page refers to, so the logo is embedded in the pages themselves.
+cp macos/installer/background.png "$W/res/"
+LOGO=$(base64 < macos/installer/logo.png | tr -d '\n')
+for page in welcome conclusion; do
+  sed "s|src=\"logo.png\"|src=\"data:image/png;base64,$LOGO\"|" "macos/installer/$page.html" > "$W/res/$page.html"
+done
 sed "s/@VERSION@/$VERSION/g" macos/installer/distribution.xml > "$W/distribution.xml"
 
 if [ -n "${PKG_SIGN_IDENTITY:-}" ]; then

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Regenerates macos/Resources/icon.tiff, the input-source icon shown in the menu
+# Regenerates macos/Resources/icon.tiff (and the installer's macos/installer/logo.png and background.png), the input-source icon shown in the menu
 # bar and in System Settings, from the square logo (the pink boba cup). It is a
 # full-colour icon: 16 pt at 1x and 2x, plus a 32 pt version for larger slots.
 # Needs Inkscape and Xcode command line tools.
@@ -25,4 +25,9 @@ for (px, pt) in [(16, 16), (32, 16), (64, 32)] {
 }
 try! image.tiffRepresentation!.write(to: URL(fileURLWithPath: out))
 SWIFT
+# The same logo for the installer's pages and window background.
+/Applications/Inkscape.app/Contents/MacOS/inkscape "$SRC" --export-type=png --export-width=256 --export-height=256 \
+  --export-filename=macos/installer/logo.png >/dev/null 2>&1
+/Applications/Inkscape.app/Contents/MacOS/inkscape "$SRC" --export-type=png --export-width=160 --export-height=160 \
+  --export-filename=macos/installer/background.png >/dev/null 2>&1
 rm -rf "$TMP"

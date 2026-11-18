@@ -51,7 +51,7 @@ certificate into a temporary keychain and deletes the key file after use.
 `scripts/build-pkg.sh` turns `build/macos/T-Time.app` into `build/macos/T-Time-<version>.pkg`
 (run `scripts/build-macos.sh` first). It installs into `/Library/Input Methods` for
 all users (administrator password), is non-relocatable, stops a running copy
-afterwards, and shows the licence (`LICENSE-MIT`, `LICENSE-APACHE`, the bundled
+afterwards, and shows the logo, the licence (`LICENSE-MIT`, `LICENSE-APACHE`, the bundled
 font's OFL text and an artwork note, assembled by the script), a welcome page and a
 closing page telling the user to log out and in and add the input source. macOS
 does not let an installer enable an input method, so those two steps stay manual.
