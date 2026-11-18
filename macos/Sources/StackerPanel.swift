@@ -7,6 +7,8 @@ final class BubbleButton: NSButton {
     var glyph = ""
     var caption = ""
     var glyphSize: CGFloat = 18
+    /// The caption goes beside the glyph instead of under it (compact chips).
+    var inlineCaption = false
     var filled = false { didSet { paint() } }
 
     convenience init(glyph: String, caption: String = "", glyphSize: CGFloat = 18, tip: String, label: String,
@@ -28,6 +30,28 @@ final class BubbleButton: NSButton {
         paint()
     }
 
+    private var glyphLabel: NSTextField?
+    private var captionLabel: NSTextField?
+
+    private func ensureLabels() -> (NSTextField, NSTextField) {
+        if let g = glyphLabel, let c = captionLabel { return (g, c) }
+        let g = NSTextField(labelWithString: "")
+        let c = NSTextField(labelWithString: "")
+        for l in [g, c] {
+            l.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(l)
+            l.centerXAnchor.constraint(equalTo: centerXAnchor).isActive = true
+        }
+        g.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -4).isActive = true
+        c.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -3).isActive = true
+        glyphLabel = g
+        captionLabel = c
+        return (g, c)
+    }
+
+    // The labels are only drawing; every click belongs to the button.
+    override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
+
     @objc private func fire() { onClick?() }
     override var acceptsFirstResponder: Bool { false }
 
@@ -39,19 +63,35 @@ final class BubbleButton: NSButton {
         layer?.backgroundColor = (filled ? Toolbar.plum : Toolbar.cream.withAlphaComponent(0.85)).cgColor
         layer?.borderColor = (filled ? Toolbar.plum : StackerPanel.pinkStrong).cgColor
         let ink = filled ? NSColor.white : Toolbar.plum
+        let font = TibetanFont.contains(glyph) ? TibetanFont.font(glyphSize)
+            : NSFont.systemFont(ofSize: glyphSize, weight: caption.isEmpty || inlineCaption ? .semibold : .regular)
         let para = NSMutableParagraphStyle()
         para.alignment = .center
-        let text = NSMutableAttributedString(string: glyph, attributes: [
-            .font: NSFont.systemFont(ofSize: glyphSize, weight: caption.isEmpty ? .semibold : .regular),
-            .foregroundColor: ink, .paragraphStyle: para,
-        ])
-        if !caption.isEmpty {
-            text.append(NSAttributedString(string: "\n" + caption, attributes: [
+        if caption.isEmpty || inlineCaption {
+            // One line: an ordinary button title.
+            let text = NSMutableAttributedString(string: glyph, attributes: [
+                .font: font, .foregroundColor: ink, .paragraphStyle: para])
+            if inlineCaption {
+                text.append(NSAttributedString(string: "  " + caption, attributes: [
+                    .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
+                    .foregroundColor: ink.withAlphaComponent(0.75), .paragraphStyle: para]))
+            }
+            attributedTitle = text
+            glyphLabel?.isHidden = true
+            captionLabel?.isHidden = true
+        } else {
+            // A glyph over a key. Noto Serif Tibetan has tall line boxes that a
+            // single title would push the caption out with, so each gets a label.
+            attributedTitle = NSAttributedString(string: "")
+            let g = ensureLabels()
+            g.0.isHidden = false
+            g.1.isHidden = false
+            g.0.attributedStringValue = NSAttributedString(string: glyph, attributes: [
+                .font: font, .foregroundColor: ink, .paragraphStyle: para])
+            g.1.attributedStringValue = NSAttributedString(string: caption, attributes: [
                 .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
-                .foregroundColor: ink.withAlphaComponent(0.75), .paragraphStyle: para,
-            ]))
+                .foregroundColor: ink.withAlphaComponent(0.75), .paragraphStyle: para])
         }
-        attributedTitle = text
         setAccessibilityValue(filled ? "selected" : "not selected")
     }
 }
@@ -218,15 +258,18 @@ final class StackerPanel: NSObject {
         header.setHuggingPriority(.defaultLow, for: .horizontal)
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
 
-        layersRow.orientation = .horizontal
-        layersRow.spacing = 6
-        layersRow.alignment = .centerY
+        // The chosen letters are drawn the way the stack is: one above the other,
+        // first letter on top. The column lives in the answer card (resultCard).
+        layersRow.orientation = .vertical
+        layersRow.spacing = 3
+        layersRow.alignment = .centerX
+        emptyHint.stringValue = "Add letters top to bottom: the first goes on top."
         emptyHint.font = NSFont.systemFont(ofSize: 12)
         emptyHint.textColor = Toolbar.plum.withAlphaComponent(0.7)
         let layersBox = NSView()
         layersBox.translatesAutoresizingMaskIntoConstraints = false
-        layersBox.heightAnchor.constraint(equalToConstant: 52).isActive = true
-        for v in [layersRow, emptyHint] {
+        layersBox.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        for v in [emptyHint] {
             v.translatesAutoresizingMaskIntoConstraints = false
             layersBox.addSubview(v)
             v.leadingAnchor.constraint(equalTo: layersBox.leadingAnchor).isActive = true
@@ -255,7 +298,7 @@ final class StackerPanel: NSObject {
             label.widthAnchor.constraint(equalToConstant: 82).isActive = true
             var buttons: [NSView] = [label]
             for key in keys {
-                let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 17,
+                let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 15,
                                      tip: "Add \(key)", label: "Add \(key)") { [weak self] in
                     self?.model.addLayer(key)
                     self?.refresh()
@@ -309,6 +352,10 @@ final class StackerPanel: NSObject {
         right.alignment = .leading
         right.spacing = 9
         right.setCustomSpacing(4, after: layersBox)
+        let flexible = NSView()
+        flexible.setContentHuggingPriority(.init(1), for: .vertical)
+        flexible.setContentCompressionResistancePriority(.init(1), for: .vertical)
+        right.addArrangedSubview(flexible)
 
         let root = NSStackView(views: [left, right])
         root.orientation = .horizontal
@@ -381,7 +428,7 @@ final class StackerPanel: NSObject {
     }
 
     private func resultCard() -> NSView {
-        preview.font = NSFont.systemFont(ofSize: 56)
+        preview.font = TibetanFont.font(46)
         preview.textColor = Toolbar.plum
         preview.alignment = .center
         preview.lineBreakMode = .byTruncatingTail
@@ -447,7 +494,13 @@ final class StackerPanel: NSObject {
         typeRowView = typeRow
         typeRow.alignment = .lastBaseline
         typeRow.spacing = 6
-        let stack = NSStackView(views: [preview, typeRow, canonicalLabel, codesLabel, notesLabel, hintLabel, buttons, presets])
+        let previewRow = NSStackView(views: [layersRow, preview])
+        previewRow.orientation = .horizontal
+        previewRow.alignment = .top
+        previewRow.spacing = 6
+        layersRow.setContentHuggingPriority(.required, for: .horizontal)
+        preview.setContentHuggingPriority(.init(1), for: .horizontal)
+        let stack = NSStackView(views: [previewRow, typeRow, canonicalLabel, codesLabel, notesLabel, hintLabel, buttons, presets])
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 4
@@ -458,7 +511,7 @@ final class StackerPanel: NSObject {
         buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
         presets.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
         for l in presetLines { l.widthAnchor.constraint(equalTo: presets.widthAnchor).isActive = true }
-        preview.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
+        previewRow.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
 
         let box = NSView()
         box.wantsLayer = true
@@ -474,6 +527,7 @@ final class StackerPanel: NSObject {
             stack.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: box.trailingAnchor),
             stack.topAnchor.constraint(equalTo: box.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: box.bottomAnchor),
         ])
         return box
     }
@@ -493,18 +547,19 @@ final class StackerPanel: NSObject {
         for v in layersRow.arrangedSubviews { layersRow.removeArrangedSubview(v); v.removeFromSuperview() }
         let example = Dictionary(uniqueKeysWithValues: (model.alphabet.consonants + model.alphabet.subjoinedOnly).map { ($0.key, $0.example) })
         for (i, key) in model.layers.enumerated() {
-            let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 20,
+            let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 17,
                                  tip: "Remove \(key)", label: "Remove \(key), position \(i + 1)") { [weak self] in
                 self?.model.removeLayer(at: i)
                 self?.refresh()
             }
             b.filled = true
-            b.widthAnchor.constraint(equalToConstant: 42).isActive = true
-            b.heightAnchor.constraint(equalToConstant: 48).isActive = true
+            b.inlineCaption = true
+            b.paint()
+            b.widthAnchor.constraint(equalToConstant: 66).isActive = true
+            b.heightAnchor.constraint(equalToConstant: 30).isActive = true
             layersRow.addArrangedSubview(b)
         }
         layersRow.isHidden = model.layers.isEmpty
-        emptyHint.isHidden = !model.layers.isEmpty
         typedLabel.stringValue = model.typed.isEmpty ? " " : "typing: \(model.typed)▏"
 
         for (key, b) in cells {

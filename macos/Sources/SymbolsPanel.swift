@@ -261,7 +261,7 @@ final class SymbolsPanel: NSObject {
 
     private func detailCard(width: CGFloat) -> NSView {
         let plum = Toolbar.plum
-        bigGlyph.font = NSFont.systemFont(ofSize: 44)
+        bigGlyph.font = TibetanFont.font(40)
         bigGlyph.textColor = plum
         bigGlyph.alignment = .center
         bigGlyph.translatesAutoresizingMaskIntoConstraints = false

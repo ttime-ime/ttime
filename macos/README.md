@@ -11,6 +11,7 @@ replaced or upgraded without touching the shell.
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, project artwork, not under the code licence). Checked by rendering, not run in a live input method.
 - `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
+- `Sources/TibetanFont.swift`: registers the bundled Noto Serif Tibetan (`Resources/NotoSerifTibetan.ttf`, SIL OFL 1.1, text in `Resources/OFL-NotoSerifTibetan.txt`; a format conversion of the web playground's copy) for T-Time's own windows. macOS's built-in Tibetan fonts do not stack Sanskrit combinations such as retroflex letters under other letters. Text inserted into a document is drawn in the document's font, so for Sanskrit stacks choose a font such as Noto Serif Tibetan or Jomolhari there.
 - `Tests/main.swift`: tests for the key policy, run by the build script.
 
 Build (nothing is installed):
