@@ -249,5 +249,28 @@ do {
     let mark = SymbolEntry(id: "x", category: "marks", text: "\u{0F7E}", ewts: "M", name: "", label: "", note: "", codePoints: "")
     if mark.display != "\u{25CC}\u{0F7E}" { failures += 1; print("FAIL combining mark gets a base") }
 }
+do {
+    // What macOS really sends an input method: only the generic Shift bit (0x20000),
+    // no per-key device bits (seen in a log from a real run).
+    let sh = ShiftTap.shiftMask
+    var t = ShiftTap()
+    expect(tap(&t, L, sh, at: 0), ShiftTapEvent(side: .left, kind: .single), "generic bits: left tap")
+    expect(tap(&t, L, sh, at: 0.3), ShiftTapEvent(side: .left, kind: .double), "generic bits: left double")
+    expect(tap(&t, R, sh, at: 5), ShiftTapEvent(side: .right, kind: .single), "generic bits: right tap")
+    expect(tap(&t, R, sh, at: 5.2), ShiftTapEvent(side: .right, kind: .double), "generic bits: right double")
+    var c = ShiftTap()
+    _ = c.flagsChanged(keyCode: L, flags: sh, time: 0)
+    c.keyDown()
+    expect(c.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "generic bits: Shift+letter is not a tap")
+    var b = ShiftTap()
+    _ = b.flagsChanged(keyCode: L, flags: sh, time: 0)
+    _ = b.flagsChanged(keyCode: R, flags: sh, time: 0.05)
+    expect(b.flagsChanged(keyCode: L, flags: sh, time: 0.1), nil, "generic bits: both Shifts, left release")
+    expect(b.flagsChanged(keyCode: R, flags: 0, time: 0.12), nil, "generic bits: both Shifts, right release")
+    expect(tap(&b, L, sh, at: 3), ShiftTapEvent(side: .left, kind: .single), "generic bits: tap after both Shifts")
+    var m = ShiftTap()
+    _ = m.flagsChanged(keyCode: L, flags: sh | ShiftTap.commandBit, time: 0)
+    expect(m.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "generic bits: Shift+Command is not a tap")
+}
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)

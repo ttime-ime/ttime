@@ -31,8 +31,11 @@ struct ShiftTap {
     static let leftKeyCode: UInt16 = 56
     static let rightKeyCode: UInt16 = 60
 
-    // Bits of NSEvent.modifierFlags.rawValue. The device-dependent Shift bits
-    // tell the two keys apart even while the other one is held.
+    // Bits of NSEvent.modifierFlags.rawValue. macOS may or may not include the
+    // device-dependent Shift bits (one per key); an input method has been seen to
+    // receive only the generic `shiftMask`, so press and release must also be
+    // decidable from that and from which keys are known to be held.
+    static let shiftMask: UInt = 1 << 17
     static let leftShiftBit: UInt = 0x2
     static let rightShiftBit: UInt = 0x4
     static let controlBit: UInt = 1 << 18
@@ -84,9 +87,21 @@ struct ShiftTap {
         let bit = side == .left ? Self.leftShiftBit : Self.rightShiftBit
         let chord = flags & Self.chordModifiers != 0
 
-        if flags & bit != 0 {
+        let thisHeld = side == .left ? left != nil : right != nil
+        let otherHeld = side == .left ? right != nil : left != nil
+        let down: Bool
+        if flags & (Self.leftShiftBit | Self.rightShiftBit) != 0 {
+            down = flags & bit != 0  // the device bits say exactly which keys are down
+        } else if flags & Self.shiftMask == 0 {
+            down = false  // no Shift at all is down
+        } else {
+            // Only the generic bit: with the other Shift down it cannot say which
+            // changed, so this key's state toggles; otherwise Shift is now down.
+            down = otherHeld ? !thisHeld : true
+        }
+
+        if down {
             // Press. If the other Shift is already down, both are a chord.
-            let otherHeld = side == .left ? right != nil : left != nil
             if otherHeld { keyDown() }
             let held = Held(since: time, spoiled: chord || otherHeld)
             if side == .left { left = held } else { right = held }
