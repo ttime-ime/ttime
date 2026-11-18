@@ -61,6 +61,15 @@ final class Composer {
         }
     }
 
+    var isLatin: Bool { ttime_session_is_latin(session) }
+
+    /// Switches between Tibetan and Latin. Pending Tibetan is fixed first and
+    /// comes back as `insert`; the marked text is cleared.
+    func setLatin(_ on: Bool) -> Outcome {
+        ttime_session_set_latin(session, on)
+        return Outcome(insert: take(ttime_session_take_committed(session)), marked: "", handled: true)
+    }
+
     /// Commits any pending text and returns everything not yet inserted.
     func commitAll() -> String {
         take(ttime_session_finish(session))

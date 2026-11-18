@@ -19,6 +19,15 @@ Behaviour: typed ASCII is EWTS and shows as marked text; space commits
 (with a tsheg); Return commits and then passes through as a new line; Backspace edits the marked run (and passes through when there is none);
 Escape cancels; arrows, Tab and shortcuts commit what is pending and pass through.
 
+**Shift taps.** Tap left Shift to flip Tibetan and Latin until focus moves to
+another field or app. Double-tap it (within 500 ms) to lock the mode you were
+in; the lock survives focus changes and restarts, single taps are ignored while
+it is on, and another double tap always clears it. A single tap of right Shift
+does nothing; a double tap is reserved for the symbols table (not built). A tap
+means no other key or modifier in between and a press under 350 ms, so Shift
+for a capital never toggles. There is no on-screen indicator of the mode yet.
+Logic: `Sources/ShiftTap.swift`, `Sources/ModeLock.swift` (both tested).
+
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System
 Settings, typing in real applications, and the `tsInputModeScriptKey` value.

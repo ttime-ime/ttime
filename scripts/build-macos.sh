@@ -33,7 +33,8 @@ for arch in $ARCHS; do
   # Key-policy tests: Composer + test driver, no UI frameworks. An architecture
   # the host cannot execute (x86_64 without Rosetta) is built but not tested.
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/composer-tests-$arch" \
-    macos/Sources/Composer.swift macos/Tests/main.swift "$LIB"
+    macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
+    macos/Tests/main.swift "$LIB"
   if arch -"$arch" /usr/bin/true 2>/dev/null; then
     "$OUT/composer-tests-$arch" || { echo "key-policy tests failed ($arch)" >&2; exit 1; }
   else
@@ -41,7 +42,8 @@ for arch in $ARCHS; do
   fi
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
-    macos/Sources/Composer.swift macos/Sources/InputController.swift macos/Sources/main.swift \
+    macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
+    macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit
   BINS="$BINS $OUT/TTime-$arch"
 done

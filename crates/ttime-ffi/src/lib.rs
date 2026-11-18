@@ -115,6 +115,22 @@ pub unsafe extern "C" fn ttime_session_finish(s: *mut ttime_session) -> *mut c_c
 }
 
 /// # Safety
+/// `s` must be null or a live session.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_session_set_latin(s: *mut ttime_session, on: bool) {
+    if !s.is_null() {
+        (*s).0.set_latin(on);
+    }
+}
+
+/// # Safety
+/// `s` must be null or a live session.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_session_is_latin(s: *const ttime_session) -> bool {
+    !s.is_null() && (*s).0.latin()
+}
+
+/// # Safety
 /// `s` must be null or a string returned by this library, not yet freed.
 #[no_mangle]
 pub unsafe extern "C" fn ttime_string_free(s: *mut c_char) {
@@ -171,6 +187,28 @@ mod tests {
             let bad = CString::new(vec![b'k', 0xFF, b'a']).unwrap();
             ttime_session_insert(s, bad.as_ptr());
             let _ = take(ttime_session_finish(s));
+            ttime_session_free(s);
+        }
+    }
+
+    #[test]
+    fn latin_mode_passes_text_through_and_flushes_pending_tibetan() {
+        unsafe {
+            let s = ttime_session_new(false);
+            assert!(!ttime_session_is_latin(s));
+            let ka = CString::new("ka").unwrap();
+            ttime_session_insert(s, ka.as_ptr());
+            ttime_session_set_latin(s, true);
+            assert!(ttime_session_is_latin(s));
+            assert!(!ttime_session_has_provisional(s));
+            assert_eq!(take(ttime_session_take_committed(s)), "ཀ");
+            let kha = CString::new("kha ").unwrap();
+            ttime_session_insert(s, kha.as_ptr());
+            assert_eq!(take(ttime_session_take_committed(s)), "kha ");
+            ttime_session_set_latin(s, false);
+            assert!(!ttime_session_is_latin(s));
+            ttime_session_set_latin(std::ptr::null_mut(), true);
+            assert!(!ttime_session_is_latin(std::ptr::null()));
             ttime_session_free(s);
         }
     }

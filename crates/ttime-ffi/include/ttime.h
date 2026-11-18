@@ -46,6 +46,12 @@ char *ttime_session_take_committed(ttime_session *s);
  * take (use when the user presses Return or the field loses focus). */
 char *ttime_session_finish(ttime_session *s);
 
+/* Latin mode: typed text passes through unchanged (no EWTS, a space is a
+ * space). Switching either way first fixes the provisional run; collect it with
+ * ttime_session_take_committed(). */
+void ttime_session_set_latin(ttime_session *s, bool on);
+bool ttime_session_is_latin(const ttime_session *s);
+
 void ttime_string_free(char *s);
 
 #ifdef __cplusplus
