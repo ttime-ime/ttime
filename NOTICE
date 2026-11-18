@@ -18,5 +18,12 @@ honestly; "unverified" means not yet checked.
   text copied. Stack inventory agreement was checked by behaviour, not by copying.
 - Botok, Tibetan NLP, TiSpell, OpenPecha, BDRC: unverified; unused.
 
+- Noto Serif Tibetan (SIL Open Font License 1.1): bundled in the macOS app
+  (`macos/Resources/NotoSerifTibetan.ttf`, a format conversion of the web
+  playground's copy, not subset or renamed) and in the web playground, for T-Time's
+  own windows. Licence text: `macos/Resources/OFL-NotoSerifTibetan.txt`, also shown
+  in the installer. The font may be redistributed with this software; it may not be
+  sold on its own.
+
 T-Time's own code is licensed under MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE).
-The artwork in design/ is not covered by that grant; see the README.
+The illustrations and logos were made for T-Time and are not covered by that grant; see the README.

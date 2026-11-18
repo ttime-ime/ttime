@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stop a running copy so the new one is loaded the next time the input source is
+# used. Not an error if none is running.
+killall TTime 2>/dev/null || true
+exit 0

@@ -39,10 +39,14 @@ jobs:
           CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
           IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          INSTALLER_P12: ${{ secrets.MACOS_INSTALLER_CERT_P12 }}
+          INSTALLER_PASSWORD: ${{ secrets.MACOS_INSTALLER_CERT_PASSWORD }}
+          INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
         run: |
           if [ -z "$CERT_P12" ] || [ -z "$IDENTITY" ]; then
             echo "No signing certificate configured: building UNSIGNED (ad-hoc)."
             echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "pkg_signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           kc="$RUNNER_TEMP/build.keychain-db"
@@ -56,6 +60,18 @@ jobs:
           security list-keychains -d user -s "$kc" login.keychain-db
           rm -f "$RUNNER_TEMP/cert.p12"
           echo "signed=true" >> "$GITHUB_OUTPUT"
+          # The installer package is signed with a different certificate,
+          # "Developer ID Installer". Without it the .pkg is published UNSIGNED.
+          if [ -n "$INSTALLER_P12" ] && [ -n "$INSTALLER_IDENTITY" ]; then
+            printf '%s' "$INSTALLER_P12" | base64 --decode > "$RUNNER_TEMP/installer.p12"
+            security import "$RUNNER_TEMP/installer.p12" -k "$kc" -P "$INSTALLER_PASSWORD" -T /usr/bin/productsign -T /usr/bin/pkgbuild -T /usr/bin/productbuild
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$pw" "$kc" >/dev/null
+            rm -f "$RUNNER_TEMP/installer.p12"
+            echo "pkg_signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No installer certificate configured: the .pkg will be UNSIGNED."
+            echo "pkg_signed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build
         env:
@@ -82,14 +98,42 @@ jobs:
           xcrun stapler validate build/macos/T-Time.app
           spctl --assess --type execute --verbose build/macos/T-Time.app
 
+      - name: Installer package
+        env:
+          PKG_SIGN_IDENTITY: ${{ steps.cert.outputs.pkg_signed == 'true' && secrets.MACOS_INSTALLER_IDENTITY || '' }}
+        run: scripts/build-pkg.sh
+
+      - name: Notarize and staple the installer
+        if: steps.cert.outputs.pkg_signed == 'true'
+        env:
+          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          [ -n "$API_KEY_P8" ] || { echo "::error::the installer certificate is set but the notarization secrets are not"; exit 1; }
+          pkg="$(ls build/macos/T-Time-*.pkg)"
+          printf '%s' "$API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun notarytool submit "$pkg" \
+            --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+          xcrun stapler staple "$pkg"
+          xcrun stapler validate "$pkg"
+          spctl --assess --type install --verbose "$pkg"
+
       - name: Package
         id: pkg
         run: |
           name="T-Time-${{ steps.v.outputs.version }}-macos"
-          [ "${{ steps.cert.outputs.signed }}" = true ] || name="$name-UNSIGNED"
           mkdir -p dist
-          ditto -c -k --keepParent build/macos/T-Time.app "dist/$name.zip"
-          (cd dist && shasum -a 256 "$name.zip" > "$name.zip.sha256")
+          # The installer is the main download; the zip is for people who prefer
+          # to copy the app themselves.
+          pkgname="$name"
+          [ "${{ steps.cert.outputs.pkg_signed }}" = true ] || pkgname="$pkgname-UNSIGNED"
+          cp build/macos/T-Time-*.pkg "dist/$pkgname.pkg"
+          zipname="$name"
+          [ "${{ steps.cert.outputs.signed }}" = true ] || zipname="$zipname-UNSIGNED"
+          ditto -c -k --keepParent build/macos/T-Time.app "dist/$zipname.zip"
+          (cd dist && shasum -a 256 "$pkgname.pkg" "$zipname.zip" > "$name.sha256")
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -103,6 +147,6 @@ jobs:
         run: |
           flags=""
           [ "${{ steps.v.outputs.prerelease }}" = true ] && flags="--prerelease"
-          notes="Experimental. Install by copying T-Time.app to ~/Library/Input Methods and adding it under System Settings > Keyboard > Input Sources."
-          [ "${{ steps.cert.outputs.signed }}" = true ] || notes="$notes UNSIGNED build: it will not open on other Macs without overriding Gatekeeper."
+          notes="Experimental alpha. Open the .pkg, follow the installer, log out and back in, then add T-Time under System Settings > Keyboard > Input Sources. The .zip holds only the app, for copying into /Library/Input Methods by hand."
+          [ "${{ steps.cert.outputs.pkg_signed }}" = true ] || notes="$notes The installer is UNSIGNED: macOS will not open it on other Macs without overriding Gatekeeper."
           gh release create "$GITHUB_REF_NAME" dist/* $flags --title "T-Time $GITHUB_REF_NAME" --notes "$notes"

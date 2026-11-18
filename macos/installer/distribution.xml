@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>T-Time</title>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <license file="license.txt" mime-type="text/plain"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <allowed-os-versions>
+        <os-version min="13.0"/>
+    </allowed-os-versions>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <choices-outline>
+        <line choice="default"/>
+    </choices-outline>
+    <choice id="default" title="T-Time">
+        <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.pkg"/>
+    </choice>
+    <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.pkg" version="@VERSION@" onConclusion="none">component.pkg</pkg-ref>
+</installer-gui-script>

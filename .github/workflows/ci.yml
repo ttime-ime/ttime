@@ -51,7 +51,7 @@ jobs:
           scripts/build-web.sh "$RUNNER_TEMP/playground"
 
   macos:
-    name: macOS input method (universal, ad-hoc signed)
+    name: macOS input method and installer (universal, unsigned)
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v7
@@ -64,8 +64,10 @@ jobs:
             target
           key: macos-${{ hashFiles('Cargo.lock') }}
       - run: UNIVERSAL=1 scripts/build-macos.sh
+      - name: Installer package (unsigned, to check that it builds)
+        run: scripts/build-pkg.sh
       - uses: actions/upload-artifact@v7
         with:
           name: T-Time-ci-unsigned
-          path: build/macos/T-Time.app
+          path: build/macos/T-Time-*.pkg
           retention-days: 7

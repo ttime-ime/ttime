@@ -9,10 +9,15 @@ replaced or upgraded without touching the shell.
 - `Sources/InputController.swift`: maps `NSEvent` to `Composer` and writes marked and committed text to the client application.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
-- `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, project artwork, not under the code licence). Checked by rendering, not run in a live input method.
+- `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, made for T-Time, not under the code licence). Checked by rendering, not run in a live input method.
 - `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
 - `Sources/TibetanFont.swift`: registers the bundled Noto Serif Tibetan (`Resources/NotoSerifTibetan.ttf`, SIL OFL 1.1, text in `Resources/OFL-NotoSerifTibetan.txt`; a format conversion of the web playground's copy) for T-Time's own windows. macOS's built-in Tibetan fonts do not stack Sanskrit combinations such as retroflex letters under other letters. Text inserted into a document is drawn in the document's font, so for Sanskrit stacks choose a font such as Noto Serif Tibetan or Jomolhari there.
 - `Tests/main.swift`: tests for the key policy, run by the build script.
+
+Install (end users): open the `.pkg` from a release, follow the installer, log
+out and in, and add T-Time under System Settings > Keyboard > Input Sources. To
+remove it: `sudo sh macos/installer/uninstall.sh`. Building the installer:
+`scripts/build-pkg.sh` after `scripts/build-macos.sh` (see `docs/RELEASING.md`).
 
 Build (nothing is installed):
 
@@ -55,7 +60,7 @@ letters and marks in one searchable table. Open it by double-tapping right
 Shift or with the toolbar button. Type to search (name, EWTS, code point or the
 character), click a category, arrows move, Return or a click inserts, Esc clears
 the search and then closes. Tab switches between the symbols and the stacker.
-The window opens with the cookie-icing illustration (`Resources/symbols-art.webp`, shown whole beside the table; project artwork, not under the code licence, provenance unrecorded). The catalogue is a draft: labels have not been reviewed by a Tibetologist.
+The window opens with the cookie-icing illustration (`Resources/symbols-art.webp`, shown whole beside the table; made for T-Time, not under the code licence). The catalogue is a draft: labels have not been reviewed by a Tibetologist.
 
 **Status.** The key policy is tested. The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System

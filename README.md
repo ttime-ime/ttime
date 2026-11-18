@@ -13,7 +13,8 @@ Code is licensed under either of
 
 at your option. Third-party attributions are in `NOTICE`.
 
-The artwork in `design/` (generated images) is **not** covered by this grant. Its
-provenance is not yet recorded and no licence is given for it.
+The illustrations and logos (`macos/Resources`, `design/`) were made for T-Time by
+the project and are **not** covered by this grant: they are not licensed for
+reuse unless a licence says so.
 
 Contributions are accepted under the same dual licence unless stated otherwise.
