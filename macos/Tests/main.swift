@@ -307,5 +307,70 @@ do {
     t(Updater.offerDue(lastTag: "v1", lastOffered: now.addingTimeInterval(-3600), tag: "v2", now: now), "newer release offered at once")
 }
 
+// Sanskrit suggestions
+do {
+    func t(_ ok: Bool, _ label: String) { if !ok { failures += 1; print("FAIL \(label)") } }
+    let tsv = "prajñā\t100\tb\nprajña\t10\t-\nprājña\t5\t-\npratītyasamutpāda\t20\tb\npratyaya\t50\tb\nśiva\t80\t-\nśivā\t3\t-\nsiva\t1\t-\nśūnyatā\t40\tb\n"
+    let lex = SanskritLexicon(tsv: tsv)
+    t(SanskritLexicon.fold("śūnyatā") == "sunyata", "fold")
+    t(lex.suggest("praj") == ["prajñā", "prajña", "prājña"], "prefix ranked by count: \(lex.suggest("praj"))")
+    t(lex.suggest("siva") == ["śiva", "śivā", "siva"], "ambiguous key ranked: \(lex.suggest("siva"))")
+    t(lex.suggest("pra").first == "prajñā" && lex.suggest("pra").count == 5, "limit five")
+    t(lex.suggest("zzz").isEmpty, "no match")
+    t(lex.suggest("Sunya") == ["śūnyatā"], "capitals and accents ignored")
+
+    func latin() -> Composer {
+        let c = Composer()
+        _ = c.setLatin(true)
+        c.suggester = SanskritSuggester(lexicon: lex)
+        return c
+    }
+    func type(_ c: Composer, _ s: String) -> Outcome { var o = Outcome(); for ch in s { o = c.handle(.text(String(ch))) }; return o }
+    do {
+        let c = latin()
+        check(type(c, "pr"), Outcome(insert: "", marked: "pr", handled: true), "letters become marked text")
+        t(c.suggestionList == nil, "no list under three letters")
+        _ = type(c, "aj")
+        t(c.suggestionList?.words.first == "prajñā", "list shows")
+        check(c.handle(.tab), Outcome(insert: "prajñā", marked: "", handled: true), "tab accepts")
+        t(c.suggestionList == nil, "list gone after accepting")
+    }
+    do {
+        let c = latin(); _ = type(c, "praj")
+        check(c.handle(.down), Outcome(insert: "", marked: "praj", handled: true), "down moves")
+        t(c.suggestionList?.selected == 1, "second selected")
+        check(c.handle(.tab), Outcome(insert: "prajña", marked: "", handled: true), "tab accepts the selected one")
+    }
+    do {
+        let c = latin(); _ = type(c, "siva")
+        check(c.handle(.text(" ")), Outcome(insert: "siva ", marked: "", handled: true), "space keeps what was typed")
+    }
+    do {
+        let c = latin(); _ = type(c, "Praj")
+        check(c.handle(.tab), Outcome(insert: "Prajñā", marked: "", handled: true), "capital kept")
+    }
+    do {
+        let c = latin(); _ = type(c, "praj")
+        check(c.handle(.backspace), Outcome(insert: "", marked: "pra", handled: true), "backspace edits the word")
+        check(c.handle(.escape), Outcome(insert: "pra", marked: "", handled: true), "escape keeps the typed text")
+    }
+    do {
+        let c = latin(); _ = type(c, "pr")
+        check(c.handle(.tab), Outcome(insert: "pr", marked: "", handled: false), "tab with no list passes through")
+        _ = type(c, "praj")
+        check(c.handle(.enter), Outcome(insert: "praj", marked: "", handled: false), "return commits then passes")
+        _ = type(c, "praj")
+        check(c.handle(.text("1")), Outcome(insert: "praj1", marked: "", handled: true), "digit ends the word")
+        _ = type(c, "praj")
+        check(c.setLatin(false), Outcome(insert: "praj", marked: "", handled: true), "leaving Latin commits the word")
+    }
+    do {
+        let c = latin()
+        check(c.handle(.tab), Outcome(), "tab with no word is not ours")
+        let off = Composer(); _ = off.setLatin(true)
+        check(type(off, "a"), Outcome(insert: "a", marked: "", handled: true), "off: typed text passes straight through")
+    }
+}
+
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)

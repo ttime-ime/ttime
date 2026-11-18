@@ -34,7 +34,7 @@ for arch in $ARCHS; do
   # Key-policy tests: Composer + test driver, no UI frameworks. An architecture
   # the host cannot execute (x86_64 without Rosetta) is built but not tested.
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/composer-tests-$arch" \
-    macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift macos/Sources/Updater.swift \
+    macos/Sources/Composer.swift macos/Sources/SanskritSuggest.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift macos/Sources/Updater.swift \
     macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Tests/main.swift "$LIB"
   if arch -"$arch" /usr/bin/true 2>/dev/null; then
     "$OUT/composer-tests-$arch" || { echo "key-policy tests failed ($arch)" >&2; exit 1; }
@@ -44,7 +44,7 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
+    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
     macos/Sources/Updater.swift macos/Sources/UpdateSettings.swift macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement
   BINS="$BINS $OUT/TTime-$arch"
@@ -61,6 +61,8 @@ rm -f "$OUT"/composer-tests-* "$OUT"/TTime-* "$OUT"/helper-*
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
 cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp \
    macos/Resources/NotoSerifTibetan.ttf macos/Resources/OFL-NotoSerifTibetan.txt "$APP/Contents/Resources/"
+cp data/sanskrit/iast-lexicon.tsv data/sanskrit/README.md "$APP/Contents/Resources/"
+mv "$APP/Contents/Resources/README.md" "$APP/Contents/Resources/iast-lexicon-README.md"
 cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
 mkdir -p "$APP/Contents/Library/LaunchDaemons"
 cp macos/Resources/LaunchDaemons/*.plist "$APP/Contents/Library/LaunchDaemons/"

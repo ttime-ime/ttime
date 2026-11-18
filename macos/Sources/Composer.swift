@@ -12,6 +12,10 @@ enum KeyInput {
     /// Anything else (arrows, tab, shortcuts): commit what is pending, then let
     /// the application handle the key.
     case other
+
+    /// The characters of a `.text` key.
+    var textValue: String { if case .text(let s) = self { return s } else { return "" } }
+    var isUp: Bool { if case .up = self { return true } else { return false } }
 }
 
 /// What the input controller should do with the client application.
@@ -57,7 +61,55 @@ final class Composer {
     private var provisional: String { take(ttime_session_provisional(session)) }
     private var composing: Bool { ttime_session_has_provisional(session) }
 
+    /// Sanskrit suggestions for Latin mode; nil when off or the word list is not loaded.
+    /// Set it only between words (when focus arrives, after `reset`).
+    var suggester: SanskritSuggester?
+
+    /// What to show in the suggestion list, or nil when there is no list.
+    var suggestionList: (words: [String], selected: Int)? {
+        guard isLatin, let s = suggester, !s.shown.isEmpty else { return nil }
+        return (s.shown, s.selected)
+    }
+
+    /// The word being typed in Latin mode, shown as marked text.
+    var suggestionBuffer: String { suggester?.buffer ?? "" }
+
+    private func handleSuggesting(_ key: KeyInput) -> Outcome? {
+        guard isLatin, suggester != nil else { return nil }
+        let marked: () -> String = { self.suggester?.buffer ?? "" }
+        switch key {
+        case .text(let s) where SanskritSuggester.isLetter(s):
+            suggester!.type(s)
+            return Outcome(marked: marked(), handled: true)
+        case .text:
+            // A space, digit or punctuation ends the word: it goes in as typed.
+            let word = suggester!.flush()
+            ttime_session_insert(session, key.textValue)
+            return Outcome(insert: word + take(ttime_session_take_committed(session)), marked: "", handled: true)
+        case .backspace:
+            guard suggester!.backspace() else { return nil }
+            return Outcome(marked: marked(), handled: true)
+        case .escape:
+            guard !suggester!.isEmpty else { return nil }
+            return Outcome(insert: suggester!.flush(), marked: "", handled: true)
+        case .tab:
+            guard !suggester!.isEmpty else { return nil }
+            if let word = suggester!.accept() { return Outcome(insert: word, marked: "", handled: true) }
+            return Outcome(insert: suggester!.flush(), marked: "", handled: false)
+        case .up, .down:
+            guard !suggester!.shown.isEmpty else { break }
+            suggester!.move(key.isUp ? -1 : 1)
+            return Outcome(marked: marked(), handled: true)
+        default: break
+        }
+        // Return, arrows with no list, shortcuts: the typed word is committed, then the
+        // application receives the key.
+        guard !suggester!.isEmpty else { return nil }
+        return Outcome(insert: suggester!.flush(), marked: "", handled: false)
+    }
+
     func handle(_ key: KeyInput) -> Outcome {
+        if let out = handleSuggesting(key) { return out }
         switch key {
         case .text(let s):
             ttime_session_insert(session, s)
@@ -82,15 +134,23 @@ final class Composer {
     /// Switches between Tibetan and Latin. Pending Tibetan is fixed first and
     /// comes back as `insert`; the marked text is cleared.
     func setLatin(_ on: Bool) -> Outcome {
+        let word = flushSuggestion()
         ttime_session_set_latin(session, on)
-        return Outcome(insert: take(ttime_session_take_committed(session)), marked: "", handled: true)
+        return Outcome(insert: word + take(ttime_session_take_committed(session)), marked: "", handled: true)
     }
 
     /// Commits any pending text and returns everything not yet inserted.
     func commitAll() -> String {
-        take(ttime_session_finish(session))
+        flushSuggestion() + take(ttime_session_finish(session))
     }
 
     /// Forgets pending input, for example when the input source is activated.
-    func reset() { ttime_session_cancel(session); _ = take(ttime_session_take_committed(session)) }
+    func reset() {
+        suggester?.clear()
+        ttime_session_cancel(session); _ = take(ttime_session_take_committed(session))
+    }
+
+    private func flushSuggestion() -> String {
+        suggester?.flush() ?? ""
+    }
 }

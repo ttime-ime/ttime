@@ -84,6 +84,8 @@ final class TTimeInputController: IMKInputController {
         shiftTap.reset()
         composer.reset()
         composer.setPrecomposed(Prefs.precomposed)
+        composer.suggester = Prefs.sanskritSuggestions ? SanskritLexicon.shared.map { SanskritSuggester(lexicon: $0) } : nil
+        SuggestionPanel.shared.hide()
         client = sender as? IMKTextInput
         // A flip made with a single tap lasts until focus moves; a lock stays.
         if let client = client {
@@ -104,6 +106,7 @@ final class TTimeInputController: IMKInputController {
 
     override func deactivateServer(_ sender: Any!) {
         DebugLog.log("deactivateServer")
+        SuggestionPanel.shared.hide()
         shiftTap.reset()
         if Self.active === self {
             Toolbar.shared.scheduleHide()
@@ -238,5 +241,14 @@ final class TTimeInputController: IMKInputController {
                                  selectionRange: NSRange(location: outcome.marked.utf16.count, length: 0),
                                  replacementRange: noRange)
         }
+        refreshSuggestions(client)
+    }
+
+    /// Shows the Sanskrit suggestion list under the word being typed, or hides it.
+    private func refreshSuggestions(_ client: IMKTextInput) {
+        guard let list = composer.suggestionList else { SuggestionPanel.shared.hide(); return }
+        var rect = NSRect.zero
+        _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
+        SuggestionPanel.shared.show(list.words, selected: list.selected, near: rect)
     }
 }

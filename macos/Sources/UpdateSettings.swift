@@ -223,7 +223,7 @@ final class SettingsWindow: NSObject {
             note("Normalised is the Unicode standard form. Precomposed uses the single compatibility characters some older fonts and tools expect."),
             labelled("A text field starts in:", startMode),
             sanskrit,
-            note("Offers accented Sanskrit words as you type Latin letters; Tab accepts, arrows move, nothing is replaced unless you choose it. Not available yet: this keeps your choice for when it arrives."),
+            note("Offers accented Sanskrit words as you type Latin letters; Tab accepts, arrows move, nothing is replaced unless you choose it. Takes effect the next time a text field gets focus."),
             heading("Updates"),
             background, status, approval, auto, pre, check,
             heading("Other"),

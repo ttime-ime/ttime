@@ -25,5 +25,12 @@ honestly; "unverified" means not yet checked.
   in the installer. The font may be redistributed with this software; it may not be
   sold on its own.
 
+- Sanskrit (IAST) word list (`data/sanskrit/iast-lexicon.tsv`, bundled in the macOS app):
+  headwords from Monier-Williams (1899) and Edgerton's Buddhist Hybrid Sanskrit
+  Dictionary (1953) as digitised by the Cologne Digital Sanskrit Lexicon (CC BY-SA 4.0),
+  with lemma counts from Hellwig's Digital Corpus of Sanskrit (CC BY 4.0). The list is
+  distributed under CC BY-SA 4.0 and is not covered by the code licence; see
+  `data/sanskrit/README.md`.
+
 T-Time's own code is licensed under MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE).
 The illustrations and logos were made for T-Time and are not covered by that grant; see the README.

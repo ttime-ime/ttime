@@ -29,6 +29,14 @@ Behaviour: typed ASCII is EWTS and shows as marked text; space commits
 (with a tsheg); Return commits and then passes through as a new line; Backspace edits the marked run (and passes through when there is none);
 Escape cancels; arrows, Tab and shortcuts commit what is pending and pass through.
 
+**Sanskrit suggestions.** In Latin mode, type a Sanskrit word without accents. From three
+letters on, a list of up to five accented words appears under it (for example `pratitya` offers
+`pratītyasamutpāda` first). Tab accepts the highlighted one, Up and Down move through the list,
+Escape or Space keep exactly what you typed; nothing is replaced unless you choose it. A capital
+first letter is kept. The word list is `data/sanskrit/iast-lexicon.tsv` (Monier-Williams and
+Edgerton headwords ranked by Digital Corpus of Sanskrit counts; licences in
+`data/sanskrit/README.md`), measured in `docs/reference/sanskrit-spike.md`. Turn it off in Settings.
+
 **Shift taps.** Tap left Shift to flip Tibetan and Latin until focus moves to
 another field or app. Double-tap it (within 500 ms) to lock the mode you were
 in; the lock survives focus changes and restarts, single taps are ignored while
