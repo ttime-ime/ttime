@@ -34,7 +34,7 @@ for arch in $ARCHS; do
   # the host cannot execute (x86_64 without Rosetta) is built but not tested.
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/composer-tests-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Tests/main.swift "$LIB"
+    macos/Sources/StackerModel.swift macos/Tests/main.swift "$LIB"
   if arch -"$arch" /usr/bin/true 2>/dev/null; then
     "$OUT/composer-tests-$arch" || { echo "key-policy tests failed ($arch)" >&2; exit 1; }
   else
@@ -43,7 +43,8 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Sources/Toolbar.swift macos/Sources/InputController.swift macos/Sources/main.swift \
+    macos/Sources/StackerModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift \
+    macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit
   BINS="$BINS $OUT/TTime-$arch"
 done
@@ -51,7 +52,7 @@ lipo -create $BINS -output "$APP/Contents/MacOS/TTime"
 rm -f "$OUT"/composer-tests-* "$OUT"/TTime-*
 
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
-cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png "$APP/Contents/Resources/"
+cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/stacker-art.webp "$APP/Contents/Resources/"
 cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
 [ -n "${VERSION:-}" ] && plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
 [ -n "${BUILD_NUMBER:-}" ] && plutil -replace CFBundleVersion -string "$BUILD_NUMBER" "$APP/Contents/Info.plist"

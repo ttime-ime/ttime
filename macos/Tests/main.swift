@@ -181,5 +181,50 @@ do {
     m.toggleLock(isLatin: true)
     if m.lockedLatin != nil { failures += 1; print("FAIL toolbar lock button unlocks") }
 }
+do {
+    let m = StackerModel()
+    if m.result != .empty { failures += 1; print("FAIL stacker starts empty") }
+    for k in ["r", "g", "y"] { m.addLayer(k) }
+    guard let b = m.built else { failures += 1; print("FAIL rgya builds: \(m.result)"); exit(1) }
+    if b.text != "རྒྱ" || b.shortest != "rgya" || b.canonical != "r+g+ya" || b.codePoints != "0F62 0F92 0FB1" {
+        failures += 1; print("FAIL rgya answer: \(b)")
+    }
+    m.setVowel("i")
+    if m.built?.shortest != "rgyi" { failures += 1; print("FAIL vowel: \(m.result)") }
+    m.setVowel("i")
+    if m.built?.shortest != "rgya" { failures += 1; print("FAIL vowel toggles off") }
+    m.toggleMark("M")
+    if m.built?.shortest.hasSuffix("M") != true { failures += 1; print("FAIL mark: \(m.result)") }
+    m.backspace()
+    if m.layers != ["r", "g"] { failures += 1; print("FAIL backspace removes the last letter: \(m.layers)") }
+    let inserted = m.consume()
+    if inserted == nil || m.layers != [] || m.result != .empty || !m.hint.hasPrefix("Inserted") {
+        failures += 1; print("FAIL consume starts over: \(m.layers) \(m.hint)")
+    }
+}
+do {
+    let m = StackerModel()
+    // Typing: exact match wins, otherwise the only candidate, and the grid narrows.
+    m.type("k")
+    if m.typedKey != "k" || !m.matches("kh") || m.matches("g") { failures += 1; print("FAIL typing k") }
+    m.type("h")
+    if m.typedKey != "kh" || m.matches("k") { failures += 1; print("FAIL typing kh") }
+    m.confirmTyped()
+    if m.layers != ["kh"] || m.typed != "" { failures += 1; print("FAIL confirm adds the letter") }
+    m.type("q")
+    if m.confirmTyped() || m.hint.isEmpty { failures += 1; print("FAIL unknown letter explains itself") }
+    m.backspace()
+    m.backspace()
+    if m.layers != [] { failures += 1; print("FAIL backspace after typed text: \(m.layers)") }
+    if m.addLayer("W") || !m.layers.isEmpty || m.hint.isEmpty { failures += 1; print("FAIL W needs a letter above") }
+    if m.backspace() { failures += 1; print("FAIL backspace with nothing passes through") }
+    m.usePreset(["W", "k"])
+    if case .failed = m.result {} else { failures += 1; print("FAIL engine refuses W on top: \(m.result)") }
+    m.usePreset(["k", "Sh"])
+    if m.built?.text != "ཀྵ" { failures += 1; print("FAIL preset kSha: \(m.result)") }
+    if m.alphabet.consonants.count < 30 || m.alphabet.vowels.isEmpty || m.alphabet.marks.isEmpty {
+        failures += 1; print("FAIL alphabet is loaded")
+    }
+}
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)

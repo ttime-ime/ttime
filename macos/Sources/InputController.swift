@@ -55,6 +55,15 @@ final class TTimeInputController: IMKInputController {
         }
         guard event.type == .keyDown else { return false }
         shiftTap.keyDown()
+        // Option+Shift+` (the key left of 1) opens and closes the stacker.
+        if event.keyCode == 50, event.modifierFlags.contains([.option, .shift]) {
+            toggleStacker()
+            return true
+        }
+        if StackerPanel.shared.isOpen {
+            let key = keyInput(for: event)
+            if StackerPanel.shared.handle(key) { return true }
+        }
         let outcome = composer.handle(keyInput(for: event))
         apply(outcome, to: client)
         return outcome.handled
@@ -78,12 +87,18 @@ final class TTimeInputController: IMKInputController {
         let toolbar = Toolbar.shared
         toolbar.chooseMode = { [weak self] latin in self?.toolbarChoose(latin: latin) }
         toolbar.toggleLock = { [weak self] in self?.toolbarToggleLock() }
+        toolbar.openStacker = { [weak self] in self?.toggleStacker() }
+        StackerPanel.shared.cancelClose()
+        StackerPanel.shared.insert = { [weak self] text in self?.insertFromStacker(text) }
         toolbar.show(toolbarState)
     }
 
     override func deactivateServer(_ sender: Any!) {
         shiftTap.reset()
-        if Self.active === self { Toolbar.shared.scheduleHide() }
+        if Self.active === self {
+            Toolbar.shared.scheduleHide()
+            StackerPanel.shared.scheduleClose()
+        }
     }
 
     /// The input-method menu in the menu bar.
@@ -99,6 +114,19 @@ final class TTimeInputController: IMKInputController {
     @objc private func toggleToolbar(_ sender: Any?) {
         Toolbar.isHidden.toggle()
         if Toolbar.isHidden { Toolbar.shared.hideNow() } else { Toolbar.shared.show(toolbarState) }
+    }
+
+    /// Opens or closes the stacker. What is being typed is fixed first, so the
+    /// stack lands after it and nothing is left half-typed.
+    private func toggleStacker() {
+        if !StackerPanel.shared.isOpen, let client = client {
+            apply(Outcome(insert: composer.commitAll(), marked: "", handled: true), to: client)
+        }
+        StackerPanel.shared.toggle()
+    }
+
+    private func insertFromStacker(_ text: String) {
+        client?.insertText(text, replacementRange: noRange)
     }
 
     private func toolbarChoose(latin: Bool) {
