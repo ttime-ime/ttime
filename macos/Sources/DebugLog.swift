@@ -5,9 +5,9 @@ import Foundation
 /// and off with `defaults delete ...`. It writes to ~/Library/Logs/T-Time-keys.log.
 /// It records modifier changes, key codes and what T-Time decided, never the characters typed.
 enum DebugLog {
-    static var enabled: Bool { UserDefaults.standard.bool(forKey: "DebugKeys") }
+    static var enabled: Bool { Prefs.debugKeys }
 
-    private static let url = FileManager.default.homeDirectoryForCurrentUser
+    static let url = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/T-Time-keys.log")
     private static let stamp: DateFormatter = {
         let f = DateFormatter()

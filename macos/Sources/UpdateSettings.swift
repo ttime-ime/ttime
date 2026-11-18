@@ -162,15 +162,44 @@ final class SettingsWindow: NSObject {
         window?.makeKeyAndOrderFront(nil)
     }
 
+    private let output = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let startMode = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let toolbarBox = NSButton(checkboxWithTitle: "Show the floating toolbar", target: nil, action: nil)
+    private let debug = NSButton(checkboxWithTitle: "Record a key log (for troubleshooting)", target: nil, action: nil)
+    private let showLog = NSButton(title: "Show Log", target: nil, action: nil)
+
+    private func heading(_ t: String) -> NSTextField {
+        let h = NSTextField(labelWithString: t)
+        h.font = .boldSystemFont(ofSize: 13)
+        return h
+    }
+    private func note(_ t: String) -> NSTextField {
+        let n = NSTextField(wrappingLabelWithString: t)
+        n.font = .systemFont(ofSize: 11)
+        n.textColor = .secondaryLabelColor
+        n.preferredMaxLayoutWidth = 390
+        return n
+    }
+    private func labelled(_ t: String, _ v: NSView) -> NSStackView {
+        let l = NSTextField(labelWithString: t)
+        let r = NSStackView(views: [l, v])
+        r.spacing = 8
+        return r
+    }
+
     private func build() {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 290),
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 300),
                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "T-Time Settings"
         w.isReleasedWhenClosed = false
-        w.center()
 
-        let heading = NSTextField(labelWithString: "Updates")
-        heading.font = .boldSystemFont(ofSize: 13)
+        output.addItems(withTitles: ["Normalised (recommended)", "Precomposed compatibility characters"])
+        output.target = self; output.action = #selector(outputChanged)
+        startMode.addItems(withTitles: ["Tibetan", "Latin"])
+        startMode.target = self; startMode.action = #selector(startChanged)
+        toolbarBox.target = self; toolbarBox.action = #selector(toggleToolbarBox)
+        debug.target = self; debug.action = #selector(toggleDebug)
+        showLog.target = self; showLog.action = #selector(revealLog)
         background.target = self; background.action = #selector(toggleBackground)
         auto.target = self; auto.action = #selector(toggleAuto)
         pre.target = self; pre.action = #selector(togglePre)
@@ -178,35 +207,67 @@ final class SettingsWindow: NSObject {
         checkNow.target = self; checkNow.action = #selector(checkTapped)
         status.font = .systemFont(ofSize: 11)
         status.textColor = .secondaryLabelColor
+        status.preferredMaxLayoutWidth = 390
         result.font = .systemFont(ofSize: 11)
         result.textColor = .secondaryLabelColor
-        let version = NSTextField(labelWithString: "T-Time \(UpdateManager.shared.currentVersion)")
-        version.font = .systemFont(ofSize: 11)
-        version.textColor = .secondaryLabelColor
 
-        let row = NSStackView(views: [checkNow, result])
-        row.spacing = 10
-        let stack = NSStackView(views: [heading, background, status, approval, auto, pre, row, version])
+        let check = NSStackView(views: [checkNow, result]); check.spacing = 10
+        let logRow = NSStackView(views: [debug, showLog]); logRow.spacing = 10
+        let version = note("T-Time \(UpdateManager.shared.currentVersion). To remove T-Time, run uninstall.sh from the project's macos/installer folder with sudo.")
+
+        let views: [NSView] = [
+            heading("Typing"),
+            labelled("Output form:", output),
+            note("Normalised is the Unicode standard form. Precomposed uses the single compatibility characters some older fonts and tools expect."),
+            labelled("A text field starts in:", startMode),
+            heading("Updates"),
+            background, status, approval, auto, pre, check,
+            heading("Other"),
+            toolbarBox, logRow, version,
+        ]
+        let stack = NSStackView(views: views)
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 10
+        stack.spacing = 9
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
+        for (i, v) in views.enumerated() where v is NSTextField && (v as! NSTextField).font == .boldSystemFont(ofSize: 13) && i > 0 {
+            stack.setCustomSpacing(18, after: views[i - 1])
+        }
         stack.translatesAutoresizingMaskIntoConstraints = false
-        status.preferredMaxLayoutWidth = 390
         let content = NSView()
         content.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor),
             stack.topAnchor.constraint(equalTo: content.topAnchor),
             stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
             content.widthAnchor.constraint(equalToConstant: 440),
         ])
         w.contentView = content
+        w.center()
         window = w
     }
 
+    @objc private func outputChanged() { Prefs.precomposed = output.indexOfSelectedItem == 1 }
+    @objc private func startChanged() { Prefs.startLatin = startMode.indexOfSelectedItem == 1 }
+    @objc private func toggleToolbarBox() {
+        Toolbar.isHidden = toolbarBox.state == .off
+        if Toolbar.isHidden { Toolbar.shared.hideNow() } else { Toolbar.shared.show(Toolbar.shared.state) }
+    }
+    @objc private func toggleDebug() { Prefs.debugKeys = debug.state == .on }
+    @objc private func revealLog() {
+        let url = DebugLog.url
+        if FileManager.default.fileExists(atPath: url.path) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } else {
+            NSWorkspace.shared.open(url.deletingLastPathComponent())
+        }
+    }
+
     private func refresh() {
+        output.selectItem(at: Prefs.precomposed ? 1 : 0)
+        startMode.selectItem(at: Prefs.startLatin ? 1 : 0)
+        toolbarBox.state = Toolbar.isHidden ? .off : .on
+        debug.state = Prefs.debugKeys ? .on : .off
         background.state = UpdatePrefs.background ? .on : .off
         auto.state = UpdatePrefs.autoCheck ? .on : .off
         pre.state = UpdatePrefs.prereleases ? .on : .off

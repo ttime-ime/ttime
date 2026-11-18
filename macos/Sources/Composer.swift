@@ -28,8 +28,22 @@ struct Outcome: Equatable {
 final class Composer {
     private var session: OpaquePointer?
 
+    private(set) var precomposed: Bool
+
     init(precomposed: Bool = false) {
+        self.precomposed = precomposed
         session = ttime_session_new(precomposed)
+    }
+
+    /// Switches the output form. Anything being typed is dropped, so call it only
+    /// between compositions (when focus arrives).
+    func setPrecomposed(_ on: Bool) {
+        guard on != precomposed else { return }
+        let latin = isLatin
+        ttime_session_free(session)
+        precomposed = on
+        session = ttime_session_new(on)
+        if latin { ttime_session_set_latin(session, true) }
     }
 
     deinit { ttime_session_free(session) }

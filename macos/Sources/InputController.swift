@@ -5,7 +5,7 @@ import InputMethodKit
 /// created per client application.
 @objc(TTimeInputController)
 final class TTimeInputController: IMKInputController {
-    private let composer = Composer()
+    private let composer = Composer(precomposed: Prefs.precomposed)
     private var shiftTap = ShiftTap()
 
     /// The Tibetan/Latin lock, shared by every client application so no
@@ -83,10 +83,11 @@ final class TTimeInputController: IMKInputController {
         DebugLog.log("activateServer client=\((sender as? IMKTextInput)?.bundleIdentifier() ?? "?")")
         shiftTap.reset()
         composer.reset()
+        composer.setPrecomposed(Prefs.precomposed)
         client = sender as? IMKTextInput
         // A flip made with a single tap lasts until focus moves; a lock stays.
         if let client = client {
-            apply(composer.setLatin(Self.lock.modeOnFocus), to: client)
+            apply(composer.setLatin(Self.lock.lockedLatin ?? Prefs.startLatin), to: client)
         }
         Self.active = self
         let toolbar = Toolbar.shared

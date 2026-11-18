@@ -149,6 +149,7 @@ final class StackerPanel: NSObject {
     }
 
     func open(centeredOn center: NSPoint? = nil) {
+        model.precomposed = Prefs.precomposed
         pendingClose?.cancel()
         let panel = ensurePanel()
         refresh()
