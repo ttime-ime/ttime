@@ -41,7 +41,7 @@ jobs:
           IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
           INSTALLER_P12: ${{ secrets.MACOS_INSTALLER_CERT_P12 }}
           INSTALLER_PASSWORD: ${{ secrets.MACOS_INSTALLER_CERT_PASSWORD }}
-          INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }}
+          INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_SIGN_IDENTITY }}
         run: |
           if [ -z "$CERT_P12" ] || [ -z "$IDENTITY" ]; then
             echo "No signing certificate configured: building UNSIGNED (ad-hoc)."
@@ -100,7 +100,7 @@ jobs:
 
       - name: Installer package
         env:
-          PKG_SIGN_IDENTITY: ${{ steps.cert.outputs.pkg_signed == 'true' && secrets.MACOS_INSTALLER_IDENTITY || '' }}
+          PKG_SIGN_IDENTITY: ${{ steps.cert.outputs.pkg_signed == 'true' && secrets.MACOS_INSTALLER_SIGN_IDENTITY || '' }}
         run: scripts/build-pkg.sh
 
       - name: Notarize and staple the installer

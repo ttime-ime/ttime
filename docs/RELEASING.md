@@ -38,7 +38,7 @@ Repository secrets (Settings > Secrets and variables > Actions):
 | `MACOS_SIGN_IDENTITY` | the certificate's full name, e.g. `Developer ID Application: Your Name (TEAMID)` (`security find-identity -v -p codesigning` lists it) |
 | `MACOS_INSTALLER_CERT_P12` | the Developer ID Installer `.p12`, base64 (omit if it is in `MACOS_CERT_P12`: then set this to the same value) |
 | `MACOS_INSTALLER_CERT_PASSWORD` | its password |
-| `MACOS_INSTALLER_IDENTITY` | e.g. `Developer ID Installer: Your Name (TEAMID)` |
+| `MACOS_INSTALLER_SIGN_IDENTITY` | e.g. `Developer ID Installer: Your Name (TEAMID)` |
 | `APPLE_API_KEY_P8` | the contents of `AuthKey_XXXX.p8` |
 | `APPLE_API_KEY_ID` | the 10-character Key ID |
 | `APPLE_API_ISSUER_ID` | the Issuer ID (a UUID) |
