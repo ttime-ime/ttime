@@ -21,10 +21,12 @@ final class Toolbar: NSObject {
     static let plum = NSColor(srgbRed: 0xA8 / 255, green: 0x44 / 255, blue: 0x5F / 255, alpha: 1)
     static let cream = NSColor(srgbRed: 0xFE / 255, green: 0xE8 / 255, blue: 0xD4 / 255, alpha: 1)
 
-    // The logo image is the artwork at 4 pixels per SVG unit. 1 unit = 0.95 pt.
+    // The logo image is the artwork at 4 pixels per SVG unit. 1 unit = 0.58 pt.
     // The artwork is taller than the pink bar: the extra is the paw hanging
     // below it. Numbers are from the SVG (bar 59.07 high, image 66.93, 208 wide).
-    private static let pointsPerUnit: CGFloat = 0.95
+    private static let pointsPerUnit: CGFloat = 0.58
+    /// Controls are scaled less than the logo, so they stay easy to click.
+    private static let c: CGFloat = 0.7
     private static let imageSize = NSSize(width: 208 * pointsPerUnit, height: 66.9267 * pointsPerUnit)
     private static let barHeight: CGFloat = 59.0728 * pointsPerUnit
 
@@ -99,7 +101,7 @@ final class Toolbar: NSObject {
         let bar = NSView()
         bar.wantsLayer = true
         bar.layer?.backgroundColor = Self.bar.cgColor
-        bar.layer?.cornerRadius = 15
+        bar.layer?.cornerRadius = 15 * Self.c
         bar.translatesAutoresizingMaskIntoConstraints = false
 
         let logo = NSImageView()
@@ -116,20 +118,20 @@ final class Toolbar: NSObject {
         // native segmented controls draw their selection grey in a non-key window.
         let pill = NSStackView(views: [tibetanButton, latinButton])
         pill.orientation = .horizontal
-        pill.spacing = 2
+        pill.spacing = 2 * Self.c
         pill.translatesAutoresizingMaskIntoConstraints = false
         let pillBox = NSView()
         pillBox.wantsLayer = true
-        pillBox.layer?.cornerRadius = 12
-        pillBox.layer?.borderWidth = 1.5
+        pillBox.layer?.cornerRadius = 12 * Self.c
+        pillBox.layer?.borderWidth = 1
         pillBox.layer?.borderColor = Self.plum.withAlphaComponent(0.4).cgColor
         pillBox.layer?.backgroundColor = Self.cream.withAlphaComponent(0.55).cgColor
         pillBox.addSubview(pill)
         NSLayoutConstraint.activate([
-            pill.leadingAnchor.constraint(equalTo: pillBox.leadingAnchor, constant: 3),
-            pill.trailingAnchor.constraint(equalTo: pillBox.trailingAnchor, constant: -3),
-            pill.topAnchor.constraint(equalTo: pillBox.topAnchor, constant: 3),
-            pill.bottomAnchor.constraint(equalTo: pillBox.bottomAnchor, constant: -3),
+            pill.leadingAnchor.constraint(equalTo: pillBox.leadingAnchor, constant: 2),
+            pill.trailingAnchor.constraint(equalTo: pillBox.trailingAnchor, constant: -2),
+            pill.topAnchor.constraint(equalTo: pillBox.topAnchor, constant: 2),
+            pill.bottomAnchor.constraint(equalTo: pillBox.bottomAnchor, constant: -2),
         ])
         pillBox.setAccessibilityLabel("Input mode")
 
@@ -148,7 +150,7 @@ final class Toolbar: NSObject {
         let controls = NSStackView(views: [pillBox, lockButton, symbolsButton, stackerButton])
         controls.orientation = .horizontal
         controls.alignment = .centerY
-        controls.spacing = 10
+        controls.spacing = 10 * Self.c
         controls.translatesAutoresizingMaskIntoConstraints = false
 
         let container = NSView()
@@ -165,9 +167,9 @@ final class Toolbar: NSObject {
             bar.heightAnchor.constraint(equalToConstant: Self.barHeight),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
-            controls.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 4),
+            controls.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
             controls.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
-            bar.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: 14),
+            bar.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: 10),
         ])
         container.layoutSubtreeIfNeeded()
 
@@ -196,12 +198,12 @@ final class Toolbar: NSObject {
         let b = NSButton(title: title, target: self, action: action)
         b.isBordered = false
         b.wantsLayer = true
-        b.layer?.cornerRadius = 9
+        b.layer?.cornerRadius = 9 * Self.c
         b.toolTip = tip
         b.setAccessibilityLabel(label)
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.widthAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
-        b.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        b.widthAnchor.constraint(greaterThanOrEqualToConstant: 44 * Self.c).isActive = true
+        b.heightAnchor.constraint(equalToConstant: 30 * Self.c).isActive = true
         return b
     }
 
@@ -209,24 +211,24 @@ final class Toolbar: NSObject {
         let b = NSButton(title: title, target: self, action: action)
         b.isBordered = false
         b.wantsLayer = true
-        b.layer?.cornerRadius = 9
+        b.layer?.cornerRadius = 9 * Self.c
         b.layer?.backgroundColor = Self.cream.withAlphaComponent(0.75).cgColor
         b.attributedTitle = NSAttributedString(string: title, attributes: [
-            .font: NSFont.systemFont(ofSize: 18),
+            .font: NSFont.systemFont(ofSize: 18 * Self.c),
             .foregroundColor: Self.plum,
         ])
         b.toolTip = tip
         b.setAccessibilityLabel(label)
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.widthAnchor.constraint(greaterThanOrEqualToConstant: 38).isActive = true
-        b.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        b.widthAnchor.constraint(greaterThanOrEqualToConstant: 38 * Self.c).isActive = true
+        b.heightAnchor.constraint(equalToConstant: 30 * Self.c).isActive = true
         return b
     }
 
     private func style(_ b: NSButton, selected: Bool) {
         b.layer?.backgroundColor = selected ? Self.plum.cgColor : NSColor.clear.cgColor
         b.attributedTitle = NSAttributedString(string: b.title, attributes: [
-            .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
+            .font: NSFont.systemFont(ofSize: 16 * Self.c, weight: .semibold),
             .foregroundColor: selected ? NSColor.white : Self.plum,
         ])
         b.setAccessibilityValue(selected ? "selected" : "not selected")
