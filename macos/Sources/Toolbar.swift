@@ -1,5 +1,40 @@
 import Cocoa
 
+/// The content view of T-Time's floating panels. A click anywhere that is not on a
+/// button drags the whole window. `isMovableByWindowBackground` is not enough: it
+/// does not fire when the click lands on a subview such as the logo, so the drag
+/// is done here, in screen coordinates, and works while the panel is not key.
+final class DraggableView: NSView {
+    private var dragStart: (mouse: NSPoint, origin: NSPoint)?
+
+    override var mouseDownCanMoveWindow: Bool { false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard let hit = super.hitTest(point) else { return nil }
+        var v: NSView? = hit
+        while let view = v, view !== self {
+            if view is NSButton { return hit }  // buttons keep their clicks
+            v = view.superview
+        }
+        return self
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard let window = window else { return }
+        dragStart = (NSEvent.mouseLocation, window.frame.origin)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window = window, let start = dragStart else { return }
+        let now = NSEvent.mouseLocation
+        window.setFrameOrigin(NSPoint(x: start.origin.x + now.x - start.mouse.x,
+                                      y: start.origin.y + now.y - start.mouse.y))
+    }
+
+    override func mouseUp(with event: NSEvent) { dragStart = nil }
+}
+
 /// T-Time's floating toolbar: a bubblegum-pink bar with the logo, the
 /// Tibetan/Latin mode (with lock), and buttons for the symbols table and the
 /// stacker. The cat paw of the logo hangs below the bar. A non-activating panel,
@@ -153,7 +188,7 @@ final class Toolbar: NSObject {
         controls.spacing = 10 * Self.c
         controls.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = NSView()
+        let container = DraggableView()
         for v in [bar, logo, controls] { container.addSubview(v) }
         NSLayoutConstraint.activate([
             logo.leadingAnchor.constraint(equalTo: container.leadingAnchor),

@@ -221,7 +221,7 @@ final class SymbolsPanel: NSObject {
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = NSView()
+        let container = DraggableView()
         container.wantsLayer = true
         container.layer?.backgroundColor = StackerPanel.pink.cgColor
         container.layer?.cornerRadius = 28

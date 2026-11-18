@@ -364,7 +364,7 @@ final class StackerPanel: NSObject {
         root.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 20, right: 22)
         root.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = NSView()
+        let container = DraggableView()
         container.wantsLayer = true
         container.layer?.backgroundColor = Self.pink.cgColor
         container.layer?.cornerRadius = 28
