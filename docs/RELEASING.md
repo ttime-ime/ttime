@@ -70,7 +70,7 @@ The installer's `postinstall` stops the old copy, refreshes LaunchServices, and 
 input source table), then starts the new copy: no logout or restart.
 
 The app checks GitHub releases (`ttime-ime/ttime`) at most every 6 hours and offers a
-newer release once a day. A final build only follows final releases; a prerelease
+newer release once a day. A final build only follows final releases unless "Include release candidates" is on (off by default); a prerelease
 build also follows prereleases. The installer asset must be named `T-Time-<version>.pkg`
 (`-UNSIGNED` packages are ignored); GitHub's published SHA-256 digest is checked when present.
 "Install updates in the background" is on by default: the app registers a LaunchDaemon

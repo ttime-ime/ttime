@@ -16,7 +16,15 @@ struct UpdateHelper {
         let current = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0"
         log("checking (current \(current))")
         do {
-            guard let release = Updater.newest(in: try Updater.fetchReleases(), than: current) else {
+            // The helper runs as root, so it reads the signed-in user's choice from their
+    // preferences file.
+    var includePre = false
+    var st = stat()
+    if stat("/dev/console", &st) == 0, let pw = getpwuid(st.st_uid), st.st_uid != 0 {
+        let plist = String(cString: pw.pointee.pw_dir) + "/Library/Preferences/io.github.ttime-ime.inputmethod.TTime.plist"
+        includePre = (NSDictionary(contentsOfFile: plist)?["UpdatePrereleases"] as? Bool) ?? false
+    }
+    guard let release = Updater.newest(in: try Updater.fetchReleases(), than: current, includePrereleases: includePre) else {
                 log("up to date")
                 exit(0)
             }

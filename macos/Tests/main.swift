@@ -296,6 +296,7 @@ do {
     t(Updater.newest(in: rs, than: "0.1.0-rc.2")?.tag == "v0.2.0-rc.1", "prerelease build follows prereleases")
     t(Updater.newest(in: rs, than: "0.0.9")?.tag == "v0.1.0", "final build skips prereleases and drafts")
     t(Updater.newest(in: rs, than: "0.1.0") == nil, "up to date")
+    t(Updater.newest(in: rs, than: "0.1.0", includePrereleases: true)?.tag == "v0.2.0-rc.1", "opt in to release candidates")
     let asset = Updater.installer(of: rs[0])
     t(asset?.url == "b" && asset?.sha256 == "abc", "installer asset and digest")
     let now = Date()

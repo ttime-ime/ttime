@@ -12,6 +12,11 @@ enum UpdatePrefs {
         get { d.object(forKey: "UpdateAutoCheck") as? Bool ?? true }
         set { d.set(newValue, forKey: "UpdateAutoCheck") }
     }
+    /// Opt in to release candidates. Off by default.
+    static var prereleases: Bool {
+        get { d.object(forKey: "UpdatePrereleases") as? Bool ?? false }
+        set { d.set(newValue, forKey: "UpdatePrereleases") }
+    }
     static var lastCheck: Date? {
         get { d.object(forKey: "UpdateLastCheck") as? Date }
         set { d.set(newValue, forKey: "UpdateLastCheck") }
@@ -68,7 +73,7 @@ final class UpdateManager {
         UpdatePrefs.lastCheck = Date()
         DispatchQueue.global(qos: .utility).async {
             let releases = try? Updater.fetchReleases()
-            let found = releases.flatMap { Updater.newest(in: $0, than: self.currentVersion) }
+            let found = releases.flatMap { Updater.newest(in: $0, than: self.currentVersion, includePrereleases: UpdatePrefs.prereleases) }
             DispatchQueue.main.async {
                 self.checking = false
                 guard releases != nil else { done(.failed); return }
@@ -144,6 +149,7 @@ final class SettingsWindow: NSObject {
     private var window: NSWindow?
     private let background = NSButton(checkboxWithTitle: "Install updates in the background", target: nil, action: nil)
     private let auto = NSButton(checkboxWithTitle: "Check for updates automatically", target: nil, action: nil)
+    private let pre = NSButton(checkboxWithTitle: "Include release candidates (pre-releases)", target: nil, action: nil)
     private let status = NSTextField(wrappingLabelWithString: "")
     private let approval = NSButton(title: "Open Login Items…", target: nil, action: nil)
     private let checkNow = NSButton(title: "Check Now", target: nil, action: nil)
@@ -157,7 +163,7 @@ final class SettingsWindow: NSObject {
     }
 
     private func build() {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 260),
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 440, height: 290),
                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "T-Time Settings"
         w.isReleasedWhenClosed = false
@@ -167,6 +173,7 @@ final class SettingsWindow: NSObject {
         heading.font = .boldSystemFont(ofSize: 13)
         background.target = self; background.action = #selector(toggleBackground)
         auto.target = self; auto.action = #selector(toggleAuto)
+        pre.target = self; pre.action = #selector(togglePre)
         approval.target = self; approval.action = #selector(openLoginItems)
         checkNow.target = self; checkNow.action = #selector(checkTapped)
         status.font = .systemFont(ofSize: 11)
@@ -179,7 +186,7 @@ final class SettingsWindow: NSObject {
 
         let row = NSStackView(views: [checkNow, result])
         row.spacing = 10
-        let stack = NSStackView(views: [heading, background, status, approval, auto, row, version])
+        let stack = NSStackView(views: [heading, background, status, approval, auto, pre, row, version])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 10
@@ -202,6 +209,7 @@ final class SettingsWindow: NSObject {
     private func refresh() {
         background.state = UpdatePrefs.background ? .on : .off
         auto.state = UpdatePrefs.autoCheck ? .on : .off
+        pre.state = UpdatePrefs.prereleases ? .on : .off
         var text = ""
         var needsApproval = false
         if UpdatePrefs.background {
@@ -224,6 +232,7 @@ final class SettingsWindow: NSObject {
         UpdateManager.shared.syncHelper()
         refresh()
     }
+    @objc private func togglePre() { UpdatePrefs.prereleases = pre.state == .on }
     @objc private func toggleAuto() { UpdatePrefs.autoCheck = auto.state == .on }
     @objc private func openLoginItems() { SMAppService.openSystemSettingsLoginItems() }
     @objc private func checkTapped() {

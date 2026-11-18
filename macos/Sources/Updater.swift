@@ -75,12 +75,12 @@ enum Updater {
         }
     }
 
-    /// The newest release strictly newer than `current`, staying on the installed
-    /// build's channel: a final build only moves to final releases, a prerelease
-    /// build also follows prereleases.
-    static func newest(in releases: [Release], than current: String) -> Release? {
+    /// The newest release strictly newer than `current`. Prereleases are skipped
+    /// unless `includePrereleases` is set or the installed build is itself one (a
+    /// release candidate is never left without a way forward).
+    static func newest(in releases: [Release], than current: String, includePrereleases: Bool = false) -> Release? {
         guard let cur = AppVersion(current) else { return nil }
-        let allowPre = cur.isPrerelease
+        let allowPre = cur.isPrerelease || includePrereleases
         return releases
             .filter { !$0.draft }
             .compactMap { r -> (AppVersion, Release)? in
