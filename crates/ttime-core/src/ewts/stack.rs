@@ -208,6 +208,53 @@ pub fn stack_alphabet() -> Alphabet {
     }
 }
 
+/// [`build_stack`] for the bridges: keys as space-separated strings, the answer
+/// as JSON. `{"ok":true,"text","canonical","shortest","codePoints","diagnostics"}`
+/// or `{"ok":false,"error"}`. An empty `vowel` is the inherent `a`.
+pub fn build_stack_json(layers: &str, vowel: &str, marks: &str, options: Options) -> String {
+    use crate::json;
+    let layers: Vec<&str> = layers.split_whitespace().collect();
+    let marks: Vec<&str> = marks.split_whitespace().collect();
+    match build_stack(&layers, Some(vowel), &marks, options) {
+        Ok(s) => format!(
+            "{{\"ok\":true,\"text\":{},\"canonical\":{},\"shortest\":{},\"codePoints\":{},\"diagnostics\":{}}}",
+            json::string(&s.text),
+            json::string(&s.canonical),
+            json::string(&s.shortest),
+            json::string(&s.code_points()),
+            json::diagnostics(&s.diagnostics)
+        ),
+        Err(e) => format!("{{\"ok\":false,\"error\":{}}}", json::string(&e.to_string())),
+    }
+}
+
+/// [`stack_alphabet`] as JSON:
+/// `{"consonants":[{"key","example"}],"subjoinedOnly":[...],"vowels":[...],"marks":[...]}`.
+pub fn stack_alphabet_json() -> String {
+    use crate::json;
+    let a = stack_alphabet();
+    let list = |ls: &[Letter]| {
+        let items: Vec<String> = ls
+            .iter()
+            .map(|l| {
+                format!(
+                    "{{\"key\":{},\"example\":{}}}",
+                    json::string(l.key),
+                    json::string(&l.example)
+                )
+            })
+            .collect();
+        format!("[{}]", items.join(","))
+    };
+    format!(
+        "{{\"consonants\":{},\"subjoinedOnly\":{},\"vowels\":{},\"marks\":{}}}",
+        list(&a.consonants),
+        list(&a.subjoined_only),
+        list(&a.vowels),
+        list(&a.marks)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,5 +436,22 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn the_json_forms_carry_the_same_answer() {
+        let o = Options::default();
+        let j = build_stack_json("r g y", "", "", o);
+        assert!(j.starts_with("{\"ok\":true,\"text\":\"རྒྱ\""), "{j}");
+        assert!(j.contains("\"canonical\":\"r+g+ya\""), "{j}");
+        assert!(j.contains("\"shortest\":\"rgya\""), "{j}");
+        assert!(j.contains("\"codePoints\":\"0F62 0F92 0FB1\""), "{j}");
+        assert_eq!(
+            build_stack_json("W k", "", "", o),
+            "{\"ok\":false,\"error\":\"`W` only exists under another letter, so it cannot be the top of a stack\"}"
+        );
+        let a = stack_alphabet_json();
+        assert!(a.starts_with("{\"consonants\":[{\"key\":"), "{a}");
+        assert!(a.contains("\"subjoinedOnly\":[{\"key\":\"W\""), "{a}");
     }
 }

@@ -52,6 +52,21 @@ char *ttime_session_finish(ttime_session *s);
 void ttime_session_set_latin(ttime_session *s, bool on);
 bool ttime_session_is_latin(const ttime_session *s);
 
+/* The stack builder. `layers` are consonant keys separated by spaces, top to
+ * bottom ("k Sh"); `vowel` is a key or "" for the inherent a; `marks` are keys
+ * separated by spaces. Returns JSON:
+ *   {"ok":true,"text":...,"canonical":...,"shortest":...,"codePoints":...,
+ *    "diagnostics":[{"severity":...,"message":...,...}]}
+ * or {"ok":false,"error":...}. `shortest` is the shortest EWTS that gives the
+ * same text (rgya for r+g+ya). */
+char *ttime_build_stack_json(const char *layers, const char *vowel, const char *marks,
+                             bool precomposed);
+
+/* Every letter, vowel and mark the builder accepts, with an example of each:
+ *   {"consonants":[{"key":...,"example":...}],"subjoinedOnly":[...],
+ *    "vowels":[...],"marks":[...]} */
+char *ttime_stack_alphabet_json(void);
+
 void ttime_string_free(char *s);
 
 #ifdef __cplusplus

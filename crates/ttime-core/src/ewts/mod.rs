@@ -11,7 +11,10 @@ mod stack;
 
 pub use diagnostics::{Category, Code, Conversion, Diagnostic, Severity};
 pub use reverse::{unicode_to_ewts, Fidelity, Reverse};
-pub use stack::{build_stack, stack_alphabet, Alphabet, Letter, Stack, StackError, MAX_LAYERS};
+pub use stack::{
+    build_stack, build_stack_json, stack_alphabet, stack_alphabet_json, Alphabet, Letter, Stack,
+    StackError, MAX_LAYERS,
+};
 
 const A_CHEN: char = '\u{0F68}';
 const TSHEG: char = '\u{0F0B}';

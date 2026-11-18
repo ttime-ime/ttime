@@ -59,54 +59,25 @@ pub fn reverse_json(input: &str) -> String {
 
 /// Builds one stack. `layers` are consonant keys joined by spaces, top to
 /// bottom (`"k Sh"`); `vowel` is a key or empty; `marks` are keys joined by
-/// spaces. Returns `{"ok":true,"text","canonical","shortest","codePoints",
-/// "diagnostics"}` or `{"ok":false,"error":"..."}` as JSON.
+/// spaces. The JSON is written by `ttime-core`, so the native IME gets the same.
 #[wasm_bindgen]
 pub fn build_stack_json(layers: &str, vowel: &str, marks: &str, precomposed: bool) -> String {
-    let layers: Vec<&str> = layers.split_whitespace().collect();
-    let marks: Vec<&str> = marks.split_whitespace().collect();
-    let options = Options {
-        precomposed,
-        diplomatic: false,
-    };
-    match ttime_core::build_stack(&layers, Some(vowel), &marks, options) {
-        Ok(s) => format!(
-            "{{\"ok\":true,\"text\":{},\"canonical\":{},\"shortest\":{},\"codePoints\":{},\"diagnostics\":{}}}",
-            json_string(&s.text),
-            json_string(&s.canonical),
-            json_string(&s.shortest),
-            json_string(&s.code_points()),
-            diagnostics_json(&s.diagnostics)
-        ),
-        Err(e) => format!("{{\"ok\":false,\"error\":{}}}", json_string(&e.to_string())),
-    }
+    ttime_core::build_stack_json(
+        layers,
+        vowel,
+        marks,
+        Options {
+            precomposed,
+            diplomatic: false,
+        },
+    )
 }
 
 /// Every letter, vowel and mark the stack builder accepts, with an example of
-/// how each looks: `{"consonants":[{"key","example"}],"subjoinedOnly":[...],"vowels":[...],"marks":[...]}`.
+/// how each looks, as JSON (see `ttime-core`).
 #[wasm_bindgen]
 pub fn stack_alphabet_json() -> String {
-    let a = ttime_core::stack_alphabet();
-    let list = |ls: &[ttime_core::Letter]| {
-        let items: Vec<String> = ls
-            .iter()
-            .map(|l| {
-                format!(
-                    "{{\"key\":{},\"example\":{}}}",
-                    json_string(l.key),
-                    json_string(&l.example)
-                )
-            })
-            .collect();
-        format!("[{}]", items.join(","))
-    };
-    format!(
-        "{{\"consonants\":{},\"subjoinedOnly\":{},\"vowels\":{},\"marks\":{}}}",
-        list(&a.consonants),
-        list(&a.subjoined_only),
-        list(&a.vowels),
-        list(&a.marks)
-    )
+    ttime_core::stack_alphabet_json()
 }
 
 /// The symbol catalogue entries matching `query` (all of them when empty), as a

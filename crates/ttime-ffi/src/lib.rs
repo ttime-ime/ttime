@@ -131,6 +131,38 @@ pub unsafe extern "C" fn ttime_session_is_latin(s: *const ttime_session) -> bool
 }
 
 /// # Safety
+/// Each argument must be null (treated as empty) or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_build_stack_json(
+    layers: *const c_char,
+    vowel: *const c_char,
+    marks: *const c_char,
+    precomposed: bool,
+) -> *mut c_char {
+    let text = |p: *const c_char| {
+        if p.is_null() {
+            String::new()
+        } else {
+            CStr::from_ptr(p).to_string_lossy().into_owned()
+        }
+    };
+    to_c(ttime_core::build_stack_json(
+        &text(layers),
+        &text(vowel),
+        &text(marks),
+        ttime_core::Options {
+            precomposed,
+            diplomatic: false,
+        },
+    ))
+}
+
+#[no_mangle]
+pub extern "C" fn ttime_stack_alphabet_json() -> *mut c_char {
+    to_c(ttime_core::stack_alphabet_json())
+}
+
+/// # Safety
 /// `s` must be null or a string returned by this library, not yet freed.
 #[no_mangle]
 pub unsafe extern "C" fn ttime_string_free(s: *mut c_char) {
@@ -210,6 +242,29 @@ mod tests {
             ttime_session_set_latin(std::ptr::null_mut(), true);
             assert!(!ttime_session_is_latin(std::ptr::null()));
             ttime_session_free(s);
+        }
+    }
+
+    #[test]
+    fn builds_a_stack_through_the_c_api() {
+        unsafe {
+            let layers = CString::new("r g y").unwrap();
+            let empty = CString::new("").unwrap();
+            let j = take(ttime_build_stack_json(
+                layers.as_ptr(),
+                empty.as_ptr(),
+                empty.as_ptr(),
+                false,
+            ));
+            assert!(j.contains("\"shortest\":\"rgya\""), "{j}");
+            let bad = take(ttime_build_stack_json(
+                std::ptr::null(),
+                std::ptr::null(),
+                std::ptr::null(),
+                false,
+            ));
+            assert!(bad.starts_with("{\"ok\":false"), "{bad}");
+            assert!(take(ttime_stack_alphabet_json()).starts_with("{\"consonants\""));
         }
     }
 
