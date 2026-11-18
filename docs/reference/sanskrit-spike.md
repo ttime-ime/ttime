@@ -112,11 +112,10 @@ a five-item list are counted. This replaces my hand-picked terms with real runni
 - Only 1.2% of running words are outside the pool (dictionaries plus the other texts'
   lemmas), and 92% of them occur in the training texts. The vocabulary is not the limit.
 - The weakest results are the two verse works (Buddhacarita 43%, Bodhicaryāvatāra 46%).
-- Caveats: the texts are only these nine; the savings are weighted by running words, so
-  very frequent short words (`ca`, `iti`, `tu`) are counted and lengthen nothing; users type
-  inflected forms, the test types lemmas; and nothing here tests whether a scholar wants a
-  list for every word. A fairer product figure would count only words of five letters or
-  more.
+- Counting only words of five letters or more (72,947 of the 125,552; `MINLEN=5`, where a
+  list matters most) changes little: counts 51.7%, Buddhist label 27.8%, shorter-first 24.7%.
+- Caveats: the texts are only these nine; the test types lemmas while users type inflected
+  forms; and nothing here tests whether a scholar wants a list for every word.
 
 ## What this does not show
 

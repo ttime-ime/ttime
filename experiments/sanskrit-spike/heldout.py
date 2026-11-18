@@ -53,7 +53,8 @@ def run(held):
             if w in cache[key]: return n
         return len(f)
     out = {}
-    tokens = texts[held]
+    minlen = int(os.environ.get("MINLEN", "0"))
+    tokens = collections.Counter({w: k for w, k in texts[held].items() if len(fold(w)) >= minlen})
     typed = {n: 0 for n in rankers}; letters = 0; unseen = 0; seen_tok = 0
     for w, k in tokens.items():
         letters += k * len(fold(w))
