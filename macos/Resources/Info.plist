@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>TTime</string>
 	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
+	<string>AppIcon.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.ttime-ime.inputmethod.TTime</string>
 	<key>CFBundleLocalizations</key>
@@ -38,6 +38,8 @@
 				<true/>
 				<key>tsInputModeMenuIconFileKey</key>
 				<string>icon.tiff</string>
+				<key>tsInputModeAlternateMenuIconFileKey</key>
+				<string>icon.tiff</string>
 				<key>tsInputModePaletteIconFileKey</key>
 				<string>icon.tiff</string>
 				<key>tsInputModePrimaryInputModeKey</key>
@@ -65,5 +67,7 @@
 	<array>
 		<string>Tibt</string>
 	</array>
+	<key>tsInputMethodIconFileKey</key>
+	<string>AppIcon.icns</string>
 </dict>
 </plist>
