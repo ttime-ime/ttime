@@ -28,6 +28,6 @@ SWIFT
 # The same logo for the installer's pages and window background.
 /Applications/Inkscape.app/Contents/MacOS/inkscape "$SRC" --export-type=png --export-width=256 --export-height=256 \
   --export-filename=macos/installer/logo.png >/dev/null 2>&1
-/Applications/Inkscape.app/Contents/MacOS/inkscape "$SRC" --export-type=png --export-width=160 --export-height=160 \
+/Applications/Inkscape.app/Contents/MacOS/inkscape "$SRC" --export-type=png --export-width=96 --export-height=96 \
   --export-filename=macos/installer/background.png >/dev/null 2>&1
 rm -rf "$TMP"
