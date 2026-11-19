@@ -34,7 +34,7 @@ letters on, a list of up to five accented words appears under it (for example `p
 `pratītyasamutpāda` first). Tab accepts the highlighted one, Up and Down move through the list,
 Escape or Space keep exactly what you typed; nothing is replaced unless you choose it. A capital
 first letter is kept. The word list is `data/sanskrit/iast-lexicon.tsv` (Monier-Williams and
-Edgerton headwords ranked by Digital Corpus of Sanskrit counts; licences in
+Edgerton headwords ranked by Digital Corpus of Sanskrit counts; licences (CC BY-NC-SA 3.0 for the dictionary headwords) in
 `data/sanskrit/README.md`), measured in `docs/reference/sanskrit-spike.md`. Turn it off in Settings.
 
 **Shift taps.** Tap left Shift to flip Tibetan and Latin until focus moves to

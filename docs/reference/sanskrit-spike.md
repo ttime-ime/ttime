@@ -59,7 +59,7 @@ fetched 2026-11-18. Every Edgerton headword counts as Buddhist for the ranking.
   competition inside the top five. More vocabulary helps coverage, not ranking.
 - Only 43 of the 54 found terms are Buddhist-labelled; `nirvāṇa`, `duḥkha`, `anātman`,
   `bhikṣu`, `mantra`, `āryāṣṭāṅgamārga` are not Edgerton headwords.
-- The repository's licence is CC BY-SA 4.0; the Edgerton text's own terms were not checked.
+- The repository's licence is CC BY-SA 4.0, but the dictionaries' own headers say CC BY-NC-SA 3.0 (found 2026-11-19; see `data/sanskrit/README.md`).
 
 ## Third run: usage counts from the Digital Corpus of Sanskrit
 
@@ -153,8 +153,8 @@ first (top 1) or in the five offered (top 5). A word outside the pool counts as 
 
 ## Licence and provenance
 
-Monier-Williams digital edition: CC BY-SA 4.0 according to the project's published
-terms (not re-checked here against the repository's licence file). Share-alike applies to
+Monier-Williams and Edgerton digital editions: the repository says CC BY-SA 4.0, but the
+dictionaries' own headers say CC BY-NC-SA 3.0 (corrected 2026-11-19). Share-alike applies to
 a derived word list: keep it in its own data file with its own licence and attribution,
 as for Wiktionary. Provenance to record: Cologne Digital Sanskrit Lexicon, file path
 above, retrieval date 2026-11-18.

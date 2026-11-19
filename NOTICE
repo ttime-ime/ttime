@@ -27,10 +27,11 @@ honestly; "unverified" means not yet checked.
 
 - Sanskrit (IAST) word list (`data/sanskrit/iast-lexicon.tsv`, bundled in the macOS app):
   headwords from Monier-Williams (1899) and Edgerton's Buddhist Hybrid Sanskrit
-  Dictionary (1953) as digitised by the Cologne Digital Sanskrit Lexicon (CC BY-SA 4.0),
-  with lemma counts from Hellwig's Digital Corpus of Sanskrit (CC BY 4.0). The list is
-  distributed under CC BY-SA 4.0 and is not covered by the code licence; see
-  `data/sanskrit/README.md`.
+  Dictionary (1953) as digitised by the Cologne Digital Sanskrit Lexicon (Copyright 2014
+  The Sanskrit Library and Thomas Malten, CC BY-NC-SA 3.0), with lemma counts from
+  Hellwig's Digital Corpus of Sanskrit (CC BY 4.0). The list is distributed under
+  CC BY-NC-SA 3.0, so non-commercial use only, and is not covered by the code licence;
+  see `data/sanskrit/README.md` for the open questions about these terms.
 
 T-Time's own code is licensed under MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE).
 The illustrations and logos were made for T-Time and are not covered by that grant; see the README.
