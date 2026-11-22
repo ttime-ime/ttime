@@ -42,7 +42,9 @@
 				<string>icon.tiff</string>
 				<key>tsInputModePaletteIconFileKey</key>
 				<string>icon.tiff</string>
-				<key>tsInputModePrimaryInputModeKey</key>
+				<key>tsInputModeDefaultStateKey</key>
+				<true/>
+				<key>tsInputModePrimaryInScriptKey</key>
 				<true/>
 				<key>tsInputModeScriptKey</key>
 				<string>smUnicode</string>
