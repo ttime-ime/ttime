@@ -48,26 +48,29 @@ certificate into a temporary keychain and deletes the key file after use.
 
 ## The installer
 
-`scripts/build-pkg.sh` turns `build/macos/T-Time.app` into `build/macos/T-Time-<version>.pkg`
-(run `scripts/build-macos.sh` first). It installs into `/Library/Input Methods` for
-all users (administrator password), is non-relocatable, stops a running copy
-afterwards, and shows the logo, the licence (`LICENSE-MIT`, `LICENSE-APACHE`, the bundled
-font's OFL text and an artwork note, assembled by the script), a welcome page and a
-closing page telling the user to log out and in and add the input source. macOS
-does not let an installer enable an input method, so those two steps stay manual.
-Its pages are in `macos/installer/`. Without `PKG_SIGN_IDENTITY` the package is
-unsigned. In CI the app is signed and notarized first, so the stapled app is what
-goes into the package; the package is then signed, notarized and stapled too.
-To remove T-Time: `sudo sh macos/installer/uninstall.sh`.
+`scripts/build-pkg.sh` turns `build/macos/T-Time.app` and `build/macos/T-Time Tools.app`
+into `build/macos/T-Time-<version>.pkg` (run `scripts/build-macos.sh` first). It
+installs the input method into `/Library/Input Methods` and the converter companion
+into `/Applications` for all users (administrator password), is non-relocatable,
+stops a running copy afterwards, and shows the logo, the licence (`LICENSE-MIT`,
+`LICENSE-APACHE`, the bundled font's OFL text and an artwork note, assembled by the
+script), a welcome page and a closing page telling the user to log out and in and
+add the input source. macOS does not let an installer enable an input method, so
+those two steps stay manual. Its pages are in `macos/installer/`. Without
+`PKG_SIGN_IDENTITY` the package is unsigned. In CI both apps are signed and
+notarized first, so the stapled apps are what go into the package; the package is
+then signed, notarized and stapled too. To remove T-Time:
+`sudo sh macos/installer/uninstall.sh`.
 
 Without the installer secrets the release still publishes the `.pkg`, named
 `...-UNSIGNED.pkg`.
 
 ## Installing over an older version, and updates
 
-The installer's `postinstall` stops the old copy, refreshes LaunchServices, and runs
-`TTime --register` in the logged-in user's session (it falls back to rebuilding the
-input source table), then starts the new copy: no logout or restart.
+The installer's `postinstall` stops the old copy, refreshes LaunchServices for the
+IME and for T-Time Tools (so Services appear), and runs `TTime --register` in the
+logged-in user's session (it falls back to rebuilding the input source table), then
+starts the new IME: no logout or restart.
 
 The app checks GitHub releases (`ttime-ime/ttime`) at most every 6 hours and offers a
 newer release once a day. A final build only follows final releases unless "Include release candidates" is on (off by default); a prerelease

@@ -1,9 +1,10 @@
 # macOS input method
 
-A thin InputMethodKit shell over the T-Time engine. All typing behaviour
-(EWTS conversion and the commit policy) lives in `ttime-core` and reaches Swift
-through the C ABI in `crates/ttime-ffi/include/ttime.h`, so the engine can be
-replaced or upgraded without touching the shell.
+A thin InputMethodKit shell over the T-Time engine, plus a companion app
+**T-Time Tools** for converting selected text. All typing and batch conversion
+behaviour lives in `ttime-core` and reaches Swift through the C ABI in
+`crates/ttime-ffi/include/ttime.h`, so the engine can be replaced or upgraded
+without touching the shells.
 
 - `Sources/Composer.swift`: key policy over the C engine; no UI dependencies.
 - `Sources/InputController.swift`: maps `NSEvent` to `Composer` and writes marked and committed text to the client application.
@@ -18,15 +19,29 @@ replaced or upgraded without touching the shell.
 - `Tests/main.swift`: tests for the key policy, run by the build script.
 
 Install (end users): open the `.pkg` from a release, follow the installer, log
-out and in, and add T-Time under System Settings > Keyboard > Input Sources. To
-remove it: `sudo sh macos/installer/uninstall.sh`. Building the installer:
+out and in, and add T-Time under System Settings > Keyboard > Input Sources. The
+same package installs **T-Time Tools** in Applications (Services menu converter,
+Shortcuts intents, and a paste/copy window). To remove both:
+`sudo sh macos/installer/uninstall.sh`. Building the installer:
 `scripts/build-pkg.sh` after `scripts/build-macos.sh` (see `docs/RELEASING.md`).
 
 Build (nothing is installed):
 
 ```sh
-scripts/build-macos.sh        # tests, then build/macos/T-Time.app (ad-hoc signed)
+scripts/build-macos.sh        # tests, then build/macos/T-Time.app and
+                              # build/macos/T-Time Tools.app (ad-hoc signed)
 ```
+
+**T-Time Tools** (`macos/tools/`): a normal app, not an input method. Select text
+in another application and choose **T-Time: Auto-convert** (or the directional
+items) from the Services menu / right-click Services; assign a shortcut under
+System Settings > Keyboard > Keyboard Shortcuts > Services. A Shortcut can also
+run that Service. (App Intent code is present for a later Shortcuts polish step;
+full Shortcuts discovery needs Xcode metadata we do not emit from `swiftc` yet.)
+When a host cannot replace a selection, open the converter window (Applications,
+or **Open Converter…** in the T-Time input-method menu) and copy the result. Auto
+picks Tibetan→Wylie when the selection contains Tibetan script, otherwise
+Wylie→Tibetan.
 
 Behaviour: typed ASCII is EWTS and shows as marked text; space commits
 (with a tsheg); Return commits and then passes through as a new line; Backspace edits the marked run (and passes through when there is none);

@@ -13,11 +13,17 @@
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <choices-outline>
         <line choice="default"/>
+        <line choice="tools"/>
         <line choice="bubblegum"/>
         <line choice="brutal"/>
     </choices-outline>
-    <choice id="default" title="T-Time" enabled="false" selected="true" description="The input method itself.">
+    <choice id="default" title="T-Time" enabled="false" selected="true"
+            description="The input method itself.">
         <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.pkg"/>
+    </choice>
+    <choice id="tools" title="T-Time Tools" start_selected="true"
+            description="Converter app and Services menu items to convert selected text between Tibetan and Wylie, in any app.">
+        <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.tools"/>
     </choice>
     <!-- Pick one look for the toolbar and panels; it can be changed later in Settings. -->
     <choice id="bubblegum" title="Look: Bubblegum" start_selected="true"
@@ -31,6 +37,7 @@
         <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-brutal"/>
     </choice>
     <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.pkg" version="@VERSION@" onConclusion="none">component.pkg</pkg-ref>
+    <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.tools" version="@VERSION@" onConclusion="none">tools.pkg</pkg-ref>
     <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-bubblegum" version="@VERSION@" onConclusion="none">style-bubblegum.pkg</pkg-ref>
     <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-brutal" version="@VERSION@" onConclusion="none">style-brutal.pkg</pkg-ref>
 </installer-gui-script>

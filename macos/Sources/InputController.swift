@@ -197,6 +197,11 @@ final class TTimeInputController: IMKInputController {
         item.target = self
         menu.addItem(item)
         menu.addItem(.separator())
+        if FileManager.default.fileExists(atPath: "/Applications/T-Time Tools.app") {
+            let converter = NSMenuItem(title: "Open Converter…", action: #selector(openConverter(_:)), keyEquivalent: "")
+            converter.target = self
+            menu.addItem(converter)
+        }
         let settings = NSMenuItem(title: "Settings…", action: #selector(openSettings(_:)), keyEquivalent: "")
         settings.target = self
         menu.addItem(settings)
@@ -207,6 +212,18 @@ final class TTimeInputController: IMKInputController {
     }
 
     @objc private func openSettings(_ sender: Any?) { SettingsWindow.shared.show() }
+
+    /// Opens T-Time Tools with the current selection (or syllable) as a seed. The text
+    /// travels in the URL, which works whether Tools is already running or not and
+    /// leaves nothing behind on a shared pasteboard.
+    @objc private func openConverter(_ sender: Any?) {
+        var comps = URLComponents()
+        comps.scheme = "ttime-tools"
+        comps.host = "convert"
+        let term = String(termAtCaret().prefix(2000))
+        if !term.isEmpty { comps.queryItems = [URLQueryItem(name: "text", value: term)] }
+        if let url = comps.url { NSWorkspace.shared.open(url) }
+    }
 
     @objc private func checkForUpdates(_ sender: Any?) {
         UpdateManager.shared.check(manual: true) { result in

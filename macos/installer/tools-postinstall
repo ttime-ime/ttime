@@ -1,0 +1,13 @@
+#!/bin/sh
+# Registers T-Time Tools with LaunchServices so its Services appear in the Services
+# menu without waiting for a logout.
+TOOLS="/Applications/T-Time Tools.app"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+[ -x "$LSREGISTER" ] && [ -d "$TOOLS" ] || exit 0
+"$LSREGISTER" -f "$TOOLS" >/dev/null 2>&1
+USER_NAME=$(/usr/bin/stat -f%Su /dev/console 2>/dev/null)
+if [ -n "$USER_NAME" ] && [ "$USER_NAME" != root ]; then
+  /usr/bin/sudo -u "$USER_NAME" "$LSREGISTER" -f "$TOOLS" >/dev/null 2>&1
+  /usr/bin/sudo -u "$USER_NAME" /System/Library/CoreServices/pbs -update >/dev/null 2>&1
+fi
+exit 0

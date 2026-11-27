@@ -3,9 +3,10 @@
 # (run scripts/build-macos.sh first; for a release, sign and notarize the app
 # before packaging so the stapled copy is what ships).
 #
-# It installs into /Library/Input Methods (all users, needs an administrator
-# password), shows the licence, and tells the user the two steps macOS leaves to
-# them: log out and in, then add the input source.
+# It installs the input method into /Library/Input Methods and T-Time Tools into
+# /Applications (all users, needs an administrator password), shows the licence,
+# and tells the user the two steps macOS leaves to them: log out and in, then
+# add the input source.
 #
 # Environment:
 #   PKG_SIGN_IDENTITY  a "Developer ID Installer: ..." identity; without it the
@@ -14,25 +15,38 @@ set -eu
 cd "$(dirname "$0")/.."
 
 APP=build/macos/T-Time.app
+TOOLS="build/macos/T-Time Tools.app"
 [ -d "$APP" ] || { echo "$APP not found: run scripts/build-macos.sh first" >&2; exit 1; }
+[ -d "$TOOLS" ] || { echo "$TOOLS not found: run scripts/build-macos.sh first" >&2; exit 1; }
 VERSION=$(plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist")
 W=build/macos/pkg
 FINAL="build/macos/T-Time-$VERSION.pkg"
 rm -rf "$W" "$FINAL"
-mkdir -p "$W/root/Library/Input Methods" "$W/res" "$W/scripts"
+mkdir -p "$W/root/Library/Input Methods" "$W/tools-root/Applications" "$W/res" "$W/scripts" "$W/tools-scripts"
 
 # What gets installed. ditto keeps the code signature and extended attributes.
 ditto "$APP" "$W/root/Library/Input Methods/T-Time.app"
+ditto "$TOOLS" "$W/tools-root/Applications/T-Time Tools.app"
 cp macos/installer/postinstall "$W/scripts/postinstall"
 
-# Never let the installer "relocate" to another copy of this app it finds (such
-# as the one in build/): the bundle must land in /Library/Input Methods.
-pkgbuild --analyze --root "$W/root" "$W/components.plist" >/dev/null
-/usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$W/components.plist" 2>/dev/null \
-  || /usr/libexec/PlistBuddy -c "Add :0:BundleIsRelocatable bool false" "$W/components.plist"
+# Never let the installer "relocate" to another copy of an app it finds (such
+# as one in build/): bundles must land in /Library/Input Methods and /Applications.
+reloc() {
+  pkgbuild --analyze --root "$1" "$2" >/dev/null
+  /usr/libexec/PlistBuddy -c "Set :0:BundleIsRelocatable false" "$2" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :0:BundleIsRelocatable bool false" "$2"
+}
+reloc "$W/root" "$W/components.plist"
+reloc "$W/tools-root" "$W/tools-components.plist"
 pkgbuild --root "$W/root" --component-plist "$W/components.plist" --scripts "$W/scripts" \
   --identifier io.github.ttime-ime.inputmethod.TTime.pkg --version "$VERSION" \
   --install-location / "$W/component.pkg" >/dev/null
+
+# T-Time Tools is its own, optional choice in the installer.
+cp macos/installer/tools-postinstall "$W/tools-scripts/postinstall"
+pkgbuild --root "$W/tools-root" --component-plist "$W/tools-components.plist" --scripts "$W/tools-scripts" \
+  --identifier io.github.ttime-ime.inputmethod.TTime.tools --version "$VERSION" \
+  --install-location / "$W/tools.pkg" >/dev/null
 
 # One tiny package per look; the installer lets the user pick one. Each leaves its
 # name where the app finds it, as the default until the user changes it in Settings.

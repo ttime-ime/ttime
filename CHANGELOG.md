@@ -4,6 +4,15 @@
 
 ### macOS
 
+- **T-Time Tools** companion app (`/Applications/T-Time Tools.app`, same installer
+  as the IME): convert between Tibetan and Wylie (EWTS) via the Services menu
+  (Auto-convert, Wylie → Tibetan, Tibetan → Wylie) or a converter window with
+  Copy. Auto chooses direction from the script. Assign a Services keyboard
+  shortcut in System Settings. It is an optional choice in the installer. App
+  Intent code is included, but Shortcuts will not list it until a later metadata pass. The IME menu has **Open
+  Converter…**, which seeds the window from the selection when the host can
+  report it. Batch convert APIs are on the C ABI (`ttime_convert`,
+  `ttime_unicode_to_ewts`).
 - Symbols, Stacker and Dictionary are now one navigator: the same window width, height and
   position, and the same header (the T-Time title in Brutalist, the three tabs, and the close
   button) on every tab, so switching tabs changes only what is inside and nothing moves under

@@ -3,7 +3,7 @@
 //! See `include/ttime.h` for the contract.
 
 use std::ffi::{c_char, CStr, CString};
-use ttime_core::Session;
+use ttime_core::{convert, unicode_to_ewts, Options, Session};
 
 /// Opaque to C.
 #[allow(non_camel_case_types)]
@@ -180,6 +180,37 @@ pub extern "C" fn ttime_stack_alphabet_json() -> *mut c_char {
 }
 
 /// # Safety
+/// `utf8` must be null (treated as empty) or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_convert(utf8: *const c_char, precomposed: bool) -> *mut c_char {
+    let input = if utf8.is_null() {
+        String::new()
+    } else {
+        CStr::from_ptr(utf8).to_string_lossy().into_owned()
+    };
+    to_c(convert(
+        &input,
+        Options {
+            precomposed,
+            diplomatic: false,
+        },
+    )
+    .text)
+}
+
+/// # Safety
+/// `utf8` must be null (treated as empty) or a NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_unicode_to_ewts(utf8: *const c_char) -> *mut c_char {
+    let input = if utf8.is_null() {
+        String::new()
+    } else {
+        CStr::from_ptr(utf8).to_string_lossy().into_owned()
+    };
+    to_c(unicode_to_ewts(&input).text)
+}
+
+/// # Safety
 /// `s` must be null or a string returned by this library, not yet freed.
 #[no_mangle]
 pub unsafe extern "C" fn ttime_string_free(s: *mut c_char) {
@@ -299,5 +330,18 @@ mod tests {
     #[test]
     fn version_matches_core() {
         unsafe { assert_eq!(take(ttime_version()), ttime_core::VERSION) }
+    }
+
+    #[test]
+    fn batch_convert_and_reverse_through_the_c_api() {
+        unsafe {
+            let ewts = CString::new("bkra shis").unwrap();
+            let tib = take(ttime_convert(ewts.as_ptr(), false));
+            assert_eq!(tib, "བཀྲ་ཤིས");
+            let back = CString::new(tib.clone()).unwrap();
+            assert_eq!(take(ttime_unicode_to_ewts(back.as_ptr())), "bkra shis");
+            assert_eq!(take(ttime_convert(std::ptr::null(), false)), "");
+            assert_eq!(take(ttime_unicode_to_ewts(std::ptr::null())), "");
+        }
     }
 }

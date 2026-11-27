@@ -76,6 +76,12 @@ char *ttime_symbols_json(const char *query);
 /* Category names in order of first appearance, as a JSON array of strings. */
 char *ttime_symbol_categories_json(void);
 
+/* Whole-string EWTS → Unicode. `precomposed` matches the IME preference. */
+char *ttime_convert(const char *utf8, bool precomposed);
+
+/* Whole-string Unicode → EWTS (lossy where the engine cannot round-trip). */
+char *ttime_unicode_to_ewts(const char *utf8);
+
 void ttime_string_free(char *s);
 
 #ifdef __cplusplus

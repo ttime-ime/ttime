@@ -90,13 +90,16 @@ jobs:
         run: |
           [ -n "$API_KEY_P8" ] || { echo "::error::MACOS_CERT_P12 is set but the notarization secrets are not"; exit 1; }
           printf '%s' "$API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
-          ditto -c -k --keepParent build/macos/T-Time.app "$RUNNER_TEMP/notarize.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
-            --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait
+          for app in "build/macos/T-Time.app" "build/macos/T-Time Tools.app"; do
+            zip="$RUNNER_TEMP/notarize-$(basename "$app" .app | tr ' ' '-').zip"
+            ditto -c -k --keepParent "$app" "$zip"
+            xcrun notarytool submit "$zip" \
+              --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait
+            xcrun stapler staple "$app"
+            xcrun stapler validate "$app"
+            spctl --assess --type execute --verbose "$app"
+          done
           rm -f "$RUNNER_TEMP/AuthKey.p8"
-          xcrun stapler staple build/macos/T-Time.app
-          xcrun stapler validate build/macos/T-Time.app
-          spctl --assess --type execute --verbose build/macos/T-Time.app
 
       - name: Installer package
         env:
@@ -133,7 +136,9 @@ jobs:
           zipname="$name"
           [ "${{ steps.cert.outputs.signed }}" = true ] || zipname="$zipname-UNSIGNED"
           ditto -c -k --keepParent build/macos/T-Time.app "dist/$zipname.zip"
-          (cd dist && shasum -a 256 "$pkgname.pkg" "$zipname.zip" > "$name.sha256")
+          tools_zip="${zipname}-Tools"
+          ditto -c -k --keepParent "build/macos/T-Time Tools.app" "dist/$tools_zip.zip"
+          (cd dist && shasum -a 256 "$pkgname.pkg" "$zipname.zip" "$tools_zip.zip" > "$name.sha256")
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
