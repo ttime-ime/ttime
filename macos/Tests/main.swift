@@ -177,7 +177,11 @@ do {
     if m.choose(latin: true) != true || m.choose(latin: false) != false { failures += 1; print("FAIL toolbar click picks a mode") }
     m.toggleLock(isLatin: true)
     if m.lockedLatin != true { failures += 1; print("FAIL toolbar lock locks the current mode") }
-    if m.choose(latin: false) != nil { failures += 1; print("FAIL toolbar click is refused while locked") }
+    if m.choose(latin: false) != false || m.lockedLatin != false { failures += 1; print("FAIL toolbar click works while locked and the lock follows it") }
+    if m.leftTap(.single, isLatin: false) != nil { failures += 1; print("FAIL Shift taps stay ignored after the toolbar changed a locked mode") }
+    m.toggleLock(isLatin: false)
+    if m.choose(latin: true) != true || m.lockedLatin != nil { failures += 1; print("FAIL toolbar click leaves an unlocked mode unlocked") }
+    m.toggleLock(isLatin: true)
     m.toggleLock(isLatin: true)
     if m.lockedLatin != nil { failures += 1; print("FAIL toolbar lock button unlocks") }
 }

@@ -318,7 +318,7 @@ final class Toolbar: NSObject {
         let tint = Theme.current.brutal ? Theme.current.ink : Self.plum
         lockButton.contentTintColor = state.locked ? tint : tint.withAlphaComponent(0.6)
         lockButton.toolTip = state.locked
-            ? "Locked: stays \(state.latin ? "Latin" : "Tibetan") when you change field or app. Click to unlock."
+            ? "Locked: Shift taps do not switch, and \(state.latin ? "Latin" : "Tibetan") stays across fields and apps. The mode buttons still work. Click to unlock."
             : "Lock this mode across fields and apps (or double-tap left Shift)"
         symbolsButton.isEnabled = openSymbols != nil
         symbolsButton.alphaValue = openSymbols != nil ? 1 : 0.45

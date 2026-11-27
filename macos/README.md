@@ -10,7 +10,7 @@ replaced or upgraded without touching the shell.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Sources/PanelChrome.swift`: what the Symbols and Stacker windows share: the tab bar (click, or Tab, to switch), the corner resize grip, remembering the window's top-left, and the one-column (compact) setting. Drag the grip narrower and both windows become one column: the picture and a short answer on top, the controls below.
 - `Sources/Theme.swift`: the visual styles (Bubblegum pink, and Brutalist black and white, which follows light and dark mode), chosen in the installer and in Settings. Changing the style or the system appearance rebuilds the toolbar and the panels. `MenuIcon` also swaps the input-source icon (`icon-colour.tiff` or `icon-mono.tiff`).
-- `Sources/DictionaryModel.swift`, `Sources/DictionaryPanel.swift`: the Dictionary tab and toolbar button. It shows Christian Steinert's Tibetan-English dictionary (dictionary.christian-steinert.de) from its own website in a web view; nothing from it is bundled. Opening it sends the selected text, or the syllable before the caret, to that site. The panel never takes focus, so there is no search box: the term comes from the document (applications that cannot report their text give no term). The term rules and the URL are tested; the panel was checked by rendering.
+- `Sources/DictionaryModel.swift`, `Sources/DictionaryPanel.swift`: the Dictionary tab and toolbar button. It shows Christian Steinert's Tibetan-English dictionary (dictionary.christian-steinert.de) from its own website in a web view; nothing from it is bundled. Control+Shift+F also opens and closes it. Opening it sends the selected text, or the syllable before the caret, to that site. The panel never takes focus, so there is no search box: the term comes from the document (applications that cannot report their text give no term). The term rules and the URL are tested; the panel was checked by rendering.
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, made for T-Time, not under the code licence). Checked by rendering, not run in a live input method.
 - `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
@@ -55,7 +55,8 @@ run in a live input method yet; the log of 2026-11-27 showed that held-key repea
 **Shift taps.** Tap left Shift to flip Tibetan and Latin; the mode is remembered when
 you move to another field or app (until you flip it again). Double-tap it (within 500 ms) to lock the mode you were
 in; the lock survives focus changes and restarts, single taps are ignored while
-it is on, and another double tap always clears it. A single tap of right Shift
+it is on, and another double tap always clears it. The toolbar's Tibetan and Latin buttons
+still work while locked, and the lock then holds the mode you chose. A single tap of right Shift
 does nothing; a double tap is reserved for the symbols table (not built). A tap
 means no other key or modifier in between and a press under 350 ms, so Shift
 for a capital never toggles. There is no on-screen indicator of the mode yet.

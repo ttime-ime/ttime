@@ -3,7 +3,8 @@ import Foundation
 /// Policy for the left Shift tap: a single tap flips Tibetan/Latin until focus
 /// moves on; a double tap locks the mode you were already in, and a locked mode
 /// survives focus changes. While locked, single taps do nothing and a double
-/// tap always unlocks, so the lock can never trap the user.
+/// tap always unlocks, so the lock can never trap the user. The toolbar's mode
+/// buttons are never refused: the lock is only against Shift taps.
 ///
 /// Pure, so it is testable. The one live instance owns the lock for every
 /// client application, so controllers cannot disagree about it.
@@ -30,9 +31,13 @@ struct ModeLock: Equatable {
         }
     }
 
-    /// A click on a mode in the toolbar: the Latin setting to switch to, or nil
-    /// when a lock refuses it.
-    func choose(latin: Bool) -> Bool? { lockedLatin == nil ? latin : nil }
+    /// A click on a mode in the toolbar: always allowed. The lock only stops Shift
+    /// taps, so a click while locked changes the mode and the lock follows it (it now
+    /// holds the mode you chose, across fields and apps, until you unlock).
+    mutating func choose(latin: Bool) -> Bool {
+        if lockedLatin != nil { lockedLatin = latin }
+        return latin
+    }
 
     /// The toolbar's lock button: locks the current mode, or unlocks.
     mutating func toggleLock(isLatin: Bool) {

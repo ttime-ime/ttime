@@ -4,6 +4,9 @@
 
 ### macOS
 
+- The toolbar's Tibetan and Latin buttons always work. The lock now only stops Shift taps from
+  switching; choosing a mode on the toolbar while locked changes it, and the lock holds the mode
+  you chose across fields and apps until you unlock.
 - Two looks, Bubblegum (pink, the default) and Brutalist (black and white, set in Didot
   with tracked capitals and hairlines, and following the system's light and dark mode).
   The installer asks which one; Settings switches between them at any time, and the toolbar,
@@ -14,7 +17,8 @@
   Brutalist. `Resources/icon.tiff` is now a link to `/Users/Shared/T-Time/icon.tiff`,
   which the installer and the app write; `codesign --strict` (and so notarization) may
   reject such a link, so check before a notarized release.
-- Dictionary tab (third tab beside Symbols and Stacker, and a toolbar button, ཚིག): shows
+- Dictionary tab (third tab beside Symbols and Stacker, a toolbar button, ཚིག, and the shortcut
+  Control+Shift+F): shows
   Christian Steinert's online Tibetan-English dictionary (dictionary.christian-steinert.de) in
   a web view. It looks up the selected text, or the syllable before the caret; with neither,
   it opens the dictionary's own page. It needs an internet connection, and opening it sends

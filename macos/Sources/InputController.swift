@@ -71,6 +71,12 @@ final class TTimeInputController: IMKInputController {
             toggleStacker()
             return true
         }
+        // Control+Shift+F (the F key) opens and closes the dictionary.
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if event.keyCode == 3, mods == [.control, .shift] {
+            toggleDictionary()
+            return true
+        }
         if StackerPanel.shared.isOpen {
             if StackerPanel.shared.handle(keyInput(for: event)) { return true }
         } else if SymbolsPanel.shared.isOpen {
@@ -264,7 +270,9 @@ final class TTimeInputController: IMKInputController {
     }
 
     private func toolbarChoose(latin: Bool) {
-        if let latin = Self.lock.choose(latin: latin), let client = client {
+        let latin = Self.lock.choose(latin: latin)
+        Self.saveLock()  // a lock follows the mode you chose
+        if let client = client {
             apply(composer.setLatin(latin), to: client)
             rememberMode()
         }
