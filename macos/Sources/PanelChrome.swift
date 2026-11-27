@@ -33,8 +33,9 @@ enum PanelTabs {
                 show(tab, from: panel())
             }
             b.filled = tab == selected
-            b.heightAnchor.constraint(equalToConstant: 30).isActive = true
-            b.widthAnchor.constraint(greaterThanOrEqualToConstant: 82).isActive = true
+            if Theme.current.brutal { b.look = .heading }
+            b.heightAnchor.constraint(equalToConstant: Theme.current.brutal ? 34 : 30).isActive = true
+            b.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.current.brutal ? 88 : 82).isActive = true
             buttons.append(b)
         }
         let bar = NSStackView(views: buttons)
@@ -146,7 +147,7 @@ final class ResizeGrip: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        StackerPanel.pinkStrong.setStroke()
+        (Theme.current.brutal ? Theme.current.ink.withAlphaComponent(0.5) : StackerPanel.pinkStrong).setStroke()
         let path = NSBezierPath()
         path.lineWidth = 1.6
         path.lineCapStyle = .round

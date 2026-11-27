@@ -6,16 +6,31 @@
     <welcome file="welcome.html" mime-type="text/html"/>
     <license file="license.txt" mime-type="text/plain"/>
     <conclusion file="conclusion.html" mime-type="text/html"/>
-    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <options customize="always" require-scripts="false" hostArchitectures="arm64,x86_64"/>
     <allowed-os-versions>
         <os-version min="13.0"/>
     </allowed-os-versions>
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <choices-outline>
         <line choice="default"/>
+        <line choice="bubblegum"/>
+        <line choice="brutal"/>
     </choices-outline>
-    <choice id="default" title="T-Time">
+    <choice id="default" title="T-Time" enabled="false" selected="true" description="The input method itself.">
         <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.pkg"/>
     </choice>
+    <!-- Pick one look for the toolbar and panels; it can be changed later in Settings. -->
+    <choice id="bubblegum" title="Look: Bubblegum" start_selected="true"
+            selected="!choices['brutal'].selected"
+            description="Pink and bubbly, with the cat-maid and the yak.">
+        <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-bubblegum"/>
+    </choice>
+    <choice id="brutal" title="Look: Brutalist" start_selected="false"
+            selected="!choices['bubblegum'].selected"
+            description="Black and white, set in type, following light and dark mode.">
+        <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-brutal"/>
+    </choice>
     <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.pkg" version="@VERSION@" onConclusion="none">component.pkg</pkg-ref>
+    <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-bubblegum" version="@VERSION@" onConclusion="none">style-bubblegum.pkg</pkg-ref>
+    <pkg-ref id="io.github.ttime-ime.inputmethod.TTime.style-brutal" version="@VERSION@" onConclusion="none">style-brutal.pkg</pkg-ref>
 </installer-gui-script>

@@ -44,9 +44,9 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
+    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Theme.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift  \
     macos/Sources/Updater.swift macos/Sources/UpdateSettings.swift macos/Sources/InputController.swift macos/Sources/main.swift \
-    "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement
+    "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement -framework WebKit
   BINS="$BINS $OUT/TTime-$arch"
 
   # The background update helper: no engine, no UI.
@@ -59,7 +59,7 @@ lipo -create $HELPERS -output "$APP/Contents/MacOS/TTimeUpdateHelper"
 rm -f "$OUT"/composer-tests-* "$OUT"/TTime-* "$OUT"/helper-*
 
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
-cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp \
+cp macos/Resources/icon-colour.tiff macos/Resources/icon-mono.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/toolbar-logo-brutal.png macos/Resources/toolbar-logo-brutal-dark.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp macos/Resources/brutal-art.webp \
    macos/Resources/NotoSerifTibetan.ttf macos/Resources/OFL-NotoSerifTibetan.txt "$APP/Contents/Resources/"
 cp data/sanskrit/iast-lexicon.tsv data/sanskrit/README.md "$APP/Contents/Resources/"
 mv "$APP/Contents/Resources/README.md" "$APP/Contents/Resources/iast-lexicon-README.md"
@@ -67,6 +67,15 @@ cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
 # Resource files must be readable by every user: the input method runs as the
 # logged-in user, and a source file with mode 600 would silently lose its art.
 chmod -R a+rX "$APP/Contents/Resources"
+# The input-source icon macOS shows in the menu bar is Resources/icon.tiff. It is a
+# link to a file the app rewrites to match the chosen style (see MenuIcon): a link is
+# sealed by its target's name, so changing the picture keeps the signature valid.
+ln -s /Users/Shared/T-Time/icon.tiff "$APP/Contents/Resources/icon.tiff"
+# codesign wants the link to resolve; the installer and the app keep the real file.
+if [ ! -e /Users/Shared/T-Time/icon.tiff ]; then
+  mkdir -p /Users/Shared/T-Time && chmod 777 /Users/Shared/T-Time
+  cp macos/Resources/icon-colour.tiff /Users/Shared/T-Time/icon.tiff && chmod 666 /Users/Shared/T-Time/icon.tiff
+fi
 mkdir -p "$APP/Contents/Library/LaunchDaemons"
 cp macos/Resources/LaunchDaemons/*.plist "$APP/Contents/Library/LaunchDaemons/"
 [ -n "${VERSION:-}" ] && plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
@@ -84,6 +93,8 @@ else
   codesign --force --sign "$IDENTITY" --options runtime --timestamp "$HELPER"
   codesign --force --sign "$IDENTITY" --options runtime --timestamp "$APP"
 fi
-codesign --verify --strict --verbose=2 "$APP"
+# Not --strict: that rejects Resources/icon.tiff, a link to a file outside the bundle.
+# (Notarization may too; see macos/README.md.)
+codesign --verify --verbose=2 "$APP"
 lipo -archs "$APP/Contents/MacOS/TTime"
 echo "built $APP (signed with ${SIGN_IDENTITY:-ad-hoc})"

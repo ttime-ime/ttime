@@ -59,12 +59,56 @@ final class BubbleButton: NSButton {
         didSet { alphaValue = isEnabled ? 1 : 0.4 }
     }
 
+    /// `soft`: the style's ordinary button. `tile`: a quiet filled pill (vowels,
+    /// marks). `heading`: brutalist tabs, which are just serif words.
+    enum Look { case soft, tile, heading }
+    var look = Look.soft { didSet { paint() } }
+
+    private var isCell: Bool { !caption.isEmpty && !inlineCaption }
+
+    override func viewDidMoveToWindow() { paint() }
+    override func viewDidChangeEffectiveAppearance() { paint() }
+
+    override func layout() {
+        super.layout()
+        if Theme.current.brutal { layer?.cornerRadius = isCell ? 9 : min(bounds.height / 2, 16) }
+    }
+
     func paint() {
-        layer?.backgroundColor = (filled ? Toolbar.plum : Toolbar.cream.withAlphaComponent(0.85)).cgColor
-        layer?.borderColor = (filled ? Toolbar.plum : StackerPanel.pinkStrong).cgColor
-        let ink = filled ? NSColor.white : Toolbar.plum
+        let t = Theme.current
+        let ink: NSColor
+        var captionFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
+        var labelFont: NSFont? = nil
+        if t.brutal {
+            ink = filled && look != .heading ? t.paper : t.ink
+            layer?.cornerRadius = isCell ? 9 : min(max(bounds.height, 28) / 2, 16)
+            switch look {
+            case .heading:
+                layer?.backgroundColor = NSColor.clear.cgColor
+                layer?.borderWidth = 0
+                labelFont = t.serif(20)
+                alphaValue = filled ? 1 : 0.4
+            case .tile:
+                layer?.backgroundColor = resolved(filled ? t.ink : t.tile)
+                layer?.borderWidth = 0
+            case .soft:
+                if filled {
+                    layer?.backgroundColor = resolved(t.ink); layer?.borderWidth = 0
+                } else if isCell {
+                    layer?.backgroundColor = NSColor.clear.cgColor; layer?.borderWidth = 0
+                } else {
+                    layer?.backgroundColor = NSColor.clear.cgColor
+                    layer?.borderWidth = 1; layer?.borderColor = resolved(t.line)
+                }
+            }
+            captionFont = t.serif(11)
+        } else {
+            layer?.backgroundColor = (filled ? Toolbar.plum : Toolbar.cream.withAlphaComponent(0.85)).cgColor
+            layer?.borderColor = (filled ? Toolbar.plum : StackerPanel.pinkStrong).cgColor
+            ink = filled ? NSColor.white : Toolbar.plum
+        }
         let font = TibetanFont.contains(glyph) ? TibetanFont.font(glyphSize)
-            : NSFont.systemFont(ofSize: glyphSize, weight: caption.isEmpty || inlineCaption ? .semibold : .regular)
+            : labelFont ?? NSFont.systemFont(ofSize: glyphSize, weight: caption.isEmpty || inlineCaption ? .semibold : .regular)
         let para = NSMutableParagraphStyle()
         para.alignment = .center
         if caption.isEmpty || inlineCaption {
@@ -73,7 +117,7 @@ final class BubbleButton: NSButton {
                 .font: font, .foregroundColor: ink, .paragraphStyle: para])
             if inlineCaption {
                 text.append(NSAttributedString(string: "  " + caption, attributes: [
-                    .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
+                    .font: captionFont,
                     .foregroundColor: ink.withAlphaComponent(0.75), .paragraphStyle: para]))
             }
             attributedTitle = text
@@ -89,7 +133,7 @@ final class BubbleButton: NSButton {
             g.0.attributedStringValue = NSAttributedString(string: glyph, attributes: [
                 .font: font, .foregroundColor: ink, .paragraphStyle: para])
             g.1.attributedStringValue = NSAttributedString(string: caption, attributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
+                .font: captionFont,
                 .foregroundColor: ink.withAlphaComponent(0.75), .paragraphStyle: para])
         }
         setAccessibilityValue(filled ? "selected" : "not selected")
@@ -107,7 +151,20 @@ final class BubbleButton: NSButton {
 /// A non-activating panel like the toolbar, so the document keeps focus and the
 /// keys go through the input method (see `handle`).
 final class StackerPanel: NSObject {
-    static let shared = StackerPanel()
+    static var shared = StackerPanel()
+
+    /// Builds the window again in the current style, where it was.
+    static func rebuild() {
+        let old = shared
+        let wasOpen = old.isOpen
+        let tl = old.panel.map { PanelTabs.topLeft(of: $0) }
+        old.pendingClose?.cancel()
+        old.panel?.orderOut(nil)
+        let new = StackerPanel()
+        new.insert = old.insert
+        shared = new
+        if wasOpen { new.open(topLeft: tl) }
+    }
 
     static let pink = NSColor(srgbRed: 0xFC / 255, green: 0xE7 / 255, blue: 0xE9 / 255, alpha: 1)
     static let pinkStrong = NSColor(srgbRed: 0xEA / 255, green: 0x87 / 255, blue: 0x98 / 255, alpha: 1)
@@ -120,6 +177,9 @@ final class StackerPanel: NSObject {
     private static let columnWidth: CGFloat = 264
     /// Dragged narrower than this, the window becomes one column.
     private static let singleColumnBelow: CGFloat = 620
+
+    /// Height over width of the picture.
+    private var artRatio: CGFloat { Theme.current.brutal ? 1024.0 / 1536 : 1050.0 / 960 }
 
     private var panel: NSPanel?
     private var pendingClose: DispatchWorkItem?
@@ -263,29 +323,43 @@ final class StackerPanel: NSObject {
 
         // The illustration, dominant when wide, smaller on top when compact.
         art = NSImageView()
-        if let url = Bundle.main.url(forResource: "stacker-art", withExtension: "webp") {
+        if let url = Bundle.main.url(forResource: Theme.current.brutal ? "brutal-art" : "stacker-art", withExtension: "webp") {
             art.image = NSImage(contentsOf: url)
         }
         art.imageScaling = .scaleProportionallyUpOrDown
         art.setAccessibilityLabel("A cat-maid carrying a tower of flatbreads, and a yak with books")
         art.translatesAutoresizingMaskIntoConstraints = false
         artWidth = art.widthAnchor.constraint(equalToConstant: Self.columnWidth)
-        artHeight = art.heightAnchor.constraint(equalToConstant: Self.columnWidth * 1050 / 960)
+        artHeight = art.heightAnchor.constraint(equalToConstant: Self.columnWidth * artRatio)
         NSLayoutConstraint.activate([artWidth, artHeight])
 
         card = resultCard()
 
         // The tabs, the tagline and the close button.
         let tabs = PanelTabs.makeBar(selected: .stacker) { [weak self] in self?.panel }
-        tagline.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        tagline.textColor = Toolbar.plum.withAlphaComponent(0.7)
+        tagline.font = Theme.current.brutal ? Theme.current.serif(13, italic: true) : NSFont.systemFont(ofSize: 12, weight: .medium)
+        tagline.textColor = Theme.current.ink.withAlphaComponent(0.7)
         let spacer = NSView()
         let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close") { [weak self] in
             self?.close()
         }
         closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
         closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        header = NSStackView(views: [tabs, tagline, spacer, closeButton])
+        if Theme.current.brutal {
+            let title = NSTextField(labelWithString: "T-Time")
+            title.font = Theme.current.serif(30)
+            title.textColor = Theme.current.ink
+            tagline.font = Theme.current.serif(12, italic: true)
+            let block = NSStackView(views: [title, tagline])
+            block.orientation = .vertical
+            block.alignment = .leading
+            block.spacing = 0
+            let rule = RuleView(vertical: true)
+            rule.heightAnchor.constraint(equalToConstant: 38).isActive = true
+            header = NSStackView(views: [block, rule, tabs, spacer, closeButton])
+        } else {
+            header = NSStackView(views: [tabs, tagline, spacer, closeButton])
+        }
         header.alignment = .centerY
         header.spacing = 10
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
@@ -301,7 +375,7 @@ final class StackerPanel: NSObject {
         layersRow.alignment = .centerX
         emptyHint.stringValue = "Add letters top to bottom: the first goes on top."
         emptyHint.font = NSFont.systemFont(ofSize: 12)
-        emptyHint.textColor = Toolbar.plum.withAlphaComponent(0.7)
+        emptyHint.textColor = Theme.current.ink.withAlphaComponent(0.7)
         layersBox = NSView()
         layersBox.translatesAutoresizingMaskIntoConstraints = false
         layersBox.heightAnchor.constraint(equalToConstant: 20).isActive = true
@@ -312,8 +386,8 @@ final class StackerPanel: NSObject {
             v.centerYAnchor.constraint(equalTo: layersBox.centerYAnchor).isActive = true
         }
 
-        typedLabel.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
-        typedLabel.textColor = Toolbar.plum
+        typedLabel.font = Theme.current.brutal ? Theme.current.serif(15) : NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
+        typedLabel.textColor = Theme.current.ink
 
         grid = NSStackView()
         grid.orientation = .vertical
@@ -327,11 +401,7 @@ final class StackerPanel: NSObject {
         if !rest.isEmpty { rows.append(("More", rest)) }
         rows.append(("Under a letter", alphabet.subjoinedOnly.map(\.key)))
         for (name, keys) in rows where !keys.isEmpty {
-            let label = NSTextField(labelWithString: name)
-            label.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-            label.textColor = Toolbar.plum.withAlphaComponent(0.75)
-            label.translatesAutoresizingMaskIntoConstraints = false
-            label.widthAnchor.constraint(equalToConstant: 82).isActive = true
+            let label = Theme.current.railLabel(name, width: 82)
             var buttons: [NSView] = [label]
             for key in keys {
                 let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 15,
@@ -378,6 +448,7 @@ final class StackerPanel: NSObject {
             markRow.append(b)
         }
         for b in (vowelRow + markRow) {
+            (b as? BubbleButton)?.look = .tile
             b.widthAnchor.constraint(greaterThanOrEqualToConstant: 34).isActive = true
             b.heightAnchor.constraint(equalToConstant: 34).isActive = true
         }
@@ -404,10 +475,10 @@ final class StackerPanel: NSObject {
 
         container = DraggableView()
         container.wantsLayer = true
-        container.layer?.backgroundColor = Self.pink.cgColor
-        container.layer?.cornerRadius = 28
-        container.layer?.borderWidth = 3
-        container.layer?.borderColor = Self.pinkStrong.cgColor
+        container.layer?.backgroundColor = container.resolved(Theme.current.paper)
+        container.layer?.cornerRadius = Theme.current.panelRadius
+        container.layer?.borderWidth = Theme.current.panelBorder
+        container.layer?.borderColor = container.resolved(Theme.current.panelBorderColor)
         container.addSubview(root)
         // The far edges give way (priority 750) so a window mid-resize never
         // conflicts with controls that have a fixed size.
@@ -442,7 +513,7 @@ final class StackerPanel: NSObject {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
-        panel.appearance = NSAppearance(named: .aqua)  // the brand is light
+        panel.appearance = Theme.current.appearance
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setAccessibilityLabel("T-Time stacker")
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
@@ -461,11 +532,7 @@ final class StackerPanel: NSObject {
     ]
 
     private func section(_ name: String, _ items: [NSView], perRow: Int) -> NSView {
-        let label = NSTextField(labelWithString: name)
-        label.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        label.textColor = Toolbar.plum.withAlphaComponent(0.75)
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.widthAnchor.constraint(equalToConstant: 82).isActive = true
+        let label = Theme.current.railLabel(name, width: 82)
         let lines = stride(from: 0, to: items.count, by: perRow).map { i -> NSView in
             let s = NSStackView(views: Array(items[i..<min(i + perRow, items.count)]))
             s.spacing = 4
@@ -484,22 +551,22 @@ final class StackerPanel: NSObject {
     /// when wide, just the glyph and what to type when compact.
     private func resultCard() -> NSView {
         preview.font = TibetanFont.font(46)
-        preview.textColor = Toolbar.plum
+        preview.textColor = Theme.current.ink
         preview.alignment = .center
         preview.lineBreakMode = .byTruncatingTail
         shortestLabel.font = NSFont.monospacedSystemFont(ofSize: 17, weight: .bold)
-        shortestLabel.textColor = Toolbar.plum
+        shortestLabel.textColor = Theme.current.ink
         canonicalLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-        canonicalLabel.textColor = Toolbar.plum.withAlphaComponent(0.8)
+        canonicalLabel.textColor = Theme.current.ink.withAlphaComponent(0.8)
         for l in [codesLabel, notesLabel] {
             l.preferredMaxLayoutWidth = Self.columnWidth - 24
         }
         codesLabel.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
-        codesLabel.textColor = Toolbar.plum.withAlphaComponent(0.7)
+        codesLabel.textColor = Theme.current.ink.withAlphaComponent(0.7)
         notesLabel.font = NSFont.systemFont(ofSize: 10.5)
-        notesLabel.textColor = Toolbar.plum.withAlphaComponent(0.85)
+        notesLabel.textColor = Theme.current.ink.withAlphaComponent(0.85)
         hintLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        hintLabel.textColor = Toolbar.plum
+        hintLabel.textColor = Theme.current.ink
         hintLabel.preferredMaxLayoutWidth = Self.columnWidth - 24
 
         insertButton = BubbleButton(glyph: "Insert  ⏎", glyphSize: 13, tip: "Put it in the document (Return)", label: "Insert") { [weak self] in
@@ -581,9 +648,9 @@ final class StackerPanel: NSObject {
 
         let box = NSView()
         box.wantsLayer = true
-        box.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.7).cgColor
-        box.layer?.cornerRadius = 20
-        box.layer?.borderWidth = 2
+        box.layer?.backgroundColor = Theme.current.brutal ? NSColor.clear.cgColor : NSColor.white.withAlphaComponent(0.7).cgColor
+        box.layer?.cornerRadius = Theme.current.brutal ? 0 : 20
+        box.layer?.borderWidth = Theme.current.brutal ? 0 : 2
         box.layer?.borderColor = Self.pinkStrong.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
         box.addSubview(cardStack)
@@ -602,7 +669,7 @@ final class StackerPanel: NSObject {
     private func label(_ s: String, _ size: CGFloat) -> NSTextField {
         let l = NSTextField(labelWithString: s)
         l.font = NSFont.systemFont(ofSize: size, weight: .semibold)
-        l.textColor = Toolbar.plum.withAlphaComponent(0.75)
+        l.textColor = Theme.current.ink.withAlphaComponent(0.75)
         return l
     }
 
@@ -620,7 +687,7 @@ final class StackerPanel: NSObject {
 
         let artW: CGFloat = c ? 146 : Self.columnWidth
         artWidth.constant = artW
-        artHeight.constant = (artW * 1050 / 960).rounded()
+        artHeight.constant = (artW * artRatio).rounded()
         cardWidth.constant = c ? contentWidth - artW - 104 - 2 * topRow.spacing : Self.columnWidth
         cardMinHeight.constant = c ? artHeight.constant : 250
         previewRowWidth.constant = cardWidth.constant - 24
@@ -631,7 +698,7 @@ final class StackerPanel: NSObject {
         for b in presetButtons { b.glyphSize = c ? 11 : 12; b.paint() }
         preview.font = TibetanFont.font(c ? 40 : 46)
         layersRow.spacing = c ? 2 : 3
-        tagline.isHidden = c
+        tagline.isHidden = c && !Theme.current.brutal
         // Compact: the buttons stand in a column beside the answer.
         buttonsRow.orientation = c ? .vertical : .horizontal
         buttonsRow.distribution = c ? .fill : .fillEqually
@@ -726,16 +793,16 @@ final class StackerPanel: NSObject {
         switch model.result {
         case .empty:
             shown = "ཀྵ"
-            preview.textColor = Toolbar.plum.withAlphaComponent(0.25)
+            preview.textColor = Theme.current.ink.withAlphaComponent(0.25)
         case .built(let b):
             shown = b.text; shortest = b.shortest
             canonical = b.shortest == b.canonical ? "" : "full: \(b.canonical)"
             codes = b.codePoints
             notes = b.notes.prefix(2).joined(separator: "\n")
-            preview.textColor = Toolbar.plum
+            preview.textColor = Theme.current.ink
         case .failed(let why):
             shown = "∅"; notes = why
-            preview.textColor = Toolbar.plum.withAlphaComponent(0.25)
+            preview.textColor = Theme.current.ink.withAlphaComponent(0.25)
         }
         preview.stringValue = shown
         shortestLabel.stringValue = shortest

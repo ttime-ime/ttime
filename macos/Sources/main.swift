@@ -19,4 +19,6 @@ if CommandLine.arguments.contains("--register") {
 let server = IMKServer(name: "TTime_Connection", bundleIdentifier: Bundle.main.bundleIdentifier)
 _ = server
 DispatchQueue.main.async { UpdateManager.shared.checkIfDue() }
+Theme.observeSystemAppearance()
+MenuIcon.sync()
 NSApplication.shared.run()

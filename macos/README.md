@@ -9,6 +9,7 @@ replaced or upgraded without touching the shell.
 - `Sources/InputController.swift`: maps `NSEvent` to `Composer` and writes marked and committed text to the client application.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Sources/PanelChrome.swift`: what the Symbols and Stacker windows share: the tab bar (click, or Tab, to switch), the corner resize grip, remembering the window's top-left, and the one-column (compact) setting. Drag the grip narrower and both windows become one column: the picture and a short answer on top, the controls below.
+- `Sources/Theme.swift`: the visual styles (Bubblegum pink, and Brutalist black and white, which follows light and dark mode), chosen in the installer and in Settings. Changing the style or the system appearance rebuilds the toolbar and the panels. `MenuIcon` also swaps the input-source icon (`icon-colour.tiff` or `icon-mono.tiff`).
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, made for T-Time, not under the code licence). Checked by rendering, not run in a live input method.
 - `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
@@ -88,3 +89,5 @@ The window opens with the cookie-icing illustration (`Resources/symbols-art.webp
 Settings, typing in real applications, and the `tsInputModeScriptKey` value.
 There is no universal (x86_64) build, no Developer ID signing, no
 notarization and no installer.
+
+**Menu-bar icon follows the style.** `Resources/icon.tiff` (the file `Info.plist` names) is a link to `/Users/Shared/T-Time/icon.tiff`. The installer's postinstall creates that file from `icon-colour.tiff` or `icon-mono.tiff`, and the app rewrites it (`MenuIcon` in `Theme.swift`) when the style changes, then restarts the menu agents. A link is sealed by its target's name, so the signature holds; but `codesign --strict` and notarization may reject a link that leaves the bundle. Untested for release: check before shipping a notarized build.

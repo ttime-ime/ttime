@@ -34,6 +34,15 @@ pkgbuild --root "$W/root" --component-plist "$W/components.plist" --scripts "$W/
   --identifier io.github.ttime-ime.inputmethod.TTime.pkg --version "$VERSION" \
   --install-location / "$W/component.pkg" >/dev/null
 
+# One tiny package per look; the installer lets the user pick one. Each leaves its
+# name where the app finds it, as the default until the user changes it in Settings.
+for style in bubblegum brutal; do
+  mkdir -p "$W/style-$style/Library/Application Support/T-Time"
+  printf '%s\n' "$style" > "$W/style-$style/Library/Application Support/T-Time/default-style"
+  pkgbuild --root "$W/style-$style" --identifier "io.github.ttime-ime.inputmethod.TTime.style-$style" \
+    --version "$VERSION" --install-location / "$W/style-$style.pkg" >/dev/null
+done
+
 # The licence screen: the project's licence, then third-party notices.
 {
   echo "T-Time is licensed under either of the Apache License 2.0 or the MIT license,"

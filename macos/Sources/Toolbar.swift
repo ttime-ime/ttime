@@ -46,6 +46,14 @@ final class DraggableView: NSView {
 final class Toolbar: NSObject {
     static let shared = Toolbar()
 
+    /// Draws the toolbar again in the current style, where it was.
+    func rebuild() {
+        let wasVisible = panel?.isVisible ?? false
+        panel?.orderOut(nil)
+        panel = nil
+        if wasVisible { show(state) }
+    }
+
     struct State: Equatable {
         var latin: Bool
         var locked: Bool
@@ -63,6 +71,8 @@ final class Toolbar: NSObject {
     /// Controls are scaled less than the logo, so they stay easy to click.
     private static let c: CGFloat = 0.7
     private static let imageSize = NSSize(width: 208 * pointsPerUnit, height: 66.9267 * pointsPerUnit)
+    /// The brutalist logo (a tile and a wordmark), 3.7 : 1.
+    private static let brutalLogo = NSSize(width: 92, height: 25)
     private static let barHeight: CGFloat = 59.0728 * pointsPerUnit
 
     /// Actions, set by the active controller. A nil action disables its control.
@@ -135,12 +145,17 @@ final class Toolbar: NSObject {
         // taller than the bar, so its paw hangs below the bar's edge.
         let bar = NSView()
         bar.wantsLayer = true
-        bar.layer?.backgroundColor = Self.bar.cgColor
-        bar.layer?.cornerRadius = 15 * Self.c
+        let t = Theme.current
+        bar.layer?.backgroundColor = bar.resolved(t.bar)
+        bar.layer?.cornerRadius = t.brutal ? 14 : 15 * Self.c
+        if t.brutal {
+            bar.layer?.borderWidth = 1
+            bar.layer?.borderColor = bar.resolved(t.panelBorderColor)
+        }
         bar.translatesAutoresizingMaskIntoConstraints = false
 
         let logo = NSImageView()
-        logo.image = Bundle.main.image(forResource: "toolbar-logo")
+        logo.image = Bundle.main.image(forResource: t.brutal ? (Theme.systemIsDark ? "toolbar-logo-brutal-dark" : "toolbar-logo-brutal") : "toolbar-logo")
         logo.imageScaling = .scaleProportionallyUpOrDown
         logo.setAccessibilityLabel("T-Time, Tibetan input method")
         logo.translatesAutoresizingMaskIntoConstraints = false
@@ -159,8 +174,9 @@ final class Toolbar: NSObject {
         pillBox.wantsLayer = true
         pillBox.layer?.cornerRadius = 12 * Self.c
         pillBox.layer?.borderWidth = 1
-        pillBox.layer?.borderColor = Self.plum.withAlphaComponent(0.4).cgColor
-        pillBox.layer?.backgroundColor = Self.cream.withAlphaComponent(0.55).cgColor
+        pillBox.layer?.borderColor = t.brutal ? pillBox.resolved(t.line) : Self.plum.withAlphaComponent(0.4).cgColor
+        pillBox.layer?.backgroundColor = t.brutal ? NSColor.clear.cgColor : Self.cream.withAlphaComponent(0.55).cgColor
+        if t.brutal { pillBox.layer?.cornerRadius = 14 }
         pillBox.addSubview(pill)
         NSLayoutConstraint.activate([
             pill.leadingAnchor.constraint(equalTo: pillBox.leadingAnchor, constant: 2),
@@ -190,21 +206,26 @@ final class Toolbar: NSObject {
 
         let container = DraggableView()
         for v in [bar, logo, controls] { container.addSubview(v) }
+        let logoW = t.brutal ? Self.brutalLogo.width : Self.imageSize.width
+        let logoH = t.brutal ? Self.brutalLogo.height : Self.imageSize.height
         NSLayoutConstraint.activate([
-            logo.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            logo.topAnchor.constraint(equalTo: container.topAnchor),
-            logo.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            logo.widthAnchor.constraint(equalToConstant: Self.imageSize.width),
-            logo.heightAnchor.constraint(equalToConstant: Self.imageSize.height),
+            logo.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: t.brutal ? 8 : 0),
+            // Bubblegum hangs the paw below the bar; brutalist centres the logo on it.
+            t.brutal ? logo.centerYAnchor.constraint(equalTo: bar.centerYAnchor)
+                     : logo.topAnchor.constraint(equalTo: container.topAnchor),
+            t.brutal ? container.bottomAnchor.constraint(equalTo: bar.bottomAnchor)
+                     : logo.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            logo.widthAnchor.constraint(equalToConstant: logoW),
+            logo.heightAnchor.constraint(equalToConstant: logoH),
 
             bar.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             bar.topAnchor.constraint(equalTo: container.topAnchor),
-            bar.heightAnchor.constraint(equalToConstant: Self.barHeight),
+            bar.heightAnchor.constraint(equalToConstant: t.brutal ? 34 : Self.barHeight),
             bar.trailingAnchor.constraint(equalTo: container.trailingAnchor),
 
-            controls.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
+            controls.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: t.brutal ? 12 : 3),
             controls.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
-            bar.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: 10),
+            bar.trailingAnchor.constraint(equalTo: controls.trailingAnchor, constant: t.brutal ? 12 : 10),
         ])
         container.layoutSubtreeIfNeeded()
 
@@ -219,7 +240,7 @@ final class Toolbar: NSObject {
         panel.backgroundColor = .clear
         panel.hasShadow = true  // follows the artwork's outline, paw included
         panel.isMovableByWindowBackground = true
-        panel.appearance = NSAppearance(named: .aqua)  // the brand is light
+        panel.appearance = t.appearance
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setAccessibilityLabel("T-Time toolbar")
         NotificationCenter.default.addObserver(self, selector: #selector(panelMoved),
@@ -247,10 +268,18 @@ final class Toolbar: NSObject {
         b.isBordered = false
         b.wantsLayer = true
         b.layer?.cornerRadius = 9 * Self.c
-        b.layer?.backgroundColor = Self.cream.withAlphaComponent(0.75).cgColor
+        let t = Theme.current
+        if t.brutal {
+            b.layer?.cornerRadius = 14
+            b.layer?.borderWidth = 1
+            b.layer?.borderColor = b.resolved(t.line)
+            b.layer?.backgroundColor = NSColor.clear.cgColor
+        } else {
+            b.layer?.backgroundColor = Self.cream.withAlphaComponent(0.75).cgColor
+        }
         b.attributedTitle = NSAttributedString(string: title, attributes: [
             .font: NSFont.systemFont(ofSize: 18 * Self.c),
-            .foregroundColor: Self.plum,
+            .foregroundColor: t.brutal ? t.ink : Self.plum,
         ])
         b.toolTip = tip
         b.setAccessibilityLabel(label)
@@ -261,10 +290,12 @@ final class Toolbar: NSObject {
     }
 
     private func style(_ b: NSButton, selected: Bool) {
-        b.layer?.backgroundColor = selected ? Self.plum.cgColor : NSColor.clear.cgColor
+        let t = Theme.current
+        b.layer?.backgroundColor = selected ? b.resolved(t.brutal ? t.ink : Self.plum) : NSColor.clear.cgColor
+        if t.brutal { b.layer?.cornerRadius = 12 }
         b.attributedTitle = NSAttributedString(string: b.title, attributes: [
             .font: NSFont.systemFont(ofSize: 16 * Self.c, weight: .semibold),
-            .foregroundColor: selected ? NSColor.white : Self.plum,
+            .foregroundColor: selected ? (t.brutal ? t.paper : NSColor.white) : (t.brutal ? t.ink : Self.plum),
         ])
         b.setAccessibilityValue(selected ? "selected" : "not selected")
     }
@@ -275,7 +306,8 @@ final class Toolbar: NSObject {
         style(latinButton, selected: state.latin)
         let symbol = state.locked ? "lock.fill" : "lock.open"
         lockButton.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        lockButton.contentTintColor = state.locked ? Self.plum : Self.plum.withAlphaComponent(0.6)
+        let tint = Theme.current.brutal ? Theme.current.ink : Self.plum
+        lockButton.contentTintColor = state.locked ? tint : tint.withAlphaComponent(0.6)
         lockButton.toolTip = state.locked
             ? "Locked: stays \(state.latin ? "Latin" : "Tibetan") when you change field or app. Click to unlock."
             : "Lock this mode across fields and apps (or double-tap left Shift)"

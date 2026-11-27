@@ -16,9 +16,9 @@ private final class BannerView: NSView {
         self.aspect = aspect
         super.init(frame: NSRect(x: 0, y: 0, width: width, height: width * aspect))
         wantsLayer = true
-        layer?.cornerRadius = 20
+        layer?.cornerRadius = Theme.current.brutal ? 4 : 20
         layer?.masksToBounds = true
-        layer?.borderWidth = 2
+        layer?.borderWidth = Theme.current.brutal ? 0 : 2
         layer?.borderColor = StackerPanel.pinkStrong.cgColor
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityLabel("A cat-maid icing Tibetan symbol cookies, and a yak sniffing them")
@@ -49,7 +49,7 @@ private final class BannerView: NSView {
 /// The symbols window: Tibetan punctuation, head marks, marks and Sanskrit
 /// letters in one table, in the same pink as the stacker. Click a symbol (or move
 /// with the arrows and press Return) to insert it; the line under the table says
-/// what the selected one is and how to type it. Tab switches to the stacker, Esc
+/// what the selected one is and how to type it. Tab switches to the next panel, Esc
 /// closes. A non-activating panel: the document keeps focus and keys arrive
 /// through the input method.
 ///
@@ -57,7 +57,20 @@ private final class BannerView: NSView {
 /// narrow enough the window becomes one column with the picture above the table
 /// (the same views, rearranged, as in the stacker).
 final class SymbolsPanel: NSObject {
-    static let shared = SymbolsPanel()
+    static var shared = SymbolsPanel()
+
+    /// Builds the window again in the current style, where it was.
+    static func rebuild() {
+        let old = shared
+        let wasOpen = old.isOpen
+        let tl = old.panel.map { PanelTabs.topLeft(of: $0) }
+        old.pendingClose?.cancel()
+        old.panel?.orderOut(nil)
+        let new = SymbolsPanel()
+        new.insert = old.insert
+        shared = new
+        if wasOpen { new.open(topLeft: tl) }
+    }
 
     let model = SymbolsModel()
     /// Puts text into the focused document; set by the active controller.
@@ -172,7 +185,7 @@ final class SymbolsPanel: NSObject {
         loadSize()
 
         var art: NSImage?
-        if let url = Bundle.main.url(forResource: "symbols-art", withExtension: "webp") {
+        if let url = Bundle.main.url(forResource: Theme.current.brutal ? "brutal-art" : "symbols-art", withExtension: "webp") {
             art = NSImage(contentsOf: url)
         }
         banner = BannerView(image: art, width: Self.bannerWide, aspect: 1024 / 1536)
@@ -186,7 +199,23 @@ final class SymbolsPanel: NSObject {
         }
         closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
         closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        header = NSStackView(views: [tabs, spacer, closeButton])
+        if Theme.current.brutal {
+            let title = NSTextField(labelWithString: "T-Time")
+            title.font = Theme.current.serif(30)
+            title.textColor = Theme.current.ink
+            let tagline = NSTextField(labelWithString: "Tibetan symbols, set in type.")
+            tagline.font = Theme.current.serif(12, italic: true)
+            tagline.textColor = Theme.current.ink.withAlphaComponent(0.7)
+            let block = NSStackView(views: [title, tagline])
+            block.orientation = .vertical
+            block.alignment = .leading
+            block.spacing = 0
+            let rule = RuleView(vertical: true)
+            rule.heightAnchor.constraint(equalToConstant: 38).isActive = true
+            header = NSStackView(views: [block, rule, tabs, spacer, closeButton])
+        } else {
+            header = NSStackView(views: [tabs, spacer, closeButton])
+        }
         header.alignment = .centerY
         header.spacing = 10
         headerWidth = header.widthAnchor.constraint(equalToConstant: 100)
@@ -214,10 +243,10 @@ final class SymbolsPanel: NSObject {
 
         container = DraggableView()
         container.wantsLayer = true
-        container.layer?.backgroundColor = StackerPanel.pink.cgColor
-        container.layer?.cornerRadius = 28
-        container.layer?.borderWidth = 3
-        container.layer?.borderColor = StackerPanel.pinkStrong.cgColor
+        container.layer?.backgroundColor = container.resolved(Theme.current.paper)
+        container.layer?.cornerRadius = Theme.current.panelRadius
+        container.layer?.borderWidth = Theme.current.panelBorder
+        container.layer?.borderColor = container.resolved(Theme.current.panelBorderColor)
         container.addSubview(root)
         // The far edges give way (priority 750) so a window mid-resize never
         // conflicts with controls that have a fixed size.
@@ -254,7 +283,7 @@ final class SymbolsPanel: NSObject {
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.isMovableByWindowBackground = true
-        panel.appearance = NSAppearance(named: .aqua)  // the brand is light
+        panel.appearance = Theme.current.appearance
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setAccessibilityLabel("T-Time symbols")
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
@@ -390,9 +419,10 @@ final class SymbolsPanel: NSObject {
             first = name + (e.ewts.map { "  ·  type \(Self.shown($0))" } ?? "") + "  ·  " + e.codePoints
         }
         let text = NSMutableAttributedString(string: first, attributes: [
-            .font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: Toolbar.plum])
-        text.append(NSAttributedString(string: "\nClick or Return inserts · arrows move · Tab: Stacker · Esc closes", attributes: [
-            .font: NSFont.systemFont(ofSize: 10), .foregroundColor: Toolbar.plum.withAlphaComponent(0.7)]))
+            .font: Theme.current.brutal ? Theme.current.serif(14) : NSFont.systemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: Theme.current.ink])
+        text.append(NSAttributedString(string: "\nClick or Return inserts · arrows move · Tab: next panel · Esc closes", attributes: [
+            .font: NSFont.systemFont(ofSize: 10), .foregroundColor: Theme.current.ink.withAlphaComponent(0.7)]))
         hintLabel.attributedStringValue = text
         panel?.invalidateShadow()
     }
