@@ -100,6 +100,10 @@ final class BubbleButton: NSButton {
 /// Choose letters top to bottom (click, or type their EWTS); the engine builds
 /// the stack, and the window shows what to type for it next time.
 ///
+/// Two layouts. Wide: the picture and the answer on the left, the letters on the
+/// right. Compact (drag the corner grip narrower): one column, the picture and a
+/// short answer on top, the letters below. Both hold the same views, rearranged.
+///
 /// A non-activating panel like the toolbar, so the document keeps focus and the
 /// keys go through the input method (see `handle`).
 final class StackerPanel: NSObject {
@@ -112,11 +116,14 @@ final class StackerPanel: NSObject {
     /// Puts text into the focused document; set by the active controller.
     var insert: ((String) -> Void)?
 
-    private static let originKey = "StackerOrigin"
+    private static let originKey = "StackerTopLeft"
     private static let columnWidth: CGFloat = 264
+    /// Dragged narrower than this, the window becomes one column.
+    private static let singleColumnBelow: CGFloat = 620
 
     private var panel: NSPanel?
     private var pendingClose: DispatchWorkItem?
+    private var compact = false
 
     private var cells: [String: BubbleButton] = [:]
     private var vowelButtons: [String: BubbleButton] = [:]
@@ -135,29 +142,59 @@ final class StackerPanel: NSObject {
     private var copyButton: BubbleButton!
     private var clearButton: BubbleButton!
 
+    // The parts the two layouts share, and the constraints that differ.
+    private var container: DraggableView!
+    private let root = NSStackView()
+    private let leftColumn = NSStackView()
+    private let rightColumn = NSStackView()
+    private let topRow = NSStackView()
+    private let typedRow = NSStackView()  // compact: what you are typing, and the hint
+    private var header: NSStackView!
+    private let tagline = NSTextField(labelWithString: "Stack up Sanskrit letters.")
+    private var layersBox: NSView!
+    private let flexible = NSView()
+    private var art: NSImageView!
+    private var card: NSView!
+    private let cardStack = NSStackView()
+    private var previewRow: NSStackView!
+    private var buttonsRow: NSStackView!
+    private var presetLabel: NSTextField!
+    private var presetButtons: [BubbleButton] = []
+    private var presetLines: [NSStackView] = []
+    private let presetsWide = NSStackView()
+    private let presetsCompact = NSStackView()
+    private let presetChips = NSStackView()
+    private var grid: NSStackView!
+    private var vowelSection: NSView!
+    private var marksSection: NSView!
+    private var artWidth: NSLayoutConstraint!
+    private var artHeight: NSLayoutConstraint!
+    private var cardWidth: NSLayoutConstraint!
+    private var cardMinHeight: NSLayoutConstraint!
+    private var headerWidth: NSLayoutConstraint!
+    private var typedRowWidth: NSLayoutConstraint!
+    private var previewRowWidth: NSLayoutConstraint!
+    private var cellHeights: [NSLayoutConstraint] = []
+    private var presetHeights: [NSLayoutConstraint] = []
+    private var wideOnly: [NSLayoutConstraint] = []     // controls that fill the card
+    private var compactOnly: [NSLayoutConstraint] = []  // controls in the footer
+
     var isOpen: Bool { panel?.isVisible ?? false }
     /// The panel's content, for rendering without showing it.
     var contentView: NSView? { ensurePanel().contentView }
 
     // MARK: Showing
 
-    /// Tab: the symbols window takes over, in the same place.
-    private func switchToSymbols() {
-        let center = panel.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) }
-        close()
-        SymbolsPanel.shared.open(centeredOn: center)
-    }
-
-    func open(centeredOn center: NSPoint? = nil) {
+    func open(topLeft: NSPoint? = nil) {
         model.precomposed = Prefs.precomposed
         pendingClose?.cancel()
         let panel = ensurePanel()
-        refresh()
-        if !panel.isVisible {
-            if let c = center {
-                panel.setFrameOrigin(NSPoint(x: c.x - panel.frame.width / 2, y: c.y - panel.frame.height / 2))
-            } else { place(panel) }
+        if compact != PanelTabs.compact {
+            setCompact(PanelTabs.compact)
+            PanelTabs.setSize(panel, container.fittingSize)
         }
+        refresh()
+        if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         panel.orderFrontRegardless()
         panel.invalidateShadow()
     }
@@ -203,7 +240,7 @@ final class StackerPanel: NSObject {
                 model.type(s)
             }
         case .tab:
-            switchToSymbols()
+            PanelTabs.cycle(from: .stacker, panel: panel)
             return true
         default:
             return false
@@ -221,30 +258,25 @@ final class StackerPanel: NSObject {
 
     private func ensurePanel() -> NSPanel {
         if let panel = panel { return panel }
+        compact = PanelTabs.compact
         let alphabet = model.alphabet
 
-        // Left: the illustration, dominant, and the answer under it.
-        let art = NSImageView()
+        // The illustration, dominant when wide, smaller on top when compact.
+        art = NSImageView()
         if let url = Bundle.main.url(forResource: "stacker-art", withExtension: "webp") {
             art.image = NSImage(contentsOf: url)
         }
         art.imageScaling = .scaleProportionallyUpOrDown
         art.setAccessibilityLabel("A cat-maid carrying a tower of flatbreads, and a yak with books")
         art.translatesAutoresizingMaskIntoConstraints = false
-        art.widthAnchor.constraint(equalToConstant: Self.columnWidth).isActive = true
-        art.heightAnchor.constraint(equalToConstant: Self.columnWidth * 1050 / 960).isActive = true
+        artWidth = art.widthAnchor.constraint(equalToConstant: Self.columnWidth)
+        artHeight = art.heightAnchor.constraint(equalToConstant: Self.columnWidth * 1050 / 960)
+        NSLayoutConstraint.activate([artWidth, artHeight])
 
-        let card = resultCard()
-        let left = NSStackView(views: [art, card])
-        left.orientation = .vertical
-        left.alignment = .centerX
-        left.spacing = 10
+        card = resultCard()
 
-        // Right: layers, typing, letter grid, vowels, marks, presets.
-        let title = NSTextField(labelWithString: "Stacker")
-        title.font = NSFont.systemFont(ofSize: 24, weight: .heavy)
-        title.textColor = Toolbar.plum
-        let tagline = NSTextField(labelWithString: "stack up Sanskrit letters")
+        // The tabs, the tagline and the close button.
+        let tabs = PanelTabs.makeBar(selected: .stacker) { [weak self] in self?.panel }
         tagline.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         tagline.textColor = Toolbar.plum.withAlphaComponent(0.7)
         let spacer = NSView()
@@ -253,11 +285,14 @@ final class StackerPanel: NSObject {
         }
         closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
         closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        let header = NSStackView(views: [title, tagline, spacer, closeButton])
-        header.alignment = .lastBaseline
-        header.spacing = 8
-        header.setHuggingPriority(.defaultLow, for: .horizontal)
+        header = NSStackView(views: [tabs, tagline, spacer, closeButton])
+        header.alignment = .centerY
+        header.spacing = 10
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        headerWidth = header.widthAnchor.constraint(equalToConstant: 100)
+        headerWidth.isActive = true
+        typedRowWidth = typedRow.widthAnchor.constraint(equalToConstant: 100)
+        typedRowWidth.isActive = true
 
         // The chosen letters are drawn the way the stack is: one above the other,
         // first letter on top. The column lives in the answer card (resultCard).
@@ -267,7 +302,7 @@ final class StackerPanel: NSObject {
         emptyHint.stringValue = "Add letters top to bottom: the first goes on top."
         emptyHint.font = NSFont.systemFont(ofSize: 12)
         emptyHint.textColor = Toolbar.plum.withAlphaComponent(0.7)
-        let layersBox = NSView()
+        layersBox = NSView()
         layersBox.translatesAutoresizingMaskIntoConstraints = false
         layersBox.heightAnchor.constraint(equalToConstant: 20).isActive = true
         for v in [emptyHint] {
@@ -280,7 +315,7 @@ final class StackerPanel: NSObject {
         typedLabel.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
         typedLabel.textColor = Toolbar.plum
 
-        let grid = NSStackView()
+        grid = NSStackView()
         grid.orientation = .vertical
         grid.alignment = .leading
         grid.spacing = 5
@@ -305,7 +340,9 @@ final class StackerPanel: NSObject {
                     self?.refresh()
                 }
                 b.widthAnchor.constraint(equalToConstant: 38).isActive = true
-                b.heightAnchor.constraint(equalToConstant: 38).isActive = true
+                let h = b.heightAnchor.constraint(equalToConstant: 38)
+                h.isActive = true
+                cellHeights.append(h)
                 cells[key] = b
                 buttons.append(b)
             }
@@ -344,40 +381,54 @@ final class StackerPanel: NSObject {
             b.widthAnchor.constraint(greaterThanOrEqualToConstant: 34).isActive = true
             b.heightAnchor.constraint(equalToConstant: 34).isActive = true
         }
+        vowelSection = section("Vowel", vowelRow, perRow: 8)
+        marksSection = section("Marks", markRow, perRow: 9)
 
-        let right = NSStackView(views: [
-            header, layersBox, typedLabel, grid,
-            section("Vowel", vowelRow, perRow: 8), section("Marks", markRow, perRow: 9),
-        ])
-        right.orientation = .vertical
-        right.alignment = .leading
-        right.spacing = 9
-        right.setCustomSpacing(4, after: layersBox)
-        let flexible = NSView()
+        leftColumn.orientation = .vertical
+        leftColumn.alignment = .centerX
+        leftColumn.spacing = 10
+        rightColumn.orientation = .vertical
+        rightColumn.alignment = .leading
+        rightColumn.spacing = 9
         flexible.setContentHuggingPriority(.init(1), for: .vertical)
         flexible.setContentCompressionResistancePriority(.init(1), for: .vertical)
-        right.addArrangedSubview(flexible)
+        topRow.orientation = .horizontal
+        topRow.alignment = .top
+        topRow.spacing = 12
+        typedRow.orientation = .horizontal
+        typedRow.alignment = .firstBaseline
+        typedRow.spacing = 10
 
-        let root = NSStackView(views: [left, right])
-        root.orientation = .horizontal
-        root.alignment = .top
-        root.spacing = 20
         root.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 20, right: 22)
         root.translatesAutoresizingMaskIntoConstraints = false
 
-        let container = DraggableView()
+        container = DraggableView()
         container.wantsLayer = true
         container.layer?.backgroundColor = Self.pink.cgColor
         container.layer?.cornerRadius = 28
         container.layer?.borderWidth = 3
         container.layer?.borderColor = Self.pinkStrong.cgColor
         container.addSubview(root)
+        // The far edges give way (priority 750) so a window mid-resize never
+        // conflicts with controls that have a fixed size.
+        let trailing = root.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+        let bottom = root.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        trailing.priority = .defaultHigh
+        bottom.priority = .defaultHigh
         NSLayoutConstraint.activate([
             root.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             root.topAnchor.constraint(equalTo: container.topAnchor),
-            root.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            root.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            trailing, bottom,
         ])
+        let grip = ResizeGrip()
+        grip.constrain = { [weak self] wanted in self?.proposedSize(wanted) ?? wanted }
+        container.addSubview(grip)
+        NSLayoutConstraint.activate([
+            grip.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -9),
+            grip.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -9),
+        ])
+
+        applyLayout()
         container.layoutSubtreeIfNeeded()
 
         let panel = NSPanel(contentRect: NSRect(origin: .zero, size: container.fittingSize),
@@ -394,8 +445,9 @@ final class StackerPanel: NSObject {
         panel.appearance = NSAppearance(named: .aqua)  // the brand is light
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setAccessibilityLabel("T-Time stacker")
-        NotificationCenter.default.addObserver(self, selector: #selector(panelMoved),
-                                               name: NSWindow.didMoveNotification, object: panel)
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(panelMoved), name: name, object: panel)
+        }
         self.panel = panel
         refresh()
         return panel
@@ -428,6 +480,8 @@ final class StackerPanel: NSObject {
         return row
     }
 
+    /// The answer card. Its contents are arranged by `applyLayout`: all of them
+    /// when wide, just the glyph and what to type when compact.
     private func resultCard() -> NSView {
         preview.font = TibetanFont.font(46)
         preview.textColor = Toolbar.plum
@@ -437,7 +491,7 @@ final class StackerPanel: NSObject {
         shortestLabel.textColor = Toolbar.plum
         canonicalLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         canonicalLabel.textColor = Toolbar.plum.withAlphaComponent(0.8)
-        for l in [codesLabel, notesLabel, hintLabel] {
+        for l in [codesLabel, notesLabel] {
             l.preferredMaxLayoutWidth = Self.columnWidth - 24
         }
         codesLabel.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
@@ -446,6 +500,7 @@ final class StackerPanel: NSObject {
         notesLabel.textColor = Toolbar.plum.withAlphaComponent(0.85)
         hintLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
         hintLabel.textColor = Toolbar.plum
+        hintLabel.preferredMaxLayoutWidth = Self.columnWidth - 24
 
         insertButton = BubbleButton(glyph: "Insert  ⏎", glyphSize: 13, tip: "Put it in the document (Return)", label: "Insert") { [weak self] in
             self?.insertBuilt()
@@ -463,56 +518,66 @@ final class StackerPanel: NSObject {
             self?.model.clear()
             self?.refresh()
         }
-        let buttons = NSStackView(views: [insertButton, copyButton, clearButton])
-        buttons.distribution = .fillEqually
-        buttons.spacing = 6
-        for b in [insertButton!, copyButton!, clearButton!] {
+        buttonsRow = NSStackView(views: [insertButton, copyButton, clearButton])
+        buttonsRow.distribution = .fillEqually
+        buttonsRow.spacing = 6
+        for (b, w) in zip([insertButton!, copyButton!, clearButton!], [104, 104, 104] as [CGFloat]) {
             b.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            let c = b.widthAnchor.constraint(equalToConstant: w)
+            compactOnly.append(c)
         }
+        let inner = Self.columnWidth - 24
+        let buttonsFill = buttonsRow.widthAnchor.constraint(equalToConstant: inner)
+        wideOnly.append(buttonsFill)
 
-        var presetRow: [NSView] = []
+        // "Start from" chips: two lines of four when wide, one line when compact.
+        presetLabel = label("Start from", 10)
         for p in StackerModel.presets {
             let b = BubbleButton(glyph: p.label, glyphSize: 12, tip: "Start from \(p.label)", label: "Start from \(p.label)") { [weak self] in
                 self?.model.usePreset(p.letters)
                 self?.refresh()
             }
-            b.heightAnchor.constraint(equalToConstant: 30).isActive = true
-            presetRow.append(b)
+            let h = b.heightAnchor.constraint(equalToConstant: 30)
+            h.isActive = true
+            presetHeights.append(h)
+            presetButtons.append(b)
         }
-        let presetLines = stride(from: 0, to: presetRow.count, by: 4).map { i -> NSView in
-            let s = NSStackView(views: Array(presetRow[i..<min(i + 4, presetRow.count)]))
+        for _ in stride(from: 0, to: presetButtons.count, by: 4) {
+            let s = NSStackView()
             s.distribution = .fillEqually
             s.spacing = 4
-            return s
+            presetLines.append(s)
+            wideOnly.append(s.widthAnchor.constraint(equalToConstant: inner))
         }
-        let presets = NSStackView(views: [label("Start from", 10)] + presetLines)
-        presets.orientation = .vertical
-        presets.alignment = .leading
-        presets.spacing = 4
+        presetsWide.orientation = .vertical
+        presetsWide.alignment = .leading
+        presetsWide.spacing = 4
+        wideOnly.append(presetsWide.widthAnchor.constraint(equalToConstant: inner))
+        presetChips.distribution = .fillEqually
+        presetChips.spacing = 4
+        presetsCompact.orientation = .horizontal
+        presetsCompact.alignment = .centerY
+        presetsCompact.spacing = 8
 
         let typeRow = NSStackView(views: [label("type", 10), shortestLabel])
         typeRow.setContentHuggingPriority(.required, for: .horizontal)
         typeRowView = typeRow
         typeRow.alignment = .lastBaseline
         typeRow.spacing = 6
-        let previewRow = NSStackView(views: [layersRow, preview])
+        previewRow = NSStackView(views: [layersRow, preview])
         previewRow.orientation = .horizontal
         previewRow.alignment = .top
         previewRow.spacing = 6
         layersRow.setContentHuggingPriority(.required, for: .horizontal)
         preview.setContentHuggingPriority(.init(1), for: .horizontal)
-        let stack = NSStackView(views: [previewRow, typeRow, canonicalLabel, codesLabel, notesLabel, hintLabel, buttons, presets])
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = 4
-        stack.setCustomSpacing(10, after: hintLabel)
-        stack.setCustomSpacing(12, after: buttons)
-        stack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 12, right: 12)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        buttons.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
-        presets.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
-        for l in presetLines { l.widthAnchor.constraint(equalTo: presets.widthAnchor).isActive = true }
-        previewRow.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -24).isActive = true
+        previewRowWidth = previewRow.widthAnchor.constraint(equalToConstant: inner)
+        previewRowWidth.isActive = true
+
+        cardStack.orientation = .vertical
+        cardStack.alignment = .centerX
+        cardStack.spacing = 4
+        cardStack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 12, right: 12)
+        cardStack.translatesAutoresizingMaskIntoConstraints = false
 
         let box = NSView()
         box.wantsLayer = true
@@ -521,14 +586,15 @@ final class StackerPanel: NSObject {
         box.layer?.borderWidth = 2
         box.layer?.borderColor = Self.pinkStrong.cgColor
         box.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(stack)
+        box.addSubview(cardStack)
+        cardWidth = box.widthAnchor.constraint(equalToConstant: Self.columnWidth)
+        cardMinHeight = box.heightAnchor.constraint(greaterThanOrEqualToConstant: 250)
         NSLayoutConstraint.activate([
-            box.widthAnchor.constraint(equalToConstant: Self.columnWidth),
-            box.heightAnchor.constraint(greaterThanOrEqualToConstant: 250),
-            stack.leadingAnchor.constraint(equalTo: box.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: box.trailingAnchor),
-            stack.topAnchor.constraint(equalTo: box.topAnchor),
-            stack.bottomAnchor.constraint(equalTo: box.bottomAnchor),
+            cardWidth, cardMinHeight,
+            cardStack.leadingAnchor.constraint(equalTo: box.leadingAnchor),
+            cardStack.trailingAnchor.constraint(equalTo: box.trailingAnchor),
+            cardStack.topAnchor.constraint(equalTo: box.topAnchor),
+            cardStack.bottomAnchor.constraint(equalTo: box.bottomAnchor),
         ])
         return box
     }
@@ -540,6 +606,91 @@ final class StackerPanel: NSObject {
         return l
     }
 
+    // MARK: One column or two
+
+    /// Arranges the shared views for `compact`. Views move between stacks; the
+    /// constraints that tie them to a neighbour are all constants, so nothing is
+    /// lost on the way.
+    private func applyLayout() {
+        let c = compact
+        // The one-column width is that of the widest block of letters.
+        let contentWidth = ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width))
+        headerWidth.constant = contentWidth
+        typedRowWidth.constant = contentWidth
+
+        let artW: CGFloat = c ? 146 : Self.columnWidth
+        artWidth.constant = artW
+        artHeight.constant = (artW * 1050 / 960).rounded()
+        cardWidth.constant = c ? contentWidth - artW - 104 - 2 * topRow.spacing : Self.columnWidth
+        cardMinHeight.constant = c ? artHeight.constant : 250
+        previewRowWidth.constant = cardWidth.constant - 24
+        wideOnly.forEach { $0.isActive = !c }
+        compactOnly.forEach { $0.isActive = c }
+        cellHeights.forEach { $0.constant = c ? 34 : 38 }
+        presetHeights.forEach { $0.constant = c ? 26 : 30 }
+        for b in presetButtons { b.glyphSize = c ? 11 : 12; b.paint() }
+        preview.font = TibetanFont.font(c ? 40 : 46)
+        layersRow.spacing = c ? 2 : 3
+        tagline.isHidden = c
+        // Compact: the buttons stand in a column beside the answer.
+        buttonsRow.orientation = c ? .vertical : .horizontal
+        buttonsRow.distribution = c ? .fill : .fillEqually
+        hintLabel.preferredMaxLayoutWidth = c ? contentWidth - 100 : Self.columnWidth - 24
+        hintLabel.maximumNumberOfLines = c ? 1 : 0
+        hintLabel.lineBreakMode = c ? .byTruncatingTail : .byWordWrapping
+        hintLabel.setContentCompressionResistancePriority(c ? .init(250) : .defaultHigh, for: .horizontal)
+
+        if c {
+            presetChips.arrange(presetButtons)
+            presetsCompact.arrange([presetLabel, presetChips])
+            for line in presetLines { line.arrange([]) }
+            presetsWide.arrange([])
+            typedRow.arrange([typedLabel, hintLabel])
+            cardStack.arrange([previewRow, typeRowView!])
+            root.arrange([header, topRow, typedRow, presetsCompact, grid, vowelSection, marksSection])
+            topRow.arrange([art, card, buttonsRow])
+            leftColumn.arrange([])
+            rightColumn.arrange([])
+            root.orientation = .vertical
+            root.alignment = .leading
+            root.spacing = 9
+        } else {
+            for (i, line) in presetLines.enumerated() {
+                line.arrange(Array(presetButtons[i * 4..<min(i * 4 + 4, presetButtons.count)]))
+            }
+            presetsWide.arrange([presetLabel] + presetLines)
+            presetChips.arrange([])
+            presetsCompact.arrange([])
+            cardStack.arrange([previewRow, typeRowView!, canonicalLabel, codesLabel, notesLabel, hintLabel, buttonsRow, presetsWide])
+            cardStack.setCustomSpacing(10, after: hintLabel)
+            cardStack.setCustomSpacing(12, after: buttonsRow)
+            typedRow.arrange([])
+            leftColumn.arrange([art, card])
+            rightColumn.arrange([header, layersBox, typedLabel, grid, vowelSection, marksSection, flexible])
+            rightColumn.setCustomSpacing(4, after: layersBox)
+            topRow.arrange([])
+            root.arrange([leftColumn, rightColumn])
+            root.orientation = .horizontal
+            root.alignment = .top
+            root.spacing = 20
+        }
+    }
+
+    private func setCompact(_ c: Bool) {
+        guard c != compact else { return }
+        compact = c
+        PanelTabs.compact = c
+        applyLayout()
+        refresh()
+    }
+
+    /// The size the window takes for a drag to `wanted`: one of two, because the
+    /// letters have a fixed size. The grip calls this as the mouse moves.
+    private func proposedSize(_ wanted: NSSize) -> NSSize {
+        setCompact(wanted.width < Self.singleColumnBelow)
+        return container.fittingSize
+    }
+
     // MARK: Drawing the state
 
     func refresh() {
@@ -548,7 +699,7 @@ final class StackerPanel: NSObject {
         for v in layersRow.arrangedSubviews { layersRow.removeArrangedSubview(v); v.removeFromSuperview() }
         let example = Dictionary(uniqueKeysWithValues: (model.alphabet.consonants + model.alphabet.subjoinedOnly).map { ($0.key, $0.example) })
         for (i, key) in model.layers.enumerated() {
-            let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 17,
+            let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: compact ? 15 : 17,
                                  tip: "Remove \(key)", label: "Remove \(key), position \(i + 1)") { [weak self] in
                 self?.model.removeLayer(at: i)
                 self?.refresh()
@@ -556,8 +707,8 @@ final class StackerPanel: NSObject {
             b.filled = true
             b.inlineCaption = true
             b.paint()
-            b.widthAnchor.constraint(equalToConstant: 66).isActive = true
-            b.heightAnchor.constraint(equalToConstant: 30).isActive = true
+            b.widthAnchor.constraint(equalToConstant: compact ? 58 : 66).isActive = true
+            b.heightAnchor.constraint(equalToConstant: compact ? 22 : 30).isActive = true
             layersRow.addArrangedSubview(b)
         }
         layersRow.isHidden = model.layers.isEmpty
@@ -591,8 +742,11 @@ final class StackerPanel: NSObject {
         canonicalLabel.stringValue = canonical
         codesLabel.stringValue = codes
         notesLabel.stringValue = notes
-        hintLabel.stringValue = model.hint.isEmpty && model.result == .empty
+        let hint = model.hint.isEmpty && model.result == .empty
             ? "Type a letter, Space adds it, Return inserts, Esc closes." : model.hint
+        // Compact has no room for the notes in the card: a warning takes the hint's place.
+        hintLabel.stringValue = compact && !notes.isEmpty ? notes.replacingOccurrences(of: "\n", with: " ") : hint
+        hintLabel.toolTip = hintLabel.stringValue
         for l in [canonicalLabel, codesLabel, notesLabel] { l.isHidden = l.stringValue.isEmpty }
         typeRowView?.isHidden = shortest.isEmpty
         insertButton.isEnabled = model.built != nil
@@ -604,18 +758,7 @@ final class StackerPanel: NSObject {
     // MARK: Position
 
     @objc private func panelMoved(_ note: Notification) {
-        guard let panel = panel, panel.isVisible else { return }
-        UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.originKey)
-    }
-
-    private func place(_ panel: NSPanel) {
-        let size = panel.frame.size
-        let area = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
-        var origin = NSPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2)
-        if let saved = UserDefaults.standard.string(forKey: Self.originKey) {
-            let o = NSPointFromString(saved)
-            if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(NSRect(origin: o, size: size)) }) { origin = o }
-        }
-        panel.setFrameOrigin(origin)
+        guard let panel = panel else { return }
+        PanelTabs.save(panel, key: Self.originKey)
     }
 }

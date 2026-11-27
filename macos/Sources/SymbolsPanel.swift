@@ -6,24 +6,39 @@ private final class FlippedView: NSView {
 }
 
 /// The whole illustration, uncropped (the cookies are the symbols), with rounded
-/// corners. Give it the image's own proportions.
+/// corners. Its height follows its width, so the window can show it at two sizes.
 private final class BannerView: NSView {
     private let image: NSImage?
+    private let aspect: CGFloat
 
-    init(image: NSImage?, size: NSSize) {
+    init(image: NSImage?, width: CGFloat, aspect: CGFloat) {
         self.image = image
-        super.init(frame: NSRect(origin: .zero, size: size))
+        self.aspect = aspect
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: width * aspect))
         wantsLayer = true
         layer?.cornerRadius = 20
         layer?.masksToBounds = true
         layer?.borderWidth = 2
         layer?.borderColor = StackerPanel.pinkStrong.cgColor
         translatesAutoresizingMaskIntoConstraints = false
-        widthAnchor.constraint(equalToConstant: size.width).isActive = true
-        heightAnchor.constraint(equalToConstant: size.height).isActive = true
         setAccessibilityLabel("A cat-maid icing Tibetan symbol cookies, and a yak sniffing them")
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private lazy var sizeConstraints: (NSLayoutConstraint, NSLayoutConstraint) = {
+        let w = widthAnchor.constraint(equalToConstant: frame.width)
+        let h = heightAnchor.constraint(equalToConstant: frame.height)
+        NSLayoutConstraint.activate([w, h])
+        return (w, h)
+    }()
+
+    func setWidth(_ width: CGFloat) {
+        sizeConstraints.0.constant = width
+        sizeConstraints.1.constant = (width * aspect).rounded()
+        needsDisplay = true
+    }
+
+    var height: CGFloat { sizeConstraints.1.constant }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let image = image, image.size.width > 0 else { return }
@@ -31,11 +46,16 @@ private final class BannerView: NSView {
     }
 }
 
-/// The symbols window: Tibetan punctuation, head marks, marks, numbers and
-/// Sanskrit letters in one searchable table, in the same pink as the stacker.
-/// Type to search (by name, EWTS, code point or the character), arrows move,
-/// Return inserts, Tab switches to the stacker, Esc closes. A non-activating
-/// panel: the document keeps focus and keys arrive through the input method.
+/// The symbols window: Tibetan punctuation, head marks, marks and Sanskrit
+/// letters in one table, in the same pink as the stacker. Click a symbol (or move
+/// with the arrows and press Return) to insert it; the line under the table says
+/// what the selected one is and how to type it. Tab switches to the stacker, Esc
+/// closes. A non-activating panel: the document keeps focus and keys arrive
+/// through the input method.
+///
+/// Drag the corner grip to resize: the table gets more or fewer columns, and
+/// narrow enough the window becomes one column with the picture above the table
+/// (the same views, rearranged, as in the stacker).
 final class SymbolsPanel: NSObject {
     static let shared = SymbolsPanel()
 
@@ -43,41 +63,50 @@ final class SymbolsPanel: NSObject {
     /// Puts text into the focused document; set by the active controller.
     var insert: ((String) -> Void)?
 
-    private static let originKey = "SymbolsOrigin"
-    private static let columns = 7
-    private static let cellSize = NSSize(width: 78, height: 64)
-    private static let gap: CGFloat = 5
+    private static let originKey = "SymbolsTopLeft"
+    private static let cellSize = NSSize(width: 56, height: 46)
+    private static let gap: CGFloat = 4
+    private static let step: CGFloat = 60  // cell width plus gap
+    /// Dragged narrower than this, the window becomes one column.
+    private static let singleColumnBelow: CGFloat = 800
+    private static let bannerWide: CGFloat = 600
 
     private var panel: NSPanel?
     private var pendingClose: DispatchWorkItem?
-    private let searchLabel = NSTextField(labelWithString: "")
+    private var compact = false
+    private var columns = 8
+    private var tableHeight: CGFloat = 346
+
     private let scroll = NSScrollView()
     private let documentView = FlippedView()
-    private var chips: [(String?, BubbleButton)] = []
     private var cells: [BubbleButton] = []
-    private let bigGlyph = NSTextField(labelWithString: "")
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let nameLabel = NSTextField(wrappingLabelWithString: "")
-    private let typeLabel = NSTextField(labelWithString: "")
-    private let noteLabel = NSTextField(wrappingLabelWithString: "")
-    private let hintLabel = NSTextField(labelWithString: "")
-    private var insertButton: BubbleButton!
-    private var copyButton: BubbleButton!
+    private let hintLabel = NSTextField(wrappingLabelWithString: "")
+
+    // The parts the two layouts share, and the constraints that differ.
+    private var container: DraggableView!
+    private let root = NSStackView()
+    private let leftColumn = NSStackView()
+    private let rightColumn = NSStackView()
+    private var header: NSStackView!
+    private var banner: BannerView!
+    private var scrollWidth: NSLayoutConstraint!
+    private var scrollHeight: NSLayoutConstraint!
+    private var headerWidth: NSLayoutConstraint!
 
     var isOpen: Bool { panel?.isVisible ?? false }
     var contentView: NSView? { ensurePanel().contentView }
 
     // MARK: Showing
 
-    func open(centeredOn center: NSPoint? = nil) {
+    func open(topLeft: NSPoint? = nil) {
         pendingClose?.cancel()
         let panel = ensurePanel()
-        refresh()
-        if !panel.isVisible {
-            if let c = center {
-                panel.setFrameOrigin(NSPoint(x: c.x - panel.frame.width / 2, y: c.y - panel.frame.height / 2))
-            } else { place(panel) }
+        if compact != PanelTabs.compact {
+            setCompact(PanelTabs.compact)
+            PanelTabs.setSize(panel, container.fittingSize)
         }
+        refresh()
+        if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         panel.orderFrontRegardless()
         panel.invalidateShadow()
     }
@@ -101,30 +130,25 @@ final class SymbolsPanel: NSObject {
 
     // MARK: Keys
 
-    /// Keys while the window is open. Returns whether the key was used.
+    /// Keys while the window is open. Returns whether the key was used; typing is
+    /// not (there is no search), so letters go on to the document.
     func handle(_ key: KeyInput) -> Bool {
         guard isOpen else { return false }
         switch key {
         case .escape:
-            if model.query.isEmpty { close() } else { model.clearQuery() }
+            close()
+            return true
         case .enter:
             guard model.selectedEntry != nil else { return false }
             insertSelected()
-        case .backspace:
-            guard model.backspace() else { return false }
-        case .text(let s):
-            if s == " " && model.query.isEmpty { return false }
-            model.type(s)
         case .left: model.move(-1)
         case .right: model.move(1)
-        case .up: model.move(-Self.columns)
-        case .down: model.move(Self.columns)
+        case .up: model.move(-columns)
+        case .down: model.move(columns)
         case .tab:
-            let center = panel.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) }
-            close()
-            StackerPanel.shared.open(centeredOn: center)
+            PanelTabs.cycle(from: .symbols, panel: panel)
             return true
-        case .other:
+        case .backspace, .text, .other:
             return false
         }
         refresh()
@@ -144,21 +168,17 @@ final class SymbolsPanel: NSObject {
 
     private func ensurePanel() -> NSPanel {
         if let panel = panel { return panel }
-        let plum = Toolbar.plum
+        compact = PanelTabs.compact
+        loadSize()
 
         var art: NSImage?
         if let url = Bundle.main.url(forResource: "symbols-art", withExtension: "webp") {
             art = NSImage(contentsOf: url)
         }
-        let artWidth: CGFloat = 450
-        let banner = BannerView(image: art, size: NSSize(width: artWidth, height: artWidth * 1024 / 1536))
+        banner = BannerView(image: art, width: Self.bannerWide, aspect: 1024 / 1536)
 
-        let title = NSTextField(labelWithString: "Symbols")
-        title.font = NSFont.systemFont(ofSize: 24, weight: .heavy)
-        title.textColor = plum
-        let tagline = NSTextField(labelWithString: "punctuation, marks and Sanskrit letters")
-        tagline.font = NSFont.systemFont(ofSize: 12, weight: .medium)
-        tagline.textColor = plum.withAlphaComponent(0.7)
+        // The tabs and the close button.
+        let tabs = PanelTabs.makeBar(selected: .symbols) { [weak self] in self?.panel }
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close") { [weak self] in
@@ -166,77 +186,62 @@ final class SymbolsPanel: NSObject {
         }
         closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
         closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        let header = NSStackView(views: [title, tagline, spacer, closeButton])
-        header.alignment = .lastBaseline
-        header.spacing = 8
+        header = NSStackView(views: [tabs, spacer, closeButton])
+        header.alignment = .centerY
+        header.spacing = 10
+        headerWidth = header.widthAnchor.constraint(equalToConstant: 100)
+        headerWidth.isActive = true
 
-        searchLabel.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
-        searchLabel.textColor = plum
-
-        // Category chips: All, then each category in the catalogue's order.
-        var chipViews: [NSView] = []
-        for c in [nil] + model.categories.map({ Optional($0) }) {
-            let b = BubbleButton(glyph: c?.capitalized ?? "All", glyphSize: 12, tip: c.map { "Only \($0)" } ?? "All symbols",
-                                 label: c ?? "All") { [weak self] in
-                self?.model.setCategory(c)
-                self?.refresh()
-            }
-            b.heightAnchor.constraint(equalToConstant: 28).isActive = true
-            b.widthAnchor.constraint(greaterThanOrEqualToConstant: 40).isActive = true
-            chips.append((c, b))
-            chipViews.append(b)
-        }
-        let chipRow = NSStackView(views: chipViews)
-        chipRow.spacing = 5
-
-        let width = CGFloat(Self.columns) * (Self.cellSize.width + Self.gap) - Self.gap
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
         scroll.autohidesScrollers = true
         scroll.scrollerStyle = .overlay
         scroll.documentView = documentView
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.widthAnchor.constraint(equalToConstant: width + 14).isActive = true
-        scroll.heightAnchor.constraint(equalToConstant: 338).isActive = true
+        scrollWidth = scroll.widthAnchor.constraint(equalToConstant: 600)
+        scrollHeight = scroll.heightAnchor.constraint(equalToConstant: tableHeight)
+        NSLayoutConstraint.activate([scrollWidth, scrollHeight])
 
-        let detail = detailCard(width: artWidth)
+        hintLabel.maximumNumberOfLines = 3
 
-        hintLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        hintLabel.textColor = plum
+        leftColumn.orientation = .vertical
+        leftColumn.alignment = .leading
+        rightColumn.orientation = .vertical
+        rightColumn.alignment = .leading
+        rightColumn.spacing = 9
+        root.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+        root.translatesAutoresizingMaskIntoConstraints = false
 
-        // Left: the illustration and the selected symbol. Right: the table.
-        let left = NSStackView(views: [banner, detail])
-        left.orientation = .vertical
-        left.alignment = .leading
-        left.spacing = 12
-        let right = NSStackView(views: [header, searchLabel, chipRow, scroll, hintLabel])
-        right.orientation = .vertical
-        right.alignment = .leading
-        right.spacing = 9
-        header.widthAnchor.constraint(equalToConstant: width + 14).isActive = true
-        let stack = NSStackView(views: [left, right])
-        stack.orientation = .horizontal
-        stack.alignment = .top
-        stack.spacing = 22
-        stack.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = DraggableView()
+        container = DraggableView()
         container.wantsLayer = true
         container.layer?.backgroundColor = StackerPanel.pink.cgColor
         container.layer?.cornerRadius = 28
         container.layer?.borderWidth = 3
         container.layer?.borderColor = StackerPanel.pinkStrong.cgColor
-        container.addSubview(stack)
+        container.addSubview(root)
+        // The far edges give way (priority 750) so a window mid-resize never
+        // conflicts with controls that have a fixed size.
+        let trailing = root.trailingAnchor.constraint(equalTo: container.trailingAnchor)
+        let bottom = root.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        trailing.priority = .defaultHigh
+        bottom.priority = .defaultHigh
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            stack.topAnchor.constraint(equalTo: container.topAnchor),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            root.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            root.topAnchor.constraint(equalTo: container.topAnchor),
+            trailing, bottom,
         ])
+        let grip = ResizeGrip()
+        grip.constrain = { [weak self] wanted in self?.proposedSize(wanted) ?? wanted }
+        container.addSubview(grip)
+        NSLayoutConstraint.activate([
+            grip.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -9),
+            grip.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -9),
+        ])
+
+        applyLayout()
         container.layoutSubtreeIfNeeded()
         var size = container.fittingSize
-        size.height = max(size.height, right.fittingSize.height + 40)
+        if !compact { size.height = max(size.height, leftColumn.fittingSize.height + 40) }
 
         let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size),
                             styleMask: [.borderless, .nonactivatingPanel],
@@ -252,147 +257,150 @@ final class SymbolsPanel: NSObject {
         panel.appearance = NSAppearance(named: .aqua)  // the brand is light
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.setAccessibilityLabel("T-Time symbols")
-        NotificationCenter.default.addObserver(self, selector: #selector(panelMoved),
-                                               name: NSWindow.didMoveNotification, object: panel)
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(panelMoved), name: name, object: panel)
+        }
         self.panel = panel
         refresh()
         return panel
     }
 
-    private func detailCard(width: CGFloat) -> NSView {
-        let plum = Toolbar.plum
-        bigGlyph.font = TibetanFont.font(40)
-        bigGlyph.textColor = plum
-        bigGlyph.alignment = .center
-        bigGlyph.translatesAutoresizingMaskIntoConstraints = false
-        bigGlyph.widthAnchor.constraint(equalToConstant: 80).isActive = true
-        titleLabel.font = NSFont.systemFont(ofSize: 15, weight: .bold)
-        titleLabel.textColor = plum
-        nameLabel.font = NSFont.systemFont(ofSize: 10.5)
-        nameLabel.textColor = plum.withAlphaComponent(0.8)
-        typeLabel.font = NSFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
-        typeLabel.textColor = plum
-        noteLabel.font = NSFont.systemFont(ofSize: 11)
-        noteLabel.textColor = plum.withAlphaComponent(0.85)
-        for l in [nameLabel, noteLabel] { l.preferredMaxLayoutWidth = width - 260 }
+    // MARK: One column or two, and how many columns of symbols
 
-        insertButton = BubbleButton(glyph: "Insert  ⏎", glyphSize: 13, tip: "Put it in the document (Return)", label: "Insert") { [weak self] in
-            self?.insertSelected()
-            self?.refresh()
-        }
-        insertButton.filled = true
-        copyButton = BubbleButton(glyph: "Copy", glyphSize: 13, tip: "Copy the symbol", label: "Copy") { [weak self] in
-            guard let e = self?.model.selectedEntry else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(e.text, forType: .string)
-            self?.model.setHint("Copied \(e.text).")
-            self?.refresh()
-        }
-        let buttons = NSStackView(views: [insertButton, copyButton])
-        buttons.orientation = .vertical
-        buttons.spacing = 6
-        for b in [insertButton!, copyButton!] {
-            b.widthAnchor.constraint(equalToConstant: 100).isActive = true
-            b.heightAnchor.constraint(equalToConstant: 32).isActive = true
-        }
+    private func loadSize() {
+        let d = UserDefaults.standard
+        let mode = compact ? "Compact" : "Wide"
+        let c = d.integer(forKey: "SymbolsLayoutColumns" + mode)
+        columns = c > 0 ? c : (compact ? 7 : 8)
+        let h = d.double(forKey: "SymbolsLayoutHeight" + mode)
+        tableHeight = h > 0 ? CGFloat(h) : (compact ? 250 : 346)
+    }
 
-        let text = NSStackView(views: [titleLabel, nameLabel, typeLabel, noteLabel])
-        text.orientation = .vertical
-        text.alignment = .leading
-        text.spacing = 3
-        let row = NSStackView(views: [bigGlyph, text, buttons])
-        row.alignment = .centerY
-        row.spacing = 12
-        row.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
-        row.translatesAutoresizingMaskIntoConstraints = false
+    private func saveSize() {
+        let d = UserDefaults.standard
+        let mode = compact ? "Compact" : "Wide"
+        d.set(columns, forKey: "SymbolsLayoutColumns" + mode)
+        d.set(Double(tableHeight), forKey: "SymbolsLayoutHeight" + mode)
+    }
 
-        let box = NSView()
-        box.wantsLayer = true
-        box.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.7).cgColor
-        box.layer?.cornerRadius = 20
-        box.layer?.borderWidth = 2
-        box.layer?.borderColor = StackerPanel.pinkStrong.cgColor
-        box.translatesAutoresizingMaskIntoConstraints = false
-        box.addSubview(row)
-        NSLayoutConstraint.activate([
-            box.widthAnchor.constraint(equalToConstant: width),
-            box.heightAnchor.constraint(equalToConstant: 132),
-            row.leadingAnchor.constraint(equalTo: box.leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: box.trailingAnchor),
-            row.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-        ])
-        return box
+    /// Arranges the shared views for `compact` and the current number of columns.
+    /// Views move between stacks; the constraints that tie them to a neighbour are
+    /// all constants, so nothing is lost on the way.
+    private func applyLayout() {
+        let c = compact
+        let tableWidth = CGFloat(columns) * Self.step - Self.gap + 14
+        scrollWidth.constant = tableWidth
+        scrollHeight.constant = tableHeight
+        headerWidth.constant = tableWidth
+        // Wide: the picture takes the left half. Compact: it spans the window.
+        banner.setWidth(c ? tableWidth : Self.bannerWide)
+        hintLabel.preferredMaxLayoutWidth = tableWidth
+
+        if c {
+            root.arrange([header, banner, scroll, hintLabel])
+            leftColumn.arrange([])
+            rightColumn.arrange([])
+            root.orientation = .vertical
+            root.alignment = .leading
+            root.spacing = 9
+        } else {
+            leftColumn.arrange([banner])
+            rightColumn.arrange([header, scroll, hintLabel])
+            root.arrange([leftColumn, rightColumn])
+            root.orientation = .horizontal
+            root.alignment = .top
+            root.spacing = 22
+        }
+    }
+
+    private func setCompact(_ c: Bool) {
+        guard c != compact else { return }
+        compact = c
+        PanelTabs.compact = c
+        loadSize()
+        applyLayout()
+        refresh()
+    }
+
+    /// The size the window takes for a drag to `wanted`. Width picks the layout
+    /// and the number of columns of symbols; height is the table's, which scrolls.
+    private func proposedSize(_ wanted: NSSize) -> NSSize {
+        var changed = false
+        let wantCompact = wanted.width < Self.singleColumnBelow
+        if wantCompact != compact {
+            compact = wantCompact
+            PanelTabs.compact = wantCompact
+            loadSize()
+            changed = true
+        }
+        // Width left for the table, after the picture (when wide) and the margins.
+        let fixed: CGFloat = compact ? 44 + 14 : 22 + Self.bannerWide + 22 + 14 + 22
+        let range = compact ? 5...9 : 6...16
+        let fit = Int(((wanted.width - fixed + Self.gap) / Self.step).rounded(.down))
+        let cols = min(max(fit, range.lowerBound), range.upperBound)
+        if cols != columns { columns = cols; changed = true }
+        if changed { applyLayout() }
+
+        // Everything that is not the table, so the rest of the height is the table's.
+        let chrome = (compact ? root.fittingSize.height : rightColumn.fittingSize.height + 40) - scrollHeight.constant
+        let leftMin = compact ? 0 : leftColumn.fittingSize.height + 40
+        let minTable = max(compact ? 140 : 200, leftMin - chrome)
+        tableHeight = min(max(wanted.height - chrome, minTable), 900)
+        scrollHeight.constant = tableHeight
+        if changed { refresh() }
+        saveSize()
+        var size = container.fittingSize
+        if !compact { size.height = max(size.height, leftMin) }
+        return size
     }
 
     // MARK: Drawing the state
 
     func refresh() {
         guard panel != nil else { return }
-        searchLabel.stringValue = model.query.isEmpty
-            ? "search: type a name, EWTS or the character" : "search: \(model.query)▏"
-        searchLabel.alphaValue = model.query.isEmpty ? 0.6 : 1
-        for (c, b) in chips { b.filled = c == model.category }
 
-        // The grid is rebuilt: at most a few dozen cells.
+        // The grid is rebuilt: about fifty cells.
         for v in documentView.subviews { v.removeFromSuperview() }
         cells = []
-        let step = Self.cellSize.width + Self.gap
+        let step = Self.step
         for (i, e) in model.results.enumerated() {
-            let b = BubbleButton(glyph: e.display, caption: Self.shown(e.ewts), glyphSize: 24,
-                                 tip: e.label.isEmpty ? e.name : e.label, label: e.label.isEmpty ? e.name : e.label) { [weak self] in
+            let name = e.label.isEmpty ? e.name.capitalized : e.label
+            let b = BubbleButton(glyph: e.display, caption: Self.shown(e.ewts), glyphSize: 18,
+                                 tip: name, label: name) { [weak self] in
                 self?.model.select(i)
                 self?.insertSelected()
                 self?.refresh()
             }
             b.translatesAutoresizingMaskIntoConstraints = true
-            b.frame = NSRect(x: CGFloat(i % Self.columns) * step, y: CGFloat(i / Self.columns) * (Self.cellSize.height + Self.gap),
+            b.frame = NSRect(x: CGFloat(i % columns) * step, y: CGFloat(i / columns) * (Self.cellSize.height + Self.gap),
                              width: Self.cellSize.width, height: Self.cellSize.height)
             b.filled = i == model.selected
             documentView.addSubview(b)
             cells.append(b)
         }
-        let rows = (model.results.count + Self.columns - 1) / Self.columns
-        let height = max(CGFloat(rows) * (Self.cellSize.height + Self.gap), 1)
-        documentView.frame = NSRect(x: 0, y: 0, width: CGFloat(Self.columns) * step, height: height)
+        let rows = (model.results.count + columns - 1) / columns
+        let height = max(CGFloat(rows) * (Self.cellSize.height + Self.gap) - Self.gap, 1)
+        documentView.frame = NSRect(x: 0, y: 0, width: CGFloat(columns) * step, height: height)
         if cells.indices.contains(model.selected) { documentView.scrollToVisible(cells[model.selected].frame.insetBy(dx: 0, dy: -4)) }
 
-        if let e = model.selectedEntry {
-            bigGlyph.stringValue = e.display
-            titleLabel.stringValue = e.label.isEmpty ? e.name.capitalized : e.label
-            nameLabel.stringValue = "\(e.name.capitalized)  ·  \(e.category)"
-            typeLabel.stringValue = (e.ewts.map { "type: \(Self.shown($0))   " } ?? "") + e.codePoints
-            noteLabel.stringValue = e.note
-        } else {
-            bigGlyph.stringValue = "∅"
-            titleLabel.stringValue = "Nothing matches"
-            nameLabel.stringValue = "Try a shorter search, or pick All."
-            typeLabel.stringValue = ""
-            noteLabel.stringValue = ""
+        // One line on the selected symbol (or what was just done), one on the keys.
+        var first = model.hint
+        if first.isEmpty, let e = model.selectedEntry {
+            let name = e.label.isEmpty ? e.name.capitalized : e.label
+            first = name + (e.ewts.map { "  ·  type \(Self.shown($0))" } ?? "") + "  ·  " + e.codePoints
         }
-        noteLabel.isHidden = noteLabel.stringValue.isEmpty
-        typeLabel.isHidden = typeLabel.stringValue.isEmpty
-        insertButton.isEnabled = model.selectedEntry != nil
-        copyButton.isEnabled = model.selectedEntry != nil
-        hintLabel.stringValue = model.hint.isEmpty
-            ? "Type to search, arrows move, Return inserts, Tab for the stacker, Esc closes." : model.hint
+        let text = NSMutableAttributedString(string: first, attributes: [
+            .font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: Toolbar.plum])
+        text.append(NSAttributedString(string: "\nClick or Return inserts · arrows move · Tab: Stacker · Esc closes", attributes: [
+            .font: NSFont.systemFont(ofSize: 10), .foregroundColor: Toolbar.plum.withAlphaComponent(0.7)]))
+        hintLabel.attributedStringValue = text
         panel?.invalidateShadow()
     }
 
     // MARK: Position
 
     @objc private func panelMoved(_ note: Notification) {
-        guard let panel = panel, panel.isVisible else { return }
-        UserDefaults.standard.set(NSStringFromPoint(panel.frame.origin), forKey: Self.originKey)
-    }
-
-    private func place(_ panel: NSPanel) {
-        let size = panel.frame.size
-        let area = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
-        var origin = NSPoint(x: area.midX - size.width / 2, y: area.midY - size.height / 2)
-        if let saved = UserDefaults.standard.string(forKey: Self.originKey) {
-            let o = NSPointFromString(saved)
-            if NSScreen.screens.contains(where: { $0.visibleFrame.intersects(NSRect(origin: o, size: size)) }) { origin = o }
-        }
-        panel.setFrameOrigin(origin)
+        guard let panel = panel else { return }
+        PanelTabs.save(panel, key: Self.originKey)
     }
 }

@@ -44,7 +44,7 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
+    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift \
     macos/Sources/Updater.swift macos/Sources/UpdateSettings.swift macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement
   BINS="$BINS $OUT/TTime-$arch"
@@ -64,6 +64,9 @@ cp macos/Resources/icon.tiff macos/Resources/AppIcon.icns macos/Resources/toolba
 cp data/sanskrit/iast-lexicon.tsv data/sanskrit/README.md "$APP/Contents/Resources/"
 mv "$APP/Contents/Resources/README.md" "$APP/Contents/Resources/iast-lexicon-README.md"
 cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
+# Resource files must be readable by every user: the input method runs as the
+# logged-in user, and a source file with mode 600 would silently lose its art.
+chmod -R a+rX "$APP/Contents/Resources"
 mkdir -p "$APP/Contents/Library/LaunchDaemons"
 cp macos/Resources/LaunchDaemons/*.plist "$APP/Contents/Library/LaunchDaemons/"
 [ -n "${VERSION:-}" ] && plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"

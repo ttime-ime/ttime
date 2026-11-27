@@ -8,6 +8,7 @@ replaced or upgraded without touching the shell.
 - `Sources/Composer.swift`: key policy over the C engine; no UI dependencies.
 - `Sources/InputController.swift`: maps `NSEvent` to `Composer` and writes marked and committed text to the client application.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
+- `Sources/PanelChrome.swift`: what the Symbols and Stacker windows share: the tab bar (click, or Tab, to switch), the corner resize grip, remembering the window's top-left, and the one-column (compact) setting. Drag the grip narrower and both windows become one column: the picture and a short answer on top, the controls below.
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, made for T-Time, not under the code licence). Checked by rendering, not run in a live input method.
 - `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.

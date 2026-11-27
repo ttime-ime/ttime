@@ -14,7 +14,7 @@ final class DraggableView: NSView {
         guard let hit = super.hitTest(point) else { return nil }
         var v: NSView? = hit
         while let view = v, view !== self {
-            if view is NSButton { return hit }  // buttons keep their clicks
+            if view is NSButton || view is ResizeGrip { return hit }  // buttons and the grip keep their clicks
             v = view.superview
         }
         return self
