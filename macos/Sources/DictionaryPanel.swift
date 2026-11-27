@@ -87,6 +87,7 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
     private var loadedTerm = ""
 
     var isOpen: Bool { panel?.isVisible ?? false }
+    var window: NSPanel? { panel }
     /// Whether the page, not the document, has the keyboard.
     var hasKeyboard: Bool { panel?.isKeyWindow ?? false }
 

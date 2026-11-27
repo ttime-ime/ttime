@@ -30,6 +30,7 @@ enum PanelTabs {
     /// The pills at the top of a panel. Custom, not NSSegmentedControl: these
     /// panels never become key, and native controls draw their selection grey then.
     static func makeBar(selected: PanelTab, panel: @escaping () -> NSPanel?) -> NSStackView {
+        let bar = TabBar()
         var buttons: [NSView] = []
         for tab in PanelTab.allCases {
             let b = BubbleButton(glyph: tab.title, glyphSize: 13,
@@ -44,22 +45,47 @@ enum PanelTabs {
             b.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.current.brutal ? 20 : 82).isActive = true
             buttons.append(b)
         }
-        let bar = NSStackView(views: buttons)
+        for b in buttons { bar.addArrangedSubview(b) }
         bar.spacing = Theme.current.brutal ? 12 : 5
         return bar
     }
 
-    /// Shows `tab` with its top-left corner where the current panel's is.
+    /// Shows `tab` so that its tab bar sits exactly where the current panel's did:
+    /// the panels differ in size and in where the bar is inside them, so matching the
+    /// windows' corners would make the tabs jump under the pointer.
     static func show(_ tab: PanelTab, from panel: NSPanel?) {
         let topLeft = panel.map { NSPoint(x: $0.frame.minX, y: $0.frame.maxY) }
+        let anchor = tabBarOrigin(in: panel)
         if tab != .symbols { SymbolsPanel.shared.close() }
         if tab != .stacker { StackerPanel.shared.close() }
         if tab != .dictionary { DictionaryPanel.shared.close() }
+        let target: NSPanel?
         switch tab {
-        case .symbols: SymbolsPanel.shared.open(topLeft: topLeft)
-        case .stacker: StackerPanel.shared.open(topLeft: topLeft)
-        case .dictionary: DictionaryPanel.shared.open(topLeft: topLeft)
+        case .symbols: SymbolsPanel.shared.open(topLeft: topLeft); target = SymbolsPanel.shared.window
+        case .stacker: StackerPanel.shared.open(topLeft: topLeft); target = StackerPanel.shared.window
+        case .dictionary: DictionaryPanel.shared.open(topLeft: topLeft); target = DictionaryPanel.shared.window
         }
+        if let anchor = anchor, let target = target, let now = tabBarOrigin(in: target) {
+            var f = target.frame
+            f.origin.x += anchor.x - now.x
+            f.origin.y += anchor.y - now.y
+            target.setFrame(fit(f), display: true)
+            target.invalidateShadow()
+        }
+    }
+
+    /// The screen position of a panel's tab bar (its top-left corner), if it has one.
+    static func tabBarOrigin(in panel: NSPanel?) -> NSPoint? {
+        guard let panel = panel, let content = panel.contentView else { return nil }
+        content.layoutSubtreeIfNeeded()
+        func find(_ v: NSView) -> TabBar? {
+            if let b = v as? TabBar { return b }
+            for s in v.subviews { if let b = find(s) { return b } }
+            return nil
+        }
+        guard let bar = find(content) else { return nil }
+        let r = panel.convertToScreen(bar.convert(bar.bounds, to: nil))
+        return NSPoint(x: r.minX, y: r.maxY)
     }
 
     /// The Tab key: the next panel.
@@ -116,6 +142,9 @@ enum PanelTabs {
         return f
     }
 }
+
+/// The row of tab pills; a class of its own so a panel's bar can be found.
+final class TabBar: NSStackView {}
 
 extension NSStackView {
     /// Replaces the arranged views. The ones that are dropped leave the window

@@ -107,6 +107,7 @@ final class SymbolsPanel: NSObject {
     private var headerWidth: NSLayoutConstraint!
 
     var isOpen: Bool { panel?.isVisible ?? false }
+    var window: NSPanel? { panel }
     var contentView: NSView? { ensurePanel().contentView }
 
     // MARK: Showing

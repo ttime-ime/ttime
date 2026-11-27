@@ -240,6 +240,7 @@ final class StackerPanel: NSObject {
     private var compactOnly: [NSLayoutConstraint] = []  // controls in the footer
 
     var isOpen: Bool { panel?.isVisible ?? false }
+    var window: NSPanel? { panel }
     /// The panel's content, for rendering without showing it.
     var contentView: NSView? { ensurePanel().contentView }
 
