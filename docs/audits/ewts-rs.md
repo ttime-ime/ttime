@@ -1,6 +1,6 @@
 # Audit: ewts-rs
 
-Date: 2026-11-02. Auditor: Claude, working from GitHub API metadata, crates.io
+Date: 2026-11-02. Prepared by the T-Time project, working from GitHub API metadata, crates.io
 metadata, the published 0.1.4 crate source (README, tests) and behavioural
 comparison. **Not done:** a line-by-line source review, running the wasm demo,
 running its benchmarks, reading the other workspace crates' sources, checking
