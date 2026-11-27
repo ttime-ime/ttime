@@ -47,6 +47,10 @@ final class TTimeInputController: IMKInputController {
 
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event = event, let client = sender as? IMKTextInput else { return false }
+        // The dictionary page has the keyboard: its client is this very process, so
+        // composing for it would make T-Time talk to itself (slow), and the page
+        // wants plain keys. Let them through.
+        if DictionaryPanel.shared.hasKeyboard { return false }
         if event.type == .flagsChanged {
             DebugLog.log("flagsChanged keyCode=\(event.keyCode) flags=0x\(String(event.modifierFlags.rawValue, radix: 16)) t=\(event.timestamp) latin=\(composer.isLatin)")
             if let tap = shiftTap.flagsChanged(keyCode: event.keyCode,

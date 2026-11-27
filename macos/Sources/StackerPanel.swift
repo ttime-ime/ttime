@@ -86,7 +86,7 @@ final class BubbleButton: NSButton {
             case .heading:
                 layer?.backgroundColor = NSColor.clear.cgColor
                 layer?.borderWidth = 0
-                labelFont = t.serif(20)
+                labelFont = t.serif(16)
                 alphaValue = filled ? 1 : 0.4
             case .tile:
                 layer?.backgroundColor = resolved(filled ? t.ink : t.tile)

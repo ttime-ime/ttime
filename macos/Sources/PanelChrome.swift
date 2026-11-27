@@ -2,9 +2,15 @@ import Cocoa
 
 /// The panels that share the tab bar, in tab order.
 enum PanelTab: Int, CaseIterable {
-    case symbols, stacker
+    case symbols, stacker, dictionary
 
-    var title: String { self == .symbols ? "Symbols" : "Stacker" }
+    var title: String {
+        switch self {
+        case .symbols: return "Symbols"
+        case .stacker: return "Stacker"
+        case .dictionary: return "Dictionary"
+        }
+    }
 }
 
 /// What the symbols and stacker windows have in common: the tab bar, remembering
@@ -35,24 +41,24 @@ enum PanelTabs {
             b.filled = tab == selected
             if Theme.current.brutal { b.look = .heading }
             b.heightAnchor.constraint(equalToConstant: Theme.current.brutal ? 34 : 30).isActive = true
-            b.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.current.brutal ? 88 : 82).isActive = true
+            b.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.current.brutal ? 20 : 82).isActive = true
             buttons.append(b)
         }
         let bar = NSStackView(views: buttons)
-        bar.spacing = 5
+        bar.spacing = Theme.current.brutal ? 12 : 5
         return bar
     }
 
     /// Shows `tab` with its top-left corner where the current panel's is.
     static func show(_ tab: PanelTab, from panel: NSPanel?) {
         let topLeft = panel.map { NSPoint(x: $0.frame.minX, y: $0.frame.maxY) }
+        if tab != .symbols { SymbolsPanel.shared.close() }
+        if tab != .stacker { StackerPanel.shared.close() }
+        if tab != .dictionary { DictionaryPanel.shared.close() }
         switch tab {
-        case .symbols:
-            StackerPanel.shared.close()
-            SymbolsPanel.shared.open(topLeft: topLeft)
-        case .stacker:
-            SymbolsPanel.shared.close()
-            StackerPanel.shared.open(topLeft: topLeft)
+        case .symbols: SymbolsPanel.shared.open(topLeft: topLeft)
+        case .stacker: StackerPanel.shared.open(topLeft: topLeft)
+        case .dictionary: DictionaryPanel.shared.open(topLeft: topLeft)
         }
     }
 

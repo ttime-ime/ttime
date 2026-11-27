@@ -35,7 +35,7 @@ for arch in $ARCHS; do
   # the host cannot execute (x86_64 without Rosetta) is built but not tested.
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/composer-tests-$arch" \
     macos/Sources/Composer.swift macos/Sources/AccentPalette.swift macos/Sources/SanskritSuggest.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift macos/Sources/Updater.swift \
-    macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Tests/main.swift "$LIB"
+    macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/DictionaryModel.swift macos/Tests/main.swift "$LIB"
   if arch -"$arch" /usr/bin/true 2>/dev/null; then
     "$OUT/composer-tests-$arch" || { echo "key-policy tests failed ($arch)" >&2; exit 1; }
   else
@@ -44,7 +44,7 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift \
-    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Theme.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift  \
+    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Theme.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift macos/Sources/DictionaryModel.swift macos/Sources/DictionaryPanel.swift \
     macos/Sources/Updater.swift macos/Sources/UpdateSettings.swift macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement -framework WebKit
   BINS="$BINS $OUT/TTime-$arch"

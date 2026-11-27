@@ -4,6 +4,10 @@ import Cocoa
 /// button drags the whole window. `isMovableByWindowBackground` is not enough: it
 /// does not fire when the click lands on a subview such as the logo, so the drag
 /// is done here, in screen coordinates, and works while the panel is not key.
+/// A view inside a `DraggableView` that handles its own mouse events (the
+/// dictionary's web view), so a click on it is not a window drag.
+protocol OwnsMouse: NSView {}
+
 final class DraggableView: NSView {
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
 
@@ -14,7 +18,7 @@ final class DraggableView: NSView {
         guard let hit = super.hitTest(point) else { return nil }
         var v: NSView? = hit
         while let view = v, view !== self {
-            if view is NSButton || view is ResizeGrip { return hit }  // buttons and the grip keep their clicks
+            if view is NSButton || view is ResizeGrip || view is OwnsMouse { return hit }  // buttons and the grip keep their clicks
             v = view.superview
         }
         return self
@@ -80,6 +84,7 @@ final class Toolbar: NSObject {
     var toggleLock: (() -> Void)?
     var openSymbols: (() -> Void)? { didSet { render() } }
     var openStacker: (() -> Void)? { didSet { render() } }
+    var openDictionary: (() -> Void)? { didSet { render() } }
 
     private static let hiddenKey = "ToolbarHidden"
     private static let originKey = "ToolbarOrigin"
@@ -98,6 +103,7 @@ final class Toolbar: NSObject {
     private var lockButton = NSButton()
     private var symbolsButton = NSButton()
     private var stackerButton = NSButton()
+    private var dictionaryButton = NSButton()
     private var pendingHide: DispatchWorkItem?
 
     /// The panel's content, for rendering without showing it.
@@ -198,7 +204,10 @@ final class Toolbar: NSObject {
         stackerButton = toolButton("ཀྵ", action: #selector(stackerClicked),
                                    tip: "Stacker", label: "Stacker")
 
-        let controls = NSStackView(views: [pillBox, lockButton, symbolsButton, stackerButton])
+        dictionaryButton = toolButton("ཚིག", action: #selector(dictionaryClicked),
+                                      tip: "Dictionary (looks up the selection or the last syllable online)", label: "Dictionary")
+
+        let controls = NSStackView(views: [pillBox, lockButton, symbolsButton, stackerButton, dictionaryButton])
         controls.orientation = .horizontal
         controls.alignment = .centerY
         controls.spacing = 10 * Self.c
@@ -315,6 +324,8 @@ final class Toolbar: NSObject {
         symbolsButton.alphaValue = openSymbols != nil ? 1 : 0.45
         stackerButton.isEnabled = openStacker != nil
         stackerButton.alphaValue = openStacker != nil ? 1 : 0.45
+        dictionaryButton.isEnabled = openDictionary != nil
+        dictionaryButton.alphaValue = openDictionary != nil ? 1 : 0.45
     }
 
     // MARK: Actions
@@ -324,6 +335,7 @@ final class Toolbar: NSObject {
     @objc private func lockClicked() { toggleLock?() }
     @objc private func symbolsClicked() { openSymbols?() }
     @objc private func stackerClicked() { openStacker?() }
+    @objc private func dictionaryClicked() { openDictionary?() }
 
     // MARK: Position
 

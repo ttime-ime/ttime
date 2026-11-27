@@ -47,7 +47,18 @@ struct Theme {
 
     /// Whether the system is in dark mode (for artwork that cannot recolour itself).
     static var systemIsDark: Bool {
-        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        // NSApp does not exist yet when MenuIcon runs at launch; ask the system's setting.
+        guard let app = NSApp else { return systemSettingIsDark }
+        return app.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    /// The system's light/dark setting, read straight from the preferences (it needs no
+    /// application object, and is current when the appearance-changed notification fires).
+    static var systemSettingIsDark: Bool {
+        CFPreferencesSynchronize(kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
+        let v = CFPreferencesCopyValue("AppleInterfaceStyle" as CFString, kCFPreferencesAnyApplication,
+                                       kCFPreferencesCurrentUser, kCFPreferencesAnyHost) as? String
+        return v == "Dark"
     }
 
     static var current: Theme { Prefs.style == .brutal ? brutalTheme : bubblegumTheme }
@@ -127,6 +138,7 @@ struct Theme {
         Toolbar.shared.rebuild()
         StackerPanel.rebuild()
         SymbolsPanel.rebuild()
+        DictionaryPanel.rebuild()
     }
 
     private static var observing = false
@@ -175,6 +187,8 @@ enum MenuIcon {
     static let path = "/Users/Shared/T-Time/icon.tiff"
 
     static func sync() {
+        // Pink: the full-colour cup. Brutalist: a white pot on a black tile, which reads
+        // on a light or a dark menu bar alike (macOS cannot tell an app which it is).
         let name = Prefs.style == .brutal ? "icon-mono" : "icon-colour"
         guard let src = Bundle.main.url(forResource: name, withExtension: "tiff"),
               let data = try? Data(contentsOf: src) else { return }

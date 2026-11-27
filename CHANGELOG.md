@@ -9,13 +9,20 @@
   The installer asks which one; Settings switches between them at any time, and the toolbar,
   Symbols and Stacker redraw at once. The Brutalist toolbar is a slim bar with its own
   logos for light and dark, and the panels use the concrete-wall picture.
-- The menu-bar input-source icon follows the look: the colour tile for Bubblegum, the black
-  pot for Brutalist. `Resources/icon.tiff` is now a link to `/Users/Shared/T-Time/icon.tiff`,
+- The menu-bar input-source icon follows the look: the colour tile for Bubblegum, a solid
+  white pot on a black tile (no outline, so it reads on a light or a dark menu bar) for
+  Brutalist. `Resources/icon.tiff` is now a link to `/Users/Shared/T-Time/icon.tiff`,
   which the installer and the app write; `codesign --strict` (and so notarization) may
   reject such a link, so check before a notarized release.
-- Dictionary tab and toolbar button (ཚིག): shows Christian Steinert's online Tibetan-English
-  dictionary for the selected text, or the syllable before the caret. It needs an internet
-  connection and sends that term to dictionary.christian-steinert.de when opened.
+- Dictionary tab (third tab beside Symbols and Stacker, and a toolbar button, ཚིག): shows
+  Christian Steinert's online Tibetan-English dictionary (dictionary.christian-steinert.de) in
+  a web view. It looks up the selected text, or the syllable before the caret; with neither,
+  it opens the dictionary's own page. It needs an internet connection, and opening it sends
+  the term to that site; nothing from the dictionary is bundled. Click into the page and it
+  takes the keyboard (scrolling, menus, dragging, the search box, Cmd+V); while it has the
+  keyboard T-Time passes keys through, so typing there is plain Latin, not EWTS. Esc always
+  closes it, and the keyboard goes back to the document's application.
+- Brutalist tabs are smaller (16 pt) so three tabs fit beside the title.
 - Accent palette in Latin mode: hold a, i, u, r, l, m, h, n, t, d or s (capitals too)
   and a strip of IAST variants opens above the letter (`a` gives `ā`, `s` gives `ś ṣ`).
   Pick with a number key, cycle with Tab then Return or Space, move with the arrow keys,
