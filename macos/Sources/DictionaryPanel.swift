@@ -76,15 +76,18 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
     /// The term to look up now; set by the active controller.
     var currentTerm: (() -> String)?
 
-    private static let originKey = "DictionaryTopLeft"
-    private static let minSize = NSSize(width: 420, height: 360)
-    private static let defaultSize = NSSize(width: 640, height: 560)
+    private static let originKey = PanelTabs.originKey
 
     private var panel: NSPanel?
     private var pendingClose: DispatchWorkItem?
     private var web: PassiveWebView?
     private let statusLabel = NSTextField(wrappingLabelWithString: "")
     private var loadedTerm = ""
+    private var lastURL: URL?
+    /// Whether you have clicked into the page since it opened. Then it stays until you
+    /// close it (Esc, the close button, or the shortcut) instead of going when the
+    /// document loses focus: you were reading it, not typing in the document.
+    private var engaged = false
 
     var isOpen: Bool { panel?.isVisible ?? false }
     var window: NSPanel? { panel }
@@ -95,7 +98,9 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
 
     func open(topLeft: NSPoint? = nil) {
         pendingClose?.cancel()
+        if !isOpen { engaged = false }
         let panel = ensurePanel()
+        PanelTabs.fit(toNavigator: panel)
         if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         lookUp(currentTerm?() ?? "")
         panel.orderFrontRegardless()
@@ -114,7 +119,7 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
     func toggle() { isOpen ? close() : open() }
 
     func scheduleClose() {
-        guard isOpen else { return }
+        guard isOpen, !engaged else { return }
         pendingClose?.cancel()
         // Not while you are using the page: the document lost the keyboard to it.
         let work = DispatchWorkItem { [weak self] in
@@ -147,6 +152,38 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         }
     }
 
+    /// Puts a key typed while the page has the keyboard straight into the page.
+    /// Returns false for keys left to the system (Command shortcuts).
+    func type(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.command) || flags.contains(.control) { return false }
+        let js: String
+        switch event.keyCode {
+        case 48:  // Tab
+            PanelTabs.cycle(from: .dictionary, panel: panel)
+            return true
+        case 51: js = "document.execCommand('delete')"
+        case 117: js = "document.execCommand('forwardDelete')"
+        case 123: js = "getSelection().modify('move','backward','character')"
+        case 124: js = "getSelection().modify('move','forward','character')"
+        case 125, 126: return true  // up/down: the page scrolls with the wheel
+        case 36, 76:  // Return
+            js = """
+            (function(){var e=document.activeElement;if(!e)return;
+            ['keydown','keypress','keyup'].forEach(function(t){e.dispatchEvent(new KeyboardEvent(t,{key:'Enter',code:'Enter',keyCode:13,which:13,bubbles:true}))});
+            if(e.tagName==='BUTTON'||e.tagName==='A')e.click();})()
+            """
+        default:
+            guard let chars = event.characters, !chars.isEmpty,
+                  chars.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value != 127 && !(0xF700...0xF8FF).contains($0.value) }),
+                  let data = try? JSONSerialization.data(withJSONObject: [chars]),
+                  let arr = String(data: data, encoding: .utf8) else { return true }
+            js = "document.execCommand('insertText', false, \(arr)[0])"
+        }
+        web?.evaluateJavaScript(js, completionHandler: nil)
+        return true
+    }
+
     // MARK: Looking up
 
     private func lookUp(_ term: String) {
@@ -165,6 +202,7 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
             return
         }
         loadedTerm = term
+        lastURL = url
         statusLabel.stringValue = "Dictionary: Christian Steinert, dictionary.christian-steinert.de"
         // The site reads the term from the address once, when the page loads, to
         // fill its search box; a new term in an already loaded page must reload it.
@@ -174,6 +212,19 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
             web.evaluateJavaScript("location.hash = \(arr)[0]; location.reload();", completionHandler: nil)
         } else {
             web.load(URLRequest(url: url))
+        }
+    }
+
+    /// The page runs in a separate WebKit process, which the system can end (memory,
+    /// or because T-Time is a background application). That leaves a blank page and
+    /// no crash report; bring the page back instead.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        DebugLog.log("dictionary web process terminated")
+        statusLabel.stringValue = "The page stopped; reloading…"
+        if webView.url != nil {
+            webView.reload()
+        } else if let url = lastURL ?? URL(string: DictionaryLookup.site) {
+            webView.load(URLRequest(url: url))
         }
     }
 
@@ -192,6 +243,11 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
+        // The site's fixed top bar sits flush against the page edge, so the search
+        // box's border and focus ring are cut off by the view; give it a margin.
+        let css = "[class*='_topbar_']{box-sizing:border-box!important;padding:4px 4px 0 4px!important}"
+        let js = "var s=document.createElement('style');s.textContent=\"\(css)\";(document.head||document.documentElement).appendChild(s);"
+        config.userContentController.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let web = PassiveWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self
         web.translatesAutoresizingMaskIntoConstraints = false
@@ -205,17 +261,8 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         web.setContentCompressionResistancePriority(.init(1), for: .horizontal)
         self.web = web
 
-        let tabs = PanelTabs.makeBar(selected: .dictionary) { [weak self] in self?.panel }
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close") { [weak self] in
-            self?.close()
-        }
-        closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
-        closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        let header = NSStackView(views: [tabs, spacer, closeButton])
-        header.alignment = .centerY
-        header.spacing = 10
+        // The same title, tabs and close button as the other panels.
+        let header = PanelTabs.makeHeader(selected: .dictionary, panel: { [weak self] in self?.panel }) { [weak self] in self?.close() }
 
         statusLabel.font = NSFont.systemFont(ofSize: 10)
         statusLabel.textColor = t.ink.withAlphaComponent(0.7)
@@ -226,7 +273,7 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         root.orientation = .vertical
         root.alignment = .leading
         root.spacing = 9
-        root.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+        root.edgeInsets = PanelTabs.insets
         root.translatesAutoresizingMaskIntoConstraints = false
         for v in [header, web, statusLabel] {
             v.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -44).isActive = true
@@ -247,17 +294,14 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
             web.heightAnchor.constraint(greaterThanOrEqualToConstant: 200),
         ])
         let grip = ResizeGrip()
-        grip.constrain = { wanted in
-            NSSize(width: min(max(wanted.width, Self.minSize.width), 1400),
-                   height: min(max(wanted.height, Self.minSize.height), 1200))
-        }
+        grip.constrain = { wanted in PanelTabs.proposed(wanted) }
         container.addSubview(grip)
         NSLayoutConstraint.activate([
             grip.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -9),
             grip.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -9),
         ])
 
-        let panel = KeyablePanel(contentRect: NSRect(origin: .zero, size: Self.savedSize()),
+        let panel = KeyablePanel(contentRect: NSRect(origin: .zero, size: NSSize(width: PanelTabs.width, height: 560)),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
         panel.contentView = container
@@ -275,25 +319,17 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(panelMoved), name: name, object: panel)
         }
+        NotificationCenter.default.addObserver(forName: NSWindow.didBecomeKeyNotification, object: panel, queue: .main) { [weak self] _ in
+            self?.engaged = true
+        }
         self.panel = panel
         return panel
     }
 
-    // MARK: Size and position
-
-    private static let sizeKey = "DictionarySize"
-
-    private static func savedSize() -> NSSize {
-        if let s = UserDefaults.standard.string(forKey: sizeKey) {
-            let size = NSSizeFromString(s)
-            if size.width >= minSize.width, size.height >= minSize.height { return size }
-        }
-        return defaultSize
-    }
+    // MARK: Position
 
     @objc private func panelMoved(_ note: Notification) {
         guard let panel = panel else { return }
         PanelTabs.save(panel, key: Self.originKey)
-        if panel.isVisible { UserDefaults.standard.set(NSStringFromSize(panel.frame.size), forKey: Self.sizeKey) }
     }
 }

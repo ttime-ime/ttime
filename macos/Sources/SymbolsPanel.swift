@@ -76,7 +76,7 @@ final class SymbolsPanel: NSObject {
     /// Puts text into the focused document; set by the active controller.
     var insert: ((String) -> Void)?
 
-    private static let originKey = "SymbolsTopLeft"
+    private static let originKey = PanelTabs.originKey
     private static let cellSize = NSSize(width: 56, height: 46)
     private static let gap: CGFloat = 4
     private static let step: CGFloat = 60  // cell width plus gap
@@ -104,7 +104,6 @@ final class SymbolsPanel: NSObject {
     private var banner: BannerView!
     private var scrollWidth: NSLayoutConstraint!
     private var scrollHeight: NSLayoutConstraint!
-    private var headerWidth: NSLayoutConstraint!
 
     var isOpen: Bool { panel?.isVisible ?? false }
     var window: NSPanel? { panel }
@@ -115,10 +114,8 @@ final class SymbolsPanel: NSObject {
     func open(topLeft: NSPoint? = nil) {
         pendingClose?.cancel()
         let panel = ensurePanel()
-        if compact != PanelTabs.compact {
-            setCompact(PanelTabs.compact)
-            PanelTabs.setSize(panel, container.fittingSize)
-        }
+        adaptHeight(PanelTabs.height())
+        PanelTabs.fit(toNavigator: panel)
         refresh()
         if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         panel.orderFrontRegardless()
@@ -191,36 +188,8 @@ final class SymbolsPanel: NSObject {
         }
         banner = BannerView(image: art, width: Self.bannerWide, aspect: 1024 / 1536)
 
-        // The tabs and the close button.
-        let tabs = PanelTabs.makeBar(selected: .symbols) { [weak self] in self?.panel }
-        let spacer = NSView()
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close") { [weak self] in
-            self?.close()
-        }
-        closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
-        closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        if Theme.current.brutal {
-            let title = NSTextField(labelWithString: "T-Time")
-            title.font = Theme.current.serif(30)
-            title.textColor = Theme.current.ink
-            let tagline = NSTextField(labelWithString: "Tibetan symbols, set in type.")
-            tagline.font = Theme.current.serif(12, italic: true)
-            tagline.textColor = Theme.current.ink.withAlphaComponent(0.7)
-            let block = NSStackView(views: [title, tagline])
-            block.orientation = .vertical
-            block.alignment = .leading
-            block.spacing = 0
-            let rule = RuleView(vertical: true)
-            rule.heightAnchor.constraint(equalToConstant: 38).isActive = true
-            header = NSStackView(views: [block, rule, tabs, spacer, closeButton])
-        } else {
-            header = NSStackView(views: [tabs, spacer, closeButton])
-        }
-        header.alignment = .centerY
-        header.spacing = 10
-        headerWidth = header.widthAnchor.constraint(equalToConstant: 100)
-        headerWidth.isActive = true
+        // The same title, tabs and close button as the other panels.
+        header = PanelTabs.makeHeader(selected: .symbols, panel: { [weak self] in self?.panel }) { [weak self] in self?.close() }
 
         scroll.hasVerticalScroller = true
         scroll.drawsBackground = false
@@ -239,7 +208,7 @@ final class SymbolsPanel: NSObject {
         rightColumn.orientation = .vertical
         rightColumn.alignment = .leading
         rightColumn.spacing = 9
-        root.edgeInsets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+        root.edgeInsets = PanelTabs.insets
         root.translatesAutoresizingMaskIntoConstraints = false
 
         container = DraggableView()
@@ -295,92 +264,45 @@ final class SymbolsPanel: NSObject {
         return panel
     }
 
-    // MARK: One column or two, and how many columns of symbols
+    // MARK: Size
 
+    /// The table is as many columns as fit the navigator's width.
     private func loadSize() {
-        let d = UserDefaults.standard
-        let mode = compact ? "Compact" : "Wide"
-        let c = d.integer(forKey: "SymbolsLayoutColumns" + mode)
-        columns = c > 0 ? c : (compact ? 7 : 8)
-        let h = d.double(forKey: "SymbolsLayoutHeight" + mode)
-        tableHeight = h > 0 ? CGFloat(h) : (compact ? 250 : 346)
+        columns = max(5, Int((PanelTabs.innerWidth - 14 + Self.gap) / Self.step))
+        tableHeight = compactTableHeight
     }
+    private let compactTableHeight: CGFloat = 330
 
-    private func saveSize() {
-        let d = UserDefaults.standard
-        let mode = compact ? "Compact" : "Wide"
-        d.set(columns, forKey: "SymbolsLayoutColumns" + mode)
-        d.set(Double(tableHeight), forKey: "SymbolsLayoutHeight" + mode)
-    }
-
-    /// Arranges the shared views for `compact` and the current number of columns.
-    /// Views move between stacks; the constraints that tie them to a neighbour are
-    /// all constants, so nothing is lost on the way.
+    /// Arranges the views in one column at the navigator's width.
     private func applyLayout() {
-        let c = compact
-        let tableWidth = CGFloat(columns) * Self.step - Self.gap + 14
+        let tableWidth = PanelTabs.innerWidth
         scrollWidth.constant = tableWidth
         scrollHeight.constant = tableHeight
-        headerWidth.constant = tableWidth
-        // Wide: the picture takes the left half. Compact: it spans the window.
-        banner.setWidth(c ? tableWidth : Self.bannerWide)
+        banner.setWidth(tableWidth)
         hintLabel.preferredMaxLayoutWidth = tableWidth
-
-        if c {
-            root.arrange([header, banner, scroll, hintLabel])
-            leftColumn.arrange([])
-            rightColumn.arrange([])
-            root.orientation = .vertical
-            root.alignment = .leading
-            root.spacing = 9
-        } else {
-            leftColumn.arrange([banner])
-            rightColumn.arrange([header, scroll, hintLabel])
-            root.arrange([leftColumn, rightColumn])
-            root.orientation = .horizontal
-            root.alignment = .top
-            root.spacing = 22
-        }
+        root.arrange([header, banner, scroll, hintLabel])
+        leftColumn.arrange([])
+        rightColumn.arrange([])
+        root.orientation = .vertical
+        root.alignment = .leading
+        root.spacing = 9
     }
 
-    private func setCompact(_ c: Bool) {
-        guard c != compact else { return }
-        compact = c
-        PanelTabs.compact = c
-        loadSize()
-        applyLayout()
-        refresh()
-    }
-
-    /// The size the window takes for a drag to `wanted`. Width picks the layout
-    /// and the number of columns of symbols; height is the table's, which scrolls.
-    private func proposedSize(_ wanted: NSSize) -> NSSize {
-        var changed = false
-        let wantCompact = wanted.width < Self.singleColumnBelow
-        if wantCompact != compact {
-            compact = wantCompact
-            PanelTabs.compact = wantCompact
-            loadSize()
-            changed = true
-        }
-        // Width left for the table, after the picture (when wide) and the margins.
-        let fixed: CGFloat = compact ? 44 + 14 : 22 + Self.bannerWide + 22 + 14 + 22
-        let range = compact ? 5...9 : 6...16
-        let fit = Int(((wanted.width - fixed + Self.gap) / Self.step).rounded(.down))
-        let cols = min(max(fit, range.lowerBound), range.upperBound)
-        if cols != columns { columns = cols; changed = true }
-        if changed { applyLayout() }
-
-        // Everything that is not the table, so the rest of the height is the table's.
-        let chrome = (compact ? root.fittingSize.height : rightColumn.fittingSize.height + 40) - scrollHeight.constant
-        let leftMin = compact ? 0 : leftColumn.fittingSize.height + 40
-        let minTable = max(compact ? 140 : 200, leftMin - chrome)
-        tableHeight = min(max(wanted.height - chrome, minTable), 900)
+    /// Gives the table whatever height the navigator has left after the rest.
+    private func adaptHeight(_ height: CGFloat) {
+        guard container != nil else { return }
+        container.layoutSubtreeIfNeeded()
+        let chrome = root.fittingSize.height - scrollHeight.constant
+        tableHeight = max(140, height - chrome)
         scrollHeight.constant = tableHeight
-        if changed { refresh() }
-        saveSize()
-        var size = container.fittingSize
-        if !compact { size.height = max(size.height, leftMin) }
+        container.layoutSubtreeIfNeeded()
+    }
+
+    /// The size the window takes for a drag to `wanted`: only the height changes.
+    private func proposedSize(_ wanted: NSSize) -> NSSize {
+        let size = PanelTabs.proposed(wanted)
+        adaptHeight(size.height)
+        refresh()
         return size
     }
 

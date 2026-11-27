@@ -173,13 +173,16 @@ final class StackerPanel: NSObject {
     /// Puts text into the focused document; set by the active controller.
     var insert: ((String) -> Void)?
 
-    private static let originKey = "StackerTopLeft"
+    private static let originKey = PanelTabs.originKey
     private static let columnWidth: CGFloat = 264
     /// Dragged narrower than this, the window becomes one column.
     private static let singleColumnBelow: CGFloat = 620
 
     /// Height over width of the picture.
-    private var artRatio: CGFloat { Theme.current.brutal ? 1024.0 / 1536 : 1050.0 / 960 }
+    private var artRatio: CGFloat {
+        guard let s = art?.image?.size, s.width > 0 else { return 1050.0 / 960 }
+        return s.height / s.width
+    }
 
     private var panel: NSPanel?
     private var pendingClose: DispatchWorkItem?
@@ -210,7 +213,6 @@ final class StackerPanel: NSObject {
     private let topRow = NSStackView()
     private let typedRow = NSStackView()  // compact: what you are typing, and the hint
     private var header: NSStackView!
-    private let tagline = NSTextField(labelWithString: "Stack up Sanskrit letters.")
     private var layersBox: NSView!
     private let flexible = NSView()
     private var art: NSImageView!
@@ -231,7 +233,6 @@ final class StackerPanel: NSObject {
     private var artHeight: NSLayoutConstraint!
     private var cardWidth: NSLayoutConstraint!
     private var cardMinHeight: NSLayoutConstraint!
-    private var headerWidth: NSLayoutConstraint!
     private var typedRowWidth: NSLayoutConstraint!
     private var previewRowWidth: NSLayoutConstraint!
     private var cellHeights: [NSLayoutConstraint] = []
@@ -250,10 +251,7 @@ final class StackerPanel: NSObject {
         model.precomposed = Prefs.precomposed
         pendingClose?.cancel()
         let panel = ensurePanel()
-        if compact != PanelTabs.compact {
-            setCompact(PanelTabs.compact)
-            PanelTabs.setSize(panel, container.fittingSize)
-        }
+        PanelTabs.fit(toNavigator: panel)
         refresh()
         if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         panel.orderFrontRegardless()
@@ -324,7 +322,7 @@ final class StackerPanel: NSObject {
 
         // The illustration, dominant when wide, smaller on top when compact.
         art = NSImageView()
-        if let url = Bundle.main.url(forResource: Theme.current.brutal ? "brutal-art" : "stacker-art", withExtension: "webp") {
+        if let url = Bundle.main.url(forResource: Theme.current.brutal ? "stacker-art-brutal" : "stacker-art", withExtension: "webp") {
             art.image = NSImage(contentsOf: url)
         }
         art.imageScaling = .scaleProportionallyUpOrDown
@@ -336,36 +334,8 @@ final class StackerPanel: NSObject {
 
         card = resultCard()
 
-        // The tabs, the tagline and the close button.
-        let tabs = PanelTabs.makeBar(selected: .stacker) { [weak self] in self?.panel }
-        tagline.font = Theme.current.brutal ? Theme.current.serif(13, italic: true) : NSFont.systemFont(ofSize: 12, weight: .medium)
-        tagline.textColor = Theme.current.ink.withAlphaComponent(0.7)
-        let spacer = NSView()
-        let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close") { [weak self] in
-            self?.close()
-        }
-        closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
-        closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        if Theme.current.brutal {
-            let title = NSTextField(labelWithString: "T-Time")
-            title.font = Theme.current.serif(30)
-            title.textColor = Theme.current.ink
-            tagline.font = Theme.current.serif(12, italic: true)
-            let block = NSStackView(views: [title, tagline])
-            block.orientation = .vertical
-            block.alignment = .leading
-            block.spacing = 0
-            let rule = RuleView(vertical: true)
-            rule.heightAnchor.constraint(equalToConstant: 38).isActive = true
-            header = NSStackView(views: [block, rule, tabs, spacer, closeButton])
-        } else {
-            header = NSStackView(views: [tabs, tagline, spacer, closeButton])
-        }
-        header.alignment = .centerY
-        header.spacing = 10
-        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        headerWidth = header.widthAnchor.constraint(equalToConstant: 100)
-        headerWidth.isActive = true
+        // The same title, tabs and close button as the other panels.
+        header = PanelTabs.makeHeader(selected: .stacker, panel: { [weak self] in self?.panel }) { [weak self] in self?.close() }
         typedRowWidth = typedRow.widthAnchor.constraint(equalToConstant: 100)
         typedRowWidth.isActive = true
 
@@ -471,7 +441,7 @@ final class StackerPanel: NSObject {
         typedRow.alignment = .firstBaseline
         typedRow.spacing = 10
 
-        root.edgeInsets = NSEdgeInsets(top: 18, left: 20, bottom: 20, right: 22)
+        root.edgeInsets = PanelTabs.insets
         root.translatesAutoresizingMaskIntoConstraints = false
 
         container = DraggableView()
@@ -682,8 +652,7 @@ final class StackerPanel: NSObject {
     private func applyLayout() {
         let c = compact
         // The one-column width is that of the widest block of letters.
-        let contentWidth = ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width))
-        headerWidth.constant = contentWidth
+        let contentWidth = max(PanelTabs.innerWidth, ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width)))
         typedRowWidth.constant = contentWidth
 
         let artW: CGFloat = c ? 146 : Self.columnWidth
@@ -699,7 +668,6 @@ final class StackerPanel: NSObject {
         for b in presetButtons { b.glyphSize = c ? 11 : 12; b.paint() }
         preview.font = TibetanFont.font(c ? 40 : 46)
         layersRow.spacing = c ? 2 : 3
-        tagline.isHidden = c && !Theme.current.brutal
         // Compact: the buttons stand in a column beside the answer.
         buttonsRow.orientation = c ? .vertical : .horizontal
         buttonsRow.distribution = c ? .fill : .fillEqually
@@ -752,11 +720,21 @@ final class StackerPanel: NSObject {
         refresh()
     }
 
-    /// The size the window takes for a drag to `wanted`: one of two, because the
-    /// letters have a fixed size. The grip calls this as the mouse moves.
-    private func proposedSize(_ wanted: NSSize) -> NSSize {
-        setCompact(wanted.width < Self.singleColumnBelow)
-        return container.fittingSize
+    /// The size the window takes for a drag to `wanted`: the width is the
+    /// navigator's. The grip calls this as the mouse moves.
+    private func proposedSize(_ wanted: NSSize) -> NSSize { PanelTabs.proposed(wanted) }
+
+    /// The width the widest block of letters needs.
+    var naturalContentWidth: CGFloat {
+        _ = ensurePanel()
+        return ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width))
+    }
+
+    /// The height the letters need in one column; the navigator is never shorter.
+    var naturalHeight: CGFloat {
+        _ = ensurePanel()
+        container.layoutSubtreeIfNeeded()
+        return ceil(container.fittingSize.height)
     }
 
     // MARK: Drawing the state

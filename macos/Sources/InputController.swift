@@ -48,9 +48,15 @@ final class TTimeInputController: IMKInputController {
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event = event, let client = sender as? IMKTextInput else { return false }
         // The dictionary page has the keyboard: its client is this very process, so
-        // composing for it would make T-Time talk to itself (slow), and the page
-        // wants plain keys. Let them through.
-        if DictionaryPanel.shared.hasKeyboard { return false }
+        // letting the system deliver text to it would make T-Time talk to itself
+        // (slow, and it can stall typing everywhere). Take the keys and put them
+        // into the page directly; the site does its own EWTS conversion.
+        // Only when the client really is the panel (not Spotlight or another
+        // application while the panel merely still counts as the key window).
+        if DictionaryPanel.shared.hasKeyboard, client.bundleIdentifier() == Bundle.main.bundleIdentifier {
+            if event.type == .keyDown, DictionaryPanel.shared.type(event) { return true }
+            return false
+        }
         if event.type == .flagsChanged {
             DebugLog.log("flagsChanged keyCode=\(event.keyCode) flags=0x\(String(event.modifierFlags.rawValue, radix: 16)) t=\(event.timestamp) latin=\(composer.isLatin)")
             if let tap = shiftTap.flagsChanged(keyCode: event.keyCode,
@@ -170,9 +176,7 @@ final class TTimeInputController: IMKInputController {
         shiftTap.reset()
         if Self.active === self {
             Toolbar.shared.scheduleHide()
-            StackerPanel.shared.scheduleClose()
-            SymbolsPanel.shared.scheduleClose()
-            DictionaryPanel.shared.scheduleClose()
+            // Panels stay open until closed (Esc, the close button, or the shortcut).
         }
     }
 

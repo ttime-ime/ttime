@@ -16,13 +16,67 @@ enum PanelTab: Int, CaseIterable {
 /// What the symbols and stacker windows have in common: the tab bar, remembering
 /// where they sit, and whether they are one column or two.
 enum PanelTabs {
-    private static let compactKey = "PanelsCompact"
-
-    /// One column (image and answer on top, controls below) instead of two. Shared,
-    /// so shrinking one window shrinks the other when you switch tabs.
+    /// The three panels are one navigator: the same width, the same height, the same
+    /// position and the same header, so switching tabs changes only what is inside.
+    /// They are always one column (the two-column layouts are no longer used).
     static var compact: Bool {
-        get { UserDefaults.standard.bool(forKey: compactKey) }
-        set { UserDefaults.standard.set(newValue, forKey: compactKey) }
+        get { true }
+        set { _ = newValue }
+    }
+
+    /// The navigator's width and the margins inside it. The width fits the stacker's
+    /// widest row of letters, which is wider in the Brutalist type.
+    static var width: CGFloat { Theme.current.brutal ? 504 : 480 }
+    static let insets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+    static var innerWidth: CGFloat { width - insets.left - insets.right }
+    /// Where the navigator sits; shared, so opening any tab puts it in the same place.
+    static let originKey = "NavigatorTopLeft"
+
+    private static let heightKey = "NavigatorHeight"
+
+    /// The navigator's height: what you dragged it to, but never less than the
+    /// stacker needs for its letters.
+    static func height() -> CGFloat {
+        max(CGFloat(UserDefaults.standard.double(forKey: heightKey)), StackerPanel.shared.naturalHeight)
+    }
+
+    /// The size the window takes for a drag to `wanted`: the width is fixed.
+    static func proposed(_ wanted: NSSize) -> NSSize {
+        let h = min(max(wanted.height, StackerPanel.shared.naturalHeight), 1400)
+        UserDefaults.standard.set(Double(h), forKey: heightKey)
+        return NSSize(width: width, height: h)
+    }
+
+    /// The same title, tabs and close button on every panel.
+    static func makeHeader(selected: PanelTab, panel: @escaping () -> NSPanel?, close: @escaping () -> Void) -> NSStackView {
+        let t = Theme.current
+        let tabs = makeBar(selected: selected, panel: panel)
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.init(1), for: .horizontal)
+        let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close", onClick: close)
+        closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        var views: [NSView] = [tabs, spacer, closeButton]
+        if t.brutal {
+            let title = NSTextField(labelWithString: "T-Time")
+            title.font = t.serif(30)
+            title.textColor = t.ink
+            let tagline = NSTextField(labelWithString: "Tibetan input method")
+            tagline.font = t.serif(12, italic: true)
+            tagline.textColor = t.ink.withAlphaComponent(0.7)
+            let block = NSStackView(views: [title, tagline])
+            block.orientation = .vertical
+            block.alignment = .leading
+            block.spacing = 0
+            let rule = RuleView(vertical: true)
+            rule.heightAnchor.constraint(equalToConstant: 38).isActive = true
+            views = [block, rule] + views
+        }
+        let header = NSStackView(views: views)
+        header.alignment = .centerY
+        header.spacing = 10
+        header.widthAnchor.constraint(equalToConstant: innerWidth).isActive = true
+        return header
     }
 
     // MARK: Tabs
@@ -95,6 +149,11 @@ enum PanelTabs {
     }
 
     // MARK: Position
+
+    /// Fits a panel to the navigator's size, keeping its top-left corner.
+    static func fit(toNavigator panel: NSPanel) {
+        setSize(panel, NSSize(width: width, height: height()))
+    }
 
     /// The top-left is what is remembered: a window grows and shrinks downwards.
     static func topLeft(of panel: NSPanel) -> NSPoint { NSPoint(x: panel.frame.minX, y: panel.frame.maxY) }

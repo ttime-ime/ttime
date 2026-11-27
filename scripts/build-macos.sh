@@ -59,7 +59,7 @@ lipo -create $HELPERS -output "$APP/Contents/MacOS/TTimeUpdateHelper"
 rm -f "$OUT"/composer-tests-* "$OUT"/TTime-* "$OUT"/helper-*
 
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
-cp macos/Resources/icon-colour.tiff macos/Resources/icon-mono.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/toolbar-logo-brutal.png macos/Resources/toolbar-logo-brutal-dark.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp macos/Resources/brutal-art.webp \
+cp macos/Resources/icon-colour.tiff macos/Resources/icon-mono.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/toolbar-logo-brutal.png macos/Resources/toolbar-logo-brutal-dark.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp macos/Resources/brutal-art.webp macos/Resources/stacker-art-brutal.webp \
    macos/Resources/NotoSerifTibetan.ttf macos/Resources/OFL-NotoSerifTibetan.txt "$APP/Contents/Resources/"
 cp data/sanskrit/iast-lexicon.tsv data/sanskrit/README.md "$APP/Contents/Resources/"
 mv "$APP/Contents/Resources/README.md" "$APP/Contents/Resources/iast-lexicon-README.md"

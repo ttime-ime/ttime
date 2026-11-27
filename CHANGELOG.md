@@ -4,6 +4,13 @@
 
 ### macOS
 
+- Symbols, Stacker and Dictionary are now one navigator: the same window width, height and
+  position, and the same header (the T-Time title in Brutalist, the three tabs, and the close
+  button) on every tab, so switching tabs changes only what is inside and nothing moves under
+  the pointer. They are always one column; drag the corner grip to change the height (the
+  width is fixed, and the height is never less than the Stacker needs). The two-column layouts
+  are no longer used. The Brutalist Stacker has a new picture (`stacker-art-brutal.webp`,
+  from `visual_design/reference/stacking-brutal.png`).
 - The toolbar's Tibetan and Latin buttons always work. The lock now only stops Shift taps from
   switching; choosing a mode on the toolbar while locked changes it, and the lock holds the mode
   you chose across fields and apps until you unlock.
