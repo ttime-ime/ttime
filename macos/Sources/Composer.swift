@@ -74,6 +74,124 @@ final class Composer {
     /// The word being typed in Latin mode, shown as marked text.
     var suggestionBuffer: String { suggester?.buffer ?? "" }
 
+    // MARK: Long-press accents (Latin mode)
+
+    /// Whether holding a letter offers its accented variants. Set it between words.
+    var accents = false
+    private var palette = AccentPalette()
+    /// The letter the palette was opened for, and, once it closes, whose repeats are
+    /// ignored until a fresh key press (the key may still be held, for example while
+    /// a variant is clicked, and must not type itself again).
+    private var paletteLetter = ""
+    private var ignoreRepeats: String?
+    private func closePalette() {
+        if palette.isOpen { ignoreRepeats = paletteLetter }
+        palette.close()
+    }
+    /// With no suggester, a letter that has variants waits as marked text until the next
+    /// key, so a long press can still replace it. Empty otherwise.
+    private var pending = ""
+
+    /// What to show in the accent palette, or nil when it is closed.
+    var accentList: (options: [String], selected: Int?)? {
+        palette.isOpen ? (palette.options, palette.selected) : nil
+    }
+
+    /// The marked text now: the word being suggested for, or the waiting letter.
+    private var shownText: String { suggester?.buffer ?? pending }
+    /// The letter a long press would replace.
+    private var heldLetter: String {
+        if let s = suggester { return s.buffer.last.map(String.init) ?? "" }
+        return pending
+    }
+
+    /// Accepts the suggestion at `index` (a click); nothing happens if there is no list.
+    func chooseSuggestion(index: Int) -> Outcome {
+        guard isLatin, suggester != nil, suggester!.select(index), let word = suggester!.accept() else { return Outcome() }
+        return Outcome(insert: word, marked: "", handled: true)
+    }
+
+    /// Picks the highlighted variant (the held key was let go); nothing if none is highlighted.
+    func chooseHighlightedAccent() -> Outcome {
+        guard palette.isOpen, let i = palette.selected else { return Outcome() }
+        return chooseAccent(palette.options[i])
+    }
+
+    /// Picks the palette entry at `index` (a click); nothing happens if it is closed.
+    func chooseAccent(index: Int) -> Outcome {
+        guard palette.isOpen, palette.options.indices.contains(index) else { return Outcome() }
+        return chooseAccent(palette.options[index])
+    }
+
+    private func chooseAccent(_ variant: String) -> Outcome {
+        closePalette()
+        if suggester != nil {
+            suggester!.replaceLast(with: variant)
+            return Outcome(marked: suggester!.buffer, handled: true)
+        }
+        pending = ""
+        return Outcome(insert: variant, marked: "", handled: true)
+    }
+
+    private func handleAccent(_ key: KeyInput, isRepeat: Bool) -> Outcome? {
+        guard accents, isLatin else { return nil }
+        if !isRepeat { ignoreRepeats = nil }
+        if isRepeat, let ignored = ignoreRepeats, case .text(let s) = key, s == ignored {
+            return Outcome(marked: shownText, handled: true)
+        }
+        if palette.isOpen {
+            switch key {
+            case .text(let s):
+                if isRepeat { return Outcome(marked: shownText, handled: true) }
+                if let n = Int(s), let v = palette.option(number: n) { return chooseAccent(v) }
+                if s == " ", let i = palette.selected { return chooseAccent(palette.options[i]) }
+            case .left, .up:
+                palette.move(-1)
+                return Outcome(marked: shownText, handled: true)
+            case .right, .down:
+                palette.move(1)
+                return Outcome(marked: shownText, handled: true)
+            case .tab:
+                palette.cycle()
+                return Outcome(marked: shownText, handled: true)
+            case .enter:
+                if let i = palette.selected { return chooseAccent(palette.options[i]) }
+            case .escape:
+                closePalette()
+                return Outcome(marked: shownText, handled: true)
+            default: break
+            }
+            // Any other key keeps the plain letter and then does what it normally does.
+            closePalette()
+        }
+        if case .text(let s) = key {
+            // The key repeating means it is held: offer the variants of the letter just typed.
+            if isRepeat, AccentPalette.hasVariants(s), heldLetter == s {
+                palette.open(for: s)
+                paletteLetter = s
+                return Outcome(marked: shownText, handled: true)
+            }
+            guard suggester == nil else { return nil }
+            let before = pending
+            pending = ""
+            if AccentPalette.hasVariants(s) {
+                pending = s
+                return Outcome(insert: before, marked: s, handled: true)
+            }
+            guard !before.isEmpty else { return nil }
+            ttime_session_insert(session, s)
+            return Outcome(insert: before + take(ttime_session_take_committed(session)), marked: "", handled: true)
+        }
+        guard suggester == nil, !pending.isEmpty else { return nil }
+        let before = pending
+        pending = ""
+        switch key {
+        case .backspace: return Outcome(marked: "", handled: true)
+        case .escape: return Outcome(insert: before, marked: "", handled: true)
+        default: return Outcome(insert: before, marked: "", handled: false)
+        }
+    }
+
     private func handleSuggesting(_ key: KeyInput) -> Outcome? {
         guard isLatin, suggester != nil else { return nil }
         let marked: () -> String = { self.suggester?.buffer ?? "" }
@@ -108,7 +226,9 @@ final class Composer {
         return Outcome(insert: suggester!.flush(), marked: "", handled: false)
     }
 
-    func handle(_ key: KeyInput) -> Outcome {
+    /// `isRepeat` is true for the repeats of a held key (a long press).
+    func handle(_ key: KeyInput, isRepeat: Bool = false) -> Outcome {
+        if let out = handleAccent(key, isRepeat: isRepeat) { return out }
         if let out = handleSuggesting(key) { return out }
         switch key {
         case .text(let s):
@@ -147,10 +267,16 @@ final class Composer {
     /// Forgets pending input, for example when the input source is activated.
     func reset() {
         suggester?.clear()
+        pending = ""
+        palette.close()
         ttime_session_cancel(session); _ = take(ttime_session_take_committed(session))
     }
 
+    /// The word or letter waiting as marked text, as plain text; clears it and the palette.
     private func flushSuggestion() -> String {
-        suggester?.flush() ?? ""
+        palette.close()
+        let waiting = pending
+        pending = ""
+        return (suggester?.flush() ?? "") + waiting
     }
 }

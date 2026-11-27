@@ -23,6 +23,10 @@ final class TTimeInputController: IMKInputController {
         if let v = v { UserDefaults.standard.set(v, forKey: lockKey) }
         else { UserDefaults.standard.removeObject(forKey: lockKey) }
     }
+    /// The mode last chosen in any window, so switching windows keeps it. Nil until
+    /// the first choice, when the Settings start mode applies.
+    private static var lastLatin: Bool?
+    private func rememberMode() { Self.lastLatin = composer.isLatin }
     private let noRange = NSRange(location: NSNotFound, length: NSNotFound)
 
     /// The controller whose client currently has focus; the toolbar acts on it.
@@ -56,7 +60,7 @@ final class TTimeInputController: IMKInputController {
             return false
         }
         guard event.type == .keyDown else { return false }
-        DebugLog.log("keyDown keyCode=\(event.keyCode) flags=0x\(String(event.modifierFlags.rawValue, radix: 16))")
+        DebugLog.log("keyDown keyCode=\(event.keyCode) repeat=\(event.isARepeat) t=\(event.timestamp) flags=0x\(String(event.modifierFlags.rawValue, radix: 16))")
         shiftTap.keyDown()
         // Option+Shift+` (the key left of 1) opens and closes the stacker.
         if event.keyCode == 50, event.modifierFlags.contains([.option, .shift]) {
@@ -68,10 +72,31 @@ final class TTimeInputController: IMKInputController {
         } else if SymbolsPanel.shared.isOpen {
             if SymbolsPanel.shared.handle(keyInput(for: event)) { return true }
         }
-        let outcome = composer.handle(keyInput(for: event))
+        let outcome = composer.handle(keyInput(for: event), isRepeat: event.isARepeat)
         apply(outcome, to: client)
+        if event.isARepeat, composer.accentList != nil, heldWatch == nil { watchHeldKey(CGKeyCode(event.keyCode)) }
         return outcome.handled
     }
+
+    /// There is no key-release event for an input method, so while the accent strip is
+    /// open the held key's state is polled. Letting go of it with a variant highlighted
+    /// (Tab or the arrows) picks that variant, as the system's palette does.
+    private var heldWatch: Timer?
+    private func watchHeldKey(_ code: CGKeyCode) {
+        let t = Timer(timeInterval: 0.03, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
+            guard self.composer.accentList != nil else { self.stopWatching(); return }
+            if !CGEventSource.keyState(.combinedSessionState, key: code) {
+                self.stopWatching()
+                guard self.composer.accentList?.selected != nil, let client = self.client else { return }
+                DebugLog.log("held key released with a variant highlighted")
+                self.apply(self.composer.chooseHighlightedAccent(), to: client)
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        heldWatch = t
+    }
+    private func stopWatching() { heldWatch?.invalidate(); heldWatch = nil }
 
     override func commitComposition(_ sender: Any!) {
         guard let client = sender as? IMKTextInput else { return }
@@ -84,12 +109,17 @@ final class TTimeInputController: IMKInputController {
         shiftTap.reset()
         composer.reset()
         composer.setPrecomposed(Prefs.precomposed)
+        composer.accents = Prefs.accentPalette
         composer.suggester = Prefs.sanskritSuggestions ? SanskritLexicon.shared.map { SanskritSuggester(lexicon: $0) } : nil
         SuggestionPanel.shared.hide()
+        AccentPanel.shared.hide()
+        AccentPanel.shared.onPick = { [weak self] i in self?.pickAccent(i) }
+        SuggestionPanel.shared.onPick = { [weak self] i in self?.pickSuggestion(i) }
         client = sender as? IMKTextInput
-        // A flip made with a single tap lasts until focus moves; a lock stays.
+        // The mode carries over from window to window; a lock overrides it.
         if let client = client {
-            apply(composer.setLatin(Self.lock.lockedLatin ?? Prefs.startLatin), to: client)
+            apply(composer.setLatin(Self.lock.lockedLatin ?? Self.lastLatin ?? Prefs.startLatin), to: client)
+            rememberMode()
         }
         Self.active = self
         let toolbar = Toolbar.shared
@@ -106,7 +136,9 @@ final class TTimeInputController: IMKInputController {
 
     override func deactivateServer(_ sender: Any!) {
         DebugLog.log("deactivateServer")
+        stopWatching()
         SuggestionPanel.shared.hide()
+        AccentPanel.shared.hide()
         shiftTap.reset()
         if Self.active === self {
             Toolbar.shared.scheduleHide()
@@ -185,6 +217,7 @@ final class TTimeInputController: IMKInputController {
     private func toolbarChoose(latin: Bool) {
         if let latin = Self.lock.choose(latin: latin), let client = client {
             apply(composer.setLatin(latin), to: client)
+            rememberMode()
         }
         refreshToolbar()
     }
@@ -200,6 +233,7 @@ final class TTimeInputController: IMKInputController {
         case (.left, _):
             if let latin = Self.lock.leftTap(tap.kind, isLatin: composer.isLatin) {
                 apply(composer.setLatin(latin), to: client)
+                rememberMode()
             }
             if tap.kind == .double { Self.saveLock() }
             refreshToolbar()
@@ -242,6 +276,27 @@ final class TTimeInputController: IMKInputController {
                                  replacementRange: noRange)
         }
         refreshSuggestions(client)
+        refreshAccents(client)
+    }
+
+    /// A click on a Sanskrit suggestion.
+    private func pickSuggestion(_ index: Int) {
+        guard let client = client else { return }
+        apply(composer.chooseSuggestion(index: index), to: client)
+    }
+
+    /// A click on a variant in the accent palette.
+    private func pickAccent(_ index: Int) {
+        guard let client = client else { return }
+        apply(composer.chooseAccent(index: index), to: client)
+    }
+
+    /// Shows the accent palette above the held letter, or hides it.
+    private func refreshAccents(_ client: IMKTextInput) {
+        guard let list = composer.accentList else { AccentPanel.shared.hide(); return }
+        var rect = NSRect.zero
+        _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
+        AccentPanel.shared.show(list.options, selected: list.selected, near: rect)
     }
 
     /// Shows the Sanskrit suggestion list under the word being typed, or hides it.

@@ -175,6 +175,22 @@ struct SanskritSuggester {
         selected = min(max(selected + delta, 0), suggestions.count - 1)
     }
 
+    /// Highlights the suggestion at `index`; false if there is none.
+    @discardableResult
+    mutating func select(_ index: Int) -> Bool {
+        guard suggestions.indices.contains(index) else { return false }
+        selected = index
+        return true
+    }
+
+    /// Swaps the last typed letter for `letter` (an accent chosen from the palette).
+    mutating func replaceLast(with letter: String) {
+        guard !buffer.isEmpty else { return }
+        buffer.removeLast()
+        buffer += letter
+        refresh()
+    }
+
     /// The typed text, exactly as typed; clears the buffer.
     mutating func flush() -> String {
         defer { clear() }

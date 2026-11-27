@@ -7,6 +7,8 @@ final class SuggestionPanel {
     private var panel: NSPanel?
     private let content = NSView()
     private var rows: [NSView] = []
+    /// Called with the index of the suggestion that was clicked.
+    var onPick: ((Int) -> Void)?
 
     private func ensurePanel() -> NSPanel {
         if let p = panel { return p }
@@ -55,7 +57,11 @@ final class SuggestionPanel {
             hint.textColor = .white
             hint.frame = NSRect(x: 8, y: y + 4, width: 16, height: 16)
             content.addSubview(bg); content.addSubview(label); content.addSubview(hint)
-            rows += [bg, label, hint]
+            let hit = ClickableView(frame: bg.frame)
+            hit.index = i
+            hit.onClick = { [weak self] in self?.onPick?($0) }
+            content.addSubview(hit)
+            rows += [bg, label, hint, hit]
         }
         var origin = NSPoint(x: rect.minX, y: rect.minY - height - 4)
         if rect == .zero { origin = NSEvent.mouseLocation }

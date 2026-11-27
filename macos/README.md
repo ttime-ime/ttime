@@ -32,13 +32,25 @@ Escape cancels; arrows, Tab and shortcuts commit what is pending and pass throug
 **Sanskrit suggestions.** In Latin mode, type a Sanskrit word without accents. From three
 letters on, a list of up to five accented words appears under it (for example `pratitya` offers
 `pratītyasamutpāda` first). Tab accepts the highlighted one, Up and Down move through the list,
-Escape or Space keep exactly what you typed; nothing is replaced unless you choose it. A capital
+Escape or Space keep exactly what you typed; you can also click a suggestion; nothing is replaced unless you choose it. A capital
 first letter is kept. The word list is `data/sanskrit/iast-lexicon.tsv` (Monier-Williams and
 Edgerton headwords ranked by Digital Corpus of Sanskrit counts; licences (CC BY-NC-SA 3.0 for the dictionary headwords) in
 `data/sanskrit/README.md`), measured in `docs/reference/sanskrit-spike.md`. Turn it off in Settings.
 
-**Shift taps.** Tap left Shift to flip Tibetan and Latin until focus moves to
-another field or app. Double-tap it (within 500 ms) to lock the mode you were
+**Accent palette.** In Latin mode, hold a letter (a, i, u, r, l, m, h, n, t, d, s; capitals too)
+until it repeats and a strip of its IAST variants opens above it (`a` gives `ā`, `s` gives `ś ṣ`,
+`n` gives `ṅ ñ ṇ`). Press the number under a variant, or cycle with Tab (it wraps) or the arrow keys and
+then press Return or Space, or click one. Letting go of the held key while a variant is highlighted picks it (the key's
+state is polled, since an input method gets no key-release event). The plain letter has already been typed, so any other key, or Escape,
+keeps it. There is no key-release event in an input method, so the strip stays open after the key
+is let go (as the system's own does). With the Sanskrit suggestions on, the variant replaces the
+last letter of the word being typed; with them off, a variant letter waits as marked text until
+the next key. Holding a letter no longer repeats it. Turn it off in Settings. Logic:
+`Sources/AccentPalette.swift` and `Composer.swift` (tested), `Sources/AccentPanel.swift` (not
+run in a live input method yet; the log of 2026-11-27 showed that held-key repeats do reach T-Time).
+
+**Shift taps.** Tap left Shift to flip Tibetan and Latin; the mode is remembered when
+you move to another field or app (until you flip it again). Double-tap it (within 500 ms) to lock the mode you were
 in; the lock survives focus changes and restarts, single taps are ignored while
 it is on, and another double tap always clears it. A single tap of right Shift
 does nothing; a double tap is reserved for the symbols table (not built). A tap

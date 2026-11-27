@@ -24,6 +24,12 @@ enum Prefs {
         set { d.set(newValue, forKey: "SanskritSuggestions") }
     }
 
+    /// The long-press accent palette in Latin mode (hold `a` for `ā`). On by default.
+    static var accentPalette: Bool {
+        get { d.object(forKey: "AccentPalette") as? Bool ?? true }
+        set { d.set(newValue, forKey: "AccentPalette") }
+    }
+
     /// The opt-in key log, see DebugLog.
     static var debugKeys: Bool {
         get { d.bool(forKey: "DebugKeys") }

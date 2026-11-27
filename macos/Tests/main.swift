@@ -372,5 +372,158 @@ do {
     }
 }
 
+// Long-press accent palette
+do {
+    func t(_ ok: Bool, _ label: String) { if !ok { failures += 1; print("FAIL \(label)") } }
+    for (k, vs) in AccentPalette.lower {
+        for v in vs { t(v.precomposedStringWithCanonicalMapping == v && v.unicodeScalars.count == 1, "NFC single scalar \(k)->\(v)") }
+    }
+    t(AccentPalette.variants(for: "S") == ["Ś", "Ṣ"], "capitals give capitals")
+    t(AccentPalette.variants(for: "k").isEmpty && AccentPalette.variants(for: "ab").isEmpty, "no variants")
+
+    let lex = SanskritLexicon(tsv: "prajñā\t100\tb\nprajña\t10\t-\nsūtra\t30\tb\n")
+    func latin(suggest: Bool) -> Composer {
+        let c = Composer()
+        _ = c.setLatin(true)
+        c.accents = true
+        if suggest { c.suggester = SanskritSuggester(lexicon: lex) }
+        return c
+    }
+    func type(_ c: Composer, _ s: String) { for ch in s { _ = c.handle(.text(String(ch))) } }
+    let hold: (Composer, String) -> Outcome = { c, s in c.handle(.text(s), isRepeat: true) }
+
+    // With suggestions: the letter is in the word, the palette replaces it.
+    do {
+        let c = latin(suggest: true); type(c, "pr")
+        type(c, "a")
+        check(hold(c, "a"), Outcome(insert: "", marked: "pra", handled: true), "first repeat opens the palette")
+        t(c.accentList?.options == ["ā"] && c.accentList?.selected == nil, "palette lists the variants")
+        check(hold(c, "a"), Outcome(insert: "", marked: "pra", handled: true), "further repeats are swallowed")
+        check(c.handle(.text("1")), Outcome(insert: "", marked: "prā", handled: true), "number picks")
+        t(c.accentList == nil, "palette closed after a pick")
+        t(c.handle(.text("j")).marked == "prāj", "typing goes on after the accent")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pr")
+        _ = hold(c, "r")
+        t(c.accentList?.options == ["ṛ", "ṝ"], "r has two variants")
+        _ = c.handle(.right)
+        _ = c.handle(.right)
+        t(c.accentList?.selected == 1, "arrows move the highlight")
+        check(c.handle(.enter), Outcome(insert: "", marked: "pṝ", handled: true), "return picks the highlighted variant")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pn")
+        _ = hold(c, "n")
+        t(c.accentList?.options.count == 3, "n has three variants")
+        _ = c.handle(.tab); t(c.accentList?.selected == 0, "tab highlights the first")
+        _ = c.handle(.tab); _ = c.handle(.tab); t(c.accentList?.selected == 2, "tab goes on")
+        _ = c.handle(.tab); t(c.accentList?.selected == 0, "tab wraps round")
+        check(c.handle(.text(" ")), Outcome(insert: "", marked: "pṅ", handled: true), "space picks the highlighted variant")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pra")
+        _ = hold(c, "a")
+        check(c.handle(.escape), Outcome(insert: "", marked: "pra", handled: true), "escape closes and keeps the plain letter")
+        t(c.accentList == nil, "closed by escape")
+        _ = hold(c, "a")
+        let o = c.handle(.text("j"))
+        t(o.marked == "praj" && c.accentList == nil, "another key keeps the plain letter and types")
+        type(c, "a"); _ = hold(c, "a")
+        let b = c.handle(.backspace)
+        t(b.marked == "praj" && c.accentList == nil, "backspace closes the palette and edits")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pra")
+        _ = hold(c, "a")
+        check(c.handle(.enter), Outcome(insert: "pra", marked: "", handled: false), "return with nothing highlighted keeps the letter and passes through")
+        type(c, "a"); _ = hold(c, "a")
+        check(c.handle(.text(" ")), Outcome(insert: "a ", marked: "", handled: true), "space with nothing highlighted ends the word")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "ak")
+        check(hold(c, "k"), Outcome(insert: "", marked: "akk", handled: true), "a letter without variants repeats as usual")
+        t(c.accentList == nil, "no palette for k")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pra")
+        t(hold(c, "u").marked == "prau", "repeat of a letter that is not the last typed is plain typing")
+    }
+    // Without suggestions: the letter waits as marked text.
+    do {
+        let c = latin(suggest: false)
+        check(c.handle(.text("a")), Outcome(insert: "", marked: "a", handled: true), "variant letter waits")
+        check(c.handle(.text("k")), Outcome(insert: "ak", marked: "", handled: true), "next key commits it")
+        check(c.handle(.text("a")), Outcome(insert: "", marked: "a", handled: true), "waits again")
+        check(c.handle(.text("i")), Outcome(insert: "a", marked: "i", handled: true), "next variant letter commits the previous one")
+        check(hold(c, "i"), Outcome(insert: "", marked: "i", handled: true), "repeat opens")
+        check(c.handle(.text("1")), Outcome(insert: "ī", marked: "", handled: true), "pick commits the variant")
+        t(c.commitAll().isEmpty, "nothing left over")
+    }
+    do {
+        let c = latin(suggest: false); _ = c.handle(.text("s"))
+        check(c.handle(.backspace), Outcome(insert: "", marked: "", handled: true), "backspace removes the waiting letter")
+        _ = c.handle(.text("s"))
+        check(c.handle(.enter), Outcome(insert: "s", marked: "", handled: false), "return commits it and passes through")
+        _ = c.handle(.text("s"))
+        t(c.commitAll() == "s", "commitAll includes the waiting letter")
+        _ = c.handle(.text("s"))
+        check(c.setLatin(false), Outcome(insert: "s", marked: "", handled: true), "leaving Latin commits it")
+    }
+    do {
+        let c = latin(suggest: false); _ = c.handle(.text("s"))
+        c.reset()
+        t(c.commitAll().isEmpty, "reset forgets the waiting letter")
+    }
+    // Off, or in Tibetan mode: untouched.
+    do {
+        let c = Composer(); _ = c.setLatin(true)
+        check(c.handle(.text("a")), Outcome(insert: "a", marked: "", handled: true), "off: plain")
+        let tib = Composer(); tib.accents = true
+        t(tib.handle(.text("a"), isRepeat: true).handled && tib.accentList == nil, "Tibetan mode has no palette")
+    }
+    // Clicking a variant.
+    do {
+        let c = latin(suggest: true); type(c, "pra")
+        check(c.chooseAccent(index: 0), Outcome(), "click on a closed palette does nothing")
+        _ = hold(c, "a")
+        check(c.chooseAccent(index: 0), Outcome(insert: "", marked: "prā", handled: true), "click picks")
+        // The key is still held while the variant is clicked: its repeats must not type.
+        check(hold(c, "a"), Outcome(insert: "", marked: "prā", handled: true), "repeats of the held key are ignored after a click")
+        check(hold(c, "a"), Outcome(insert: "", marked: "prā", handled: true), "and keep being ignored")
+        t(c.accentList == nil, "and do not reopen the palette")
+        t(c.handle(.text("a")).marked == "prāa", "a fresh press types again")
+    }
+    do {
+        let c = latin(suggest: false); _ = c.handle(.text("a")); _ = hold(c, "a")
+        check(c.chooseAccent(index: 0), Outcome(insert: "ā", marked: "", handled: true), "click picks with no suggester")
+        check(hold(c, "a"), Outcome(insert: "", marked: "", handled: true), "repeats ignored, nothing typed")
+        check(c.handle(.text("k")), Outcome(insert: "k", marked: "", handled: true), "typing goes on")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pn")
+        check(c.chooseHighlightedAccent(), Outcome(), "nothing highlighted: nothing happens")
+        _ = hold(c, "n")
+        check(c.chooseHighlightedAccent(), Outcome(), "open but nothing highlighted: nothing happens")
+        _ = c.handle(.tab); _ = c.handle(.tab)
+        check(c.chooseHighlightedAccent(), Outcome(insert: "", marked: "pñ", handled: true), "letting go picks the highlighted variant")
+        t(c.accentList == nil, "closed after release")
+    }
+    do {
+        let c = latin(suggest: true); type(c, "pa")
+        _ = hold(c, "a")
+        _ = c.handle(.escape)
+        check(hold(c, "a"), Outcome(insert: "", marked: "pa", handled: true), "escape while still held: no reopening, no typing")
+        t(c.accentList == nil, "palette stays closed")
+    }
+    do {
+        let c = latin(suggest: true)
+        check(c.chooseSuggestion(index: 0), Outcome(), "click with no list does nothing")
+        type(c, "praj")
+        check(c.chooseSuggestion(index: 1), Outcome(insert: "prajña", marked: "", handled: true), "click accepts that suggestion")
+        t(c.suggestionList == nil, "list gone after a click")
+    }
+}
+
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)
