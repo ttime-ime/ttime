@@ -83,6 +83,13 @@ final class TTimeInputController: IMKInputController {
             toggleDictionary()
             return true
         }
+        // Spotlight never shows text we insert. Hand the key back so the
+        // letter the keyboard produced appears in the search field. Tibetan
+        // conversion needs that insertion, so a search is typed in Latin.
+        if ClientText.showsOnlyRawKeys(client.bundleIdentifier()) {
+            DebugLog.log("spotlight: key passed through")
+            return false
+        }
         if StackerPanel.shared.isOpen {
             if StackerPanel.shared.handle(keyInput(for: event)) { return true }
         } else if SymbolsPanel.shared.isOpen {
@@ -132,6 +139,8 @@ final class TTimeInputController: IMKInputController {
     override func commitComposition(_ sender: Any!) {
         guard let client = sender as? IMKTextInput else { return }
         let text = composer.commitAll()
+        // Spotlight would drop this, and writing it can leave the field stuck.
+        if ClientText.showsOnlyRawKeys(client.bundleIdentifier()) { return }
         if !text.isEmpty { client.insertText(text, replacementRange: noRange) }
     }
 
@@ -330,6 +339,13 @@ final class TTimeInputController: IMKInputController {
     private var timing: KeyTiming?
 
     private func apply(_ outcome: Outcome, to client: IMKTextInput) {
+        // An empty marked-text update on activation is enough to leave
+        // Spotlight's field unable to take keys. Write nothing there.
+        if ClientText.showsOnlyRawKeys(client.bundleIdentifier()) {
+            SuggestionPanel.shared.hide()
+            AccentPanel.shared.hide()
+            return
+        }
         if !outcome.insert.isEmpty {
             measured(\.insert) {
                 if outcome.replacing.isEmpty {

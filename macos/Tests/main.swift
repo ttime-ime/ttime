@@ -549,5 +549,12 @@ do {
     eq(DictionaryLookup.url(for: "  ")?.absoluteString ?? "none", "none", "blank term has no URL")
 }
 
+do {
+    func t(_ ok: Bool, _ label: String) { if !ok { failures += 1; print("FAIL \(label)") } }
+    t(ClientText.showsOnlyRawKeys("com.apple.Spotlight"), "Spotlight shows only the raw key")
+    t(!ClientText.showsOnlyRawKeys("com.apple.TextEdit"), "a document accepts inserted text")
+    t(!ClientText.showsOnlyRawKeys(nil), "an unnamed client is not treated as Spotlight")
+}
+
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")
 exit(failures == 0 ? 0 : 1)
