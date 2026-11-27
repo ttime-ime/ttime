@@ -26,24 +26,72 @@ enum PanelTabs {
 
     /// The navigator's width and the margins inside it. The width fits the stacker's
     /// widest row of letters, which is wider in the Brutalist type.
-    static var width: CGFloat { Theme.current.brutal ? 504 : 480 }
-    static let insets = NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+    static var width: CGFloat { Theme.current.brutal ? 520 : 480 }
+    /// Horizontal content margins are shared; Brutalist uses a tighter top inset so the
+    /// single-line header does not float under a large empty band.
+    static var insets: NSEdgeInsets {
+        Theme.current.brutal
+            ? NSEdgeInsets(top: 12, left: 22, bottom: 20, right: 22)
+            : NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
+    }
     static var innerWidth: CGFloat { width - insets.left - insets.right }
     /// Where the navigator sits; shared, so opening any tab puts it in the same place.
     static let originKey = "NavigatorTopLeft"
 
     private static let heightKey = "NavigatorHeight"
 
-    /// The navigator's height: what you dragged it to, but never less than the
-    /// stacker needs for its letters.
-    static func height() -> CGFloat {
-        max(CGFloat(UserDefaults.standard.double(forKey: heightKey)), StackerPanel.shared.naturalHeight)
+    /// Visible height available for a floating panel on the main screen.
+    static func availableHeight(on screen: NSScreen? = NSScreen.main) -> CGFloat {
+        (screen ?? NSScreen.screens.first)?.visibleFrame.height ?? 900
     }
 
+    private static func heightKey(for tab: PanelTab) -> String {
+        Theme.current.brutal ? "\(heightKey).\(tab.rawValue)" : heightKey
+    }
+
+    /// Natural content height for a tab (Brutalist: each tab is independent).
+    static func naturalHeight(for tab: PanelTab) -> CGFloat {
+        switch tab {
+        case .stacker: return StackerPanel.shared.naturalHeight
+        case .symbols: return SymbolsPanel.shared.naturalHeight
+        case .dictionary:
+            let screen = availableHeight()
+            return min(640, max(420, screen - 80))
+        }
+    }
+
+    static func minimumHeight(for tab: PanelTab) -> CGFloat {
+        switch tab {
+        case .stacker:
+            return Theme.current.brutal ? StackerPanel.shared.minimumHeight : StackerPanel.shared.naturalHeight
+        case .symbols:
+            return Theme.current.brutal ? min(SymbolsPanel.shared.naturalHeight, 360) : StackerPanel.shared.naturalHeight
+        case .dictionary:
+            return Theme.current.brutal ? 360 : StackerPanel.shared.naturalHeight
+        }
+    }
+
+    /// Height for a tab: remembered user size when present, else that tab's natural
+    /// height, clamped to the screen. Brutalist no longer forces Stacker's tall size
+    /// onto Symbols and Dictionary.
+    static func height(for tab: PanelTab = .stacker) -> CGFloat {
+        let floor = minimumHeight(for: tab)
+        let remembered = CGFloat(UserDefaults.standard.double(forKey: heightKey(for: tab)))
+        let natural = naturalHeight(for: tab)
+        let screen = availableHeight()
+        let ideal = remembered > 0 ? remembered : min(natural, screen - 24)
+        return min(max(ideal, floor), max(floor, screen - 16))
+    }
+
+    /// Legacy shared-height accessor (Bubblegum / grip fallback).
+    static func height() -> CGFloat { height(for: .stacker) }
+
     /// The size the window takes for a drag to `wanted`: the width is fixed.
-    static func proposed(_ wanted: NSSize) -> NSSize {
-        let h = min(max(wanted.height, StackerPanel.shared.naturalHeight), 1400)
-        UserDefaults.standard.set(Double(h), forKey: heightKey)
+    static func proposed(_ wanted: NSSize, tab: PanelTab = .stacker) -> NSSize {
+        let floor = minimumHeight(for: tab)
+        let screen = availableHeight()
+        let h = min(max(wanted.height, floor), min(1400, max(floor, screen - 16)))
+        UserDefaults.standard.set(Double(h), forKey: heightKey(for: tab))
         return NSSize(width: width, height: h)
     }
 
@@ -53,29 +101,44 @@ enum PanelTabs {
         let tabs = makeBar(selected: selected, panel: panel)
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let closeButton = BubbleButton(glyph: "✕", glyphSize: 13, tip: "Close (Esc)", label: "Close", onClick: close)
-        closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
-        closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        let closeButton = BubbleButton(glyph: "✕", glyphSize: t.brutal ? 12 : 13, tip: "Close (Esc)", label: "Close", onClick: close)
+        if t.brutal {
+            closeButton.quietChrome = true
+            closeButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
+            closeButton.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        } else {
+            closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
+            closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
+        }
         var views: [NSView] = [tabs, spacer, closeButton]
         if t.brutal {
+            // Single-line header: wordmark | navigation · close. No subtitle.
             let title = NSTextField(labelWithString: "T-Time")
-            title.font = t.serif(30)
+            title.font = t.serif(28)
             title.textColor = t.ink
-            let tagline = NSTextField(labelWithString: "Tibetan input method")
-            tagline.font = t.serif(12, italic: true)
-            tagline.textColor = t.ink.withAlphaComponent(0.7)
-            let block = NSStackView(views: [title, tagline])
-            block.orientation = .vertical
-            block.alignment = .leading
-            block.spacing = 0
+            title.setContentHuggingPriority(.required, for: .vertical)
+            // Didot's line box sits low relative to visible caps; slight optical lift.
+            let titleWrap = NSView()
+            titleWrap.translatesAutoresizingMaskIntoConstraints = false
+            title.translatesAutoresizingMaskIntoConstraints = false
+            titleWrap.addSubview(title)
+            NSLayoutConstraint.activate([
+                title.leadingAnchor.constraint(equalTo: titleWrap.leadingAnchor),
+                title.trailingAnchor.constraint(equalTo: titleWrap.trailingAnchor),
+                title.centerYAnchor.constraint(equalTo: titleWrap.centerYAnchor, constant: -1),
+                titleWrap.heightAnchor.constraint(equalToConstant: 28),
+            ])
             let rule = RuleView(vertical: true)
-            rule.heightAnchor.constraint(equalToConstant: 38).isActive = true
-            views = [block, rule] + views
+            rule.heightAnchor.constraint(equalToConstant: 20).isActive = true
+            views = [titleWrap, rule] + views
         }
         let header = NSStackView(views: views)
         header.alignment = .centerY
-        header.spacing = 10
+        header.spacing = t.brutal ? 12 : 10
         header.widthAnchor.constraint(equalToConstant: innerWidth).isActive = true
+        if t.brutal {
+            header.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        }
         return header
     }
 
@@ -94,13 +157,16 @@ enum PanelTabs {
                 show(tab, from: panel())
             }
             b.filled = tab == selected
-            if Theme.current.brutal { b.look = .heading }
-            b.heightAnchor.constraint(equalToConstant: Theme.current.brutal ? 34 : 30).isActive = true
+            if Theme.current.brutal {
+                b.look = .heading
+                b.glyphSize = 16
+            }
+            b.heightAnchor.constraint(equalToConstant: Theme.current.brutal ? 28 : 30).isActive = true
             b.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.current.brutal ? 20 : 82).isActive = true
             buttons.append(b)
         }
         for b in buttons { bar.addArrangedSubview(b) }
-        bar.spacing = Theme.current.brutal ? 12 : 5
+        bar.spacing = Theme.current.brutal ? 14 : 5
         return bar
     }
 
@@ -150,9 +216,9 @@ enum PanelTabs {
 
     // MARK: Position
 
-    /// Fits a panel to the navigator's size, keeping its top-left corner.
-    static func fit(toNavigator panel: NSPanel) {
-        setSize(panel, NSSize(width: width, height: height()))
+    /// Fits a panel to the navigator's size for `tab`, keeping its top-left corner.
+    static func fit(toNavigator panel: NSPanel, tab: PanelTab = .stacker) {
+        setSize(panel, NSSize(width: width, height: height(for: tab)))
     }
 
     /// The top-left is what is remembered: a window grows and shrinks downwards.
@@ -241,7 +307,7 @@ final class ResizeGrip: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        (Theme.current.brutal ? Theme.current.ink.withAlphaComponent(0.5) : StackerPanel.pinkStrong).setStroke()
+        (Theme.current.brutal ? Theme.current.mutedText : StackerPanel.pinkStrong).setStroke()
         let path = NSBezierPath()
         path.lineWidth = 1.6
         path.lineCapStyle = .round

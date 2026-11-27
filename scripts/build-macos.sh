@@ -59,7 +59,7 @@ for arch in $ARCHS; do
 
   swiftc $SWIFTFLAGS -target "$TARGET" -o "$OUT/TTime-$arch" \
     macos/Sources/Composer.swift macos/Sources/ShiftTap.swift macos/Sources/ModeLock.swift macos/Sources/ClientText.swift \
-    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/Theme.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift macos/Sources/DictionaryModel.swift macos/Sources/DictionaryPanel.swift \
+    macos/Sources/SanskritSuggest.swift macos/Sources/SuggestionPanel.swift macos/Sources/AccentPalette.swift macos/Sources/AccentPanel.swift macos/Sources/Preferences.swift macos/Sources/DebugLog.swift macos/Sources/TibetanFont.swift macos/Sources/StackerModel.swift macos/Sources/SymbolsModel.swift macos/Sources/GlyphCaptionLayout.swift macos/Sources/StackPreviewView.swift macos/Sources/Theme.swift macos/Sources/Toolbar.swift macos/Sources/PanelChrome.swift macos/Sources/StackerPanel.swift macos/Sources/SymbolsPanel.swift macos/Sources/DictionaryModel.swift macos/Sources/DictionaryPanel.swift \
     macos/Sources/Updater.swift macos/Sources/UpdateSettings.swift macos/Sources/InputController.swift macos/Sources/main.swift \
     "$LIB" -framework Cocoa -framework InputMethodKit -framework Carbon -framework ServiceManagement -framework WebKit
   BINS="$BINS $OUT/TTime-$arch"
@@ -81,7 +81,7 @@ lipo -create $TOOL_BINS -output "$TOOLS/Contents/MacOS/TTimeTools"
 rm -f "$OUT"/composer-tests-* "$OUT"/tools-tests-* "$OUT"/TTime-* "$OUT"/helper-* "$OUT"/TTimeTools-*
 
 cp macos/Resources/Info.plist "$APP/Contents/Info.plist"
-cp macos/Resources/icon-colour.tiff macos/Resources/icon-mono.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/toolbar-logo-brutal.png macos/Resources/toolbar-logo-brutal-dark.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp macos/Resources/brutal-art.webp macos/Resources/stacker-art-brutal.webp \
+cp macos/Resources/icon-colour.tiff macos/Resources/icon-mono.tiff macos/Resources/AppIcon.icns macos/Resources/toolbar-logo.png macos/Resources/toolbar-logo-brutal.png macos/Resources/toolbar-logo-brutal-dark.png macos/Resources/stacker-art.webp macos/Resources/symbols-art.webp macos/Resources/symbols-brutal.png macos/Resources/brutal-art.webp macos/Resources/stacker-art-brutal.webp macos/Resources/stacker-art-brutal.png \
    macos/Resources/NotoSerifTibetan.ttf macos/Resources/OFL-NotoSerifTibetan.txt "$APP/Contents/Resources/"
 cp data/sanskrit/iast-lexicon.tsv data/sanskrit/README.md "$APP/Contents/Resources/"
 mv "$APP/Contents/Resources/README.md" "$APP/Contents/Resources/iast-lexicon-README.md"

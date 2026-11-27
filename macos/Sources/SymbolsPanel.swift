@@ -5,23 +5,31 @@ private final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
-/// The whole illustration, uncropped (the cookies are the symbols), with rounded
-/// corners. Its height follows its width, so the window can show it at two sizes.
+/// Banner illustration. Bubblegum: height follows width × aspect (full image).
+/// Brutalist: fixed banner height with aspect-fill (centred crop, no stretch).
 private final class BannerView: NSView {
     private let image: NSImage?
     private let aspect: CGFloat
+    private let fixedHeight: CGFloat?
+    /// When true with `fixedHeight`, scale to fill the banner and crop overflow.
+    private let aspectFill: Bool
 
-    init(image: NSImage?, width: CGFloat, aspect: CGFloat) {
+    init(image: NSImage?, width: CGFloat, aspect: CGFloat, fixedHeight: CGFloat? = nil,
+         aspectFill: Bool = false,
+         accessibilityDescription: String = "A cat-maid icing Tibetan symbol cookies, and a yak sniffing them") {
         self.image = image
         self.aspect = aspect
-        super.init(frame: NSRect(x: 0, y: 0, width: width, height: width * aspect))
+        self.fixedHeight = fixedHeight
+        self.aspectFill = aspectFill
+        let h = fixedHeight ?? (width * aspect)
+        super.init(frame: NSRect(x: 0, y: 0, width: width, height: h))
         wantsLayer = true
-        layer?.cornerRadius = Theme.current.brutal ? 4 : 20
+        layer?.cornerRadius = Theme.current.artRadius
         layer?.masksToBounds = true
         layer?.borderWidth = Theme.current.brutal ? 0 : 2
         layer?.borderColor = StackerPanel.pinkStrong.cgColor
         translatesAutoresizingMaskIntoConstraints = false
-        setAccessibilityLabel("A cat-maid icing Tibetan symbol cookies, and a yak sniffing them")
+        setAccessibilityLabel(accessibilityDescription)
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -34,15 +42,41 @@ private final class BannerView: NSView {
 
     func setWidth(_ width: CGFloat) {
         sizeConstraints.0.constant = width
-        sizeConstraints.1.constant = (width * aspect).rounded()
+        sizeConstraints.1.constant = fixedHeight ?? (width * aspect).rounded()
         needsDisplay = true
     }
 
     var height: CGFloat { sizeConstraints.1.constant }
 
     override func draw(_ dirtyRect: NSRect) {
-        guard let image = image, image.size.width > 0 else { return }
-        image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
+        guard let image = image, image.size.width > 0 else {
+            if fixedHeight != nil { Theme.current.paper.setFill(); bounds.fill() }
+            return
+        }
+        if aspectFill, fixedHeight != nil {
+            // Scale to cover the banner; crop centred overflow (no distortion).
+            let scale = max(bounds.width / image.size.width, bounds.height / image.size.height)
+            let drawW = image.size.width * scale
+            let drawH = image.size.height * scale
+            let draw = NSRect(x: (bounds.width - drawW) / 2, y: (bounds.height - drawH) / 2,
+                              width: drawW, height: drawH)
+            image.draw(in: draw, from: .zero, operation: .sourceOver, fraction: 1)
+        } else if fixedHeight != nil {
+            Theme.current.paper.setFill()
+            bounds.fill()
+            let imgAspect = image.size.height / max(image.size.width, 1)
+            var draw = bounds
+            if imgAspect > bounds.height / max(bounds.width, 1) {
+                let w = bounds.height / imgAspect
+                draw = NSRect(x: (bounds.width - w) / 2, y: 0, width: w, height: bounds.height)
+            } else {
+                let h = bounds.width * imgAspect
+                draw = NSRect(x: 0, y: (bounds.height - h) / 2, width: bounds.width, height: h)
+            }
+            image.draw(in: draw, from: .zero, operation: .sourceOver, fraction: 1)
+        } else {
+            image.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
+        }
     }
 }
 
@@ -77,9 +111,10 @@ final class SymbolsPanel: NSObject {
     var insert: ((String) -> Void)?
 
     private static let originKey = PanelTabs.originKey
-    private static let cellSize = NSSize(width: 56, height: 46)
-    private static let gap: CGFloat = 4
-    private static let step: CGFloat = 60  // cell width plus gap
+    private static var cellSize: NSSize { Theme.current.symbolsCell }
+    private static var gapX: CGFloat { Theme.current.symbolsGapX }
+    private static var gapY: CGFloat { Theme.current.symbolsGapY }
+    private static var step: CGFloat { cellSize.width + gapX }
     /// Dragged narrower than this, the window becomes one column.
     private static let singleColumnBelow: CGFloat = 800
     private static let bannerWide: CGFloat = 600
@@ -114,12 +149,31 @@ final class SymbolsPanel: NSObject {
     func open(topLeft: NSPoint? = nil) {
         pendingClose?.cancel()
         let panel = ensurePanel()
-        adaptHeight(PanelTabs.height())
-        PanelTabs.fit(toNavigator: panel)
+        let h = PanelTabs.height(for: .symbols)
+        PanelTabs.setSize(panel, NSSize(width: PanelTabs.width, height: h))
+        adaptHeight(h)
         refresh()
         if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         panel.orderFrontRegardless()
         panel.invalidateShadow()
+    }
+
+    /// Content-tight height: header + banner + grid document + footer (no empty scroll pad).
+    var naturalHeight: CGFloat {
+        _ = ensurePanel()
+        loadSize()
+        applyLayout()
+        refresh()
+        let rows = max(1, (model.results.count + max(columns, 1) - 1) / max(columns, 1))
+        let docH = CGFloat(rows) * (Self.cellSize.height + Self.gapY) - Self.gapY
+        scrollHeight.constant = docH
+        tableHeight = docH
+        container.layoutSubtreeIfNeeded()
+        // Header + banner + document + footer + root insets/spacing.
+        let measured = ceil(root.fittingSize.height)
+        // Guard against a stale oversized scrollHeight leaking into fittingSize.
+        return min(measured, ceil(PanelTabs.insets.top + PanelTabs.insets.bottom
+                                  + 38 + Theme.current.symbolsBannerHeight + docH + 70 + Theme.current.rootSpacing * 4))
     }
 
     func close() {
@@ -182,11 +236,33 @@ final class SymbolsPanel: NSObject {
         compact = PanelTabs.compact
         loadSize()
 
+        let t0 = Theme.current
         var art: NSImage?
-        if let url = Bundle.main.url(forResource: Theme.current.brutal ? "brutal-art" : "symbols-art", withExtension: "webp") {
-            art = NSImage(contentsOf: url)
+        let artAspect: CGFloat
+        let fixed: CGFloat?
+        let artLabel: String
+        let fill: Bool
+        if t0.brutal {
+            // Landscape banner at the design height (476×120); aspect-fill, no stretch.
+            if let url = Bundle.main.url(forResource: "symbols-brutal", withExtension: "png") {
+                art = NSImage(contentsOf: url)
+            }
+            artAspect = art.flatMap { $0.size.width > 0 ? $0.size.height / $0.size.width : nil }
+                ?? (t0.symbolsBannerHeight / max(PanelTabs.innerWidth, 1))
+            fixed = t0.symbolsBannerHeight
+            fill = true
+            artLabel = "A stencil of a Tibetan vessel on weathered concrete panels"
+        } else {
+            if let url = Bundle.main.url(forResource: "symbols-art", withExtension: "webp") {
+                art = NSImage(contentsOf: url)
+            }
+            artAspect = 1024 / 1536
+            fixed = nil
+            fill = false
+            artLabel = "A cat-maid icing Tibetan symbol cookies, and a yak sniffing them"
         }
-        banner = BannerView(image: art, width: Self.bannerWide, aspect: 1024 / 1536)
+        banner = BannerView(image: art, width: Self.bannerWide, aspect: artAspect, fixedHeight: fixed,
+                            aspectFill: fill, accessibilityDescription: artLabel)
 
         // The same title, tabs and close button as the other panels.
         header = PanelTabs.makeHeader(selected: .symbols, panel: { [weak self] in self?.panel }) { [weak self] in self?.close() }
@@ -207,9 +283,21 @@ final class SymbolsPanel: NSObject {
         leftColumn.alignment = .leading
         rightColumn.orientation = .vertical
         rightColumn.alignment = .leading
-        rightColumn.spacing = 9
+        rightColumn.spacing = Theme.current.rootSpacing
         root.edgeInsets = PanelTabs.insets
+        root.spacing = Theme.current.rootSpacing
         root.translatesAutoresizingMaskIntoConstraints = false
+
+        // Warm the symbols ink envelope from the full catalogue (all categories).
+        let t = Theme.current
+        var inventory: [SymbolEntry] = []
+        let probe = SymbolsModel()
+        inventory.append(contentsOf: probe.results)
+        for cat in probe.categories {
+            probe.setCategory(cat)
+            inventory.append(contentsOf: probe.results)
+        }
+        GlyphCaptionLayout.warmSymbols(entries: inventory, glyphSize: t.symbolsGlyphSize)
 
         container = DraggableView()
         container.wantsLayer = true
@@ -268,7 +356,8 @@ final class SymbolsPanel: NSObject {
 
     /// The table is as many columns as fit the navigator's width.
     private func loadSize() {
-        columns = max(5, Int((PanelTabs.innerWidth - 14 + Self.gap) / Self.step))
+        // 7×56 + 6×14 = 476 at the standard content width.
+        columns = max(5, Int((PanelTabs.innerWidth + Self.gapX) / Self.step))
         tableHeight = compactTableHeight
     }
     private let compactTableHeight: CGFloat = 330
@@ -280,27 +369,46 @@ final class SymbolsPanel: NSObject {
         scrollHeight.constant = tableHeight
         banner.setWidth(tableWidth)
         hintLabel.preferredMaxLayoutWidth = tableWidth
-        root.arrange([header, banner, scroll, hintLabel])
+        var body: [NSView] = [header, banner, scroll]
+        if Theme.current.brutal {
+            let rule = RuleView(vertical: false)
+            rule.widthAnchor.constraint(equalToConstant: tableWidth).isActive = true
+            body.append(rule)
+        }
+        body.append(hintLabel)
+        root.arrange(body)
         leftColumn.arrange([])
         rightColumn.arrange([])
         root.orientation = .vertical
         root.alignment = .leading
-        root.spacing = 9
+        root.spacing = Theme.current.rootSpacing
+        if Theme.current.brutal {
+            // ~4 pt more air between the panorama and the first symbol row.
+            root.setCustomSpacing(16, after: banner)
+            root.setCustomSpacing(6, after: scroll)
+        }
     }
 
     /// Gives the table whatever height the navigator has left after the rest.
+    /// Brutalist defaults to the document height; extra space only when the user grows the window.
     private func adaptHeight(_ height: CGFloat) {
         guard container != nil else { return }
         container.layoutSubtreeIfNeeded()
         let chrome = root.fittingSize.height - scrollHeight.constant
-        tableHeight = max(140, height - chrome)
+        let rows = max(1, (model.results.count + columns - 1) / columns)
+        let docH = CGFloat(rows) * (Self.cellSize.height + Self.gapY) - Self.gapY
+        let available = max(140, height - chrome)
+        // Use remaining window space; when that exceeds the document the clip view
+        // simply shows paper below the last row (user-enlarged windows only).
+        tableHeight = Theme.current.brutal ? max(docH, available) : available
+        _ = docH
         scrollHeight.constant = tableHeight
         container.layoutSubtreeIfNeeded()
     }
 
     /// The size the window takes for a drag to `wanted`: only the height changes.
     private func proposedSize(_ wanted: NSSize) -> NSSize {
-        let size = PanelTabs.proposed(wanted)
+        let size = PanelTabs.proposed(wanted, tab: .symbols)
         adaptHeight(size.height)
         refresh()
         return size
@@ -315,23 +423,27 @@ final class SymbolsPanel: NSObject {
         for v in documentView.subviews { v.removeFromSuperview() }
         cells = []
         let step = Self.step
+        let cell = Self.cellSize
+        let rowPitch = cell.height + Self.gapY
+        let t = Theme.current
         for (i, e) in model.results.enumerated() {
             let name = e.label.isEmpty ? e.name.capitalized : e.label
-            let b = BubbleButton(glyph: e.display, caption: Self.shown(e.ewts), glyphSize: 18,
+            let b = BubbleButton(glyph: e.display, caption: Self.shown(e.ewts), glyphSize: t.symbolsGlyphSize,
                                  tip: name, label: name) { [weak self] in
                 self?.model.select(i)
                 self?.insertSelected()
                 self?.refresh()
             }
+            b.inventory = .symbols
             b.translatesAutoresizingMaskIntoConstraints = true
-            b.frame = NSRect(x: CGFloat(i % columns) * step, y: CGFloat(i / columns) * (Self.cellSize.height + Self.gap),
-                             width: Self.cellSize.width, height: Self.cellSize.height)
+            b.frame = NSRect(x: CGFloat(i % columns) * step, y: CGFloat(i / columns) * rowPitch,
+                             width: cell.width, height: cell.height)
             b.filled = i == model.selected
             documentView.addSubview(b)
             cells.append(b)
         }
         let rows = (model.results.count + columns - 1) / columns
-        let height = max(CGFloat(rows) * (Self.cellSize.height + Self.gap) - Self.gap, 1)
+        let height = max(CGFloat(rows) * rowPitch - Self.gapY, 1)
         documentView.frame = NSRect(x: 0, y: 0, width: CGFloat(columns) * step, height: height)
         if cells.indices.contains(model.selected) { documentView.scrollToVisible(cells[model.selected].frame.insetBy(dx: 0, dy: -4)) }
 
@@ -342,10 +454,11 @@ final class SymbolsPanel: NSObject {
             first = name + (e.ewts.map { "  ·  type \(Self.shown($0))" } ?? "") + "  ·  " + e.codePoints
         }
         let text = NSMutableAttributedString(string: first, attributes: [
-            .font: Theme.current.brutal ? Theme.current.serif(14) : NSFont.systemFont(ofSize: 11, weight: .semibold),
-            .foregroundColor: Theme.current.ink])
+            .font: t.brutal ? t.serif(14) : NSFont.systemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: t.ink])
         text.append(NSAttributedString(string: "\nClick or Return inserts · arrows move · Tab: next panel · Esc closes", attributes: [
-            .font: NSFont.systemFont(ofSize: 10), .foregroundColor: Theme.current.ink.withAlphaComponent(0.7)]))
+            .font: NSFont.systemFont(ofSize: 10),
+            .foregroundColor: t.brutal ? t.mutedText : t.ink.withAlphaComponent(0.7)]))
         hintLabel.attributedStringValue = text
         panel?.invalidateShadow()
     }

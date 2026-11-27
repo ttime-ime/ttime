@@ -100,7 +100,7 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         pendingClose?.cancel()
         if !isOpen { engaged = false }
         let panel = ensurePanel()
-        PanelTabs.fit(toNavigator: panel)
+        PanelTabs.fit(toNavigator: panel, tab: .dictionary)
         if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         lookUp(currentTerm?() ?? "")
         panel.orderFrontRegardless()
@@ -245,15 +245,48 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         config.websiteDataStore = .default()
         // The site's fixed top bar sits flush against the page edge, so the search
         // box's border and focus ring are cut off by the view; give it a margin.
-        let css = "[class*='_topbar_']{box-sizing:border-box!important;padding:4px 4px 0 4px!important}"
-        let js = "var s=document.createElement('style');s.textContent=\"\(css)\";(document.head||document.documentElement).appendChild(s);"
+        // Brutalist adds a scoped editorial stylesheet; Bubblegum keeps the site look.
+        let css: String
+        if t.brutal {
+            let dark = Theme.systemIsDark
+            let paper = dark ? "#0E0E0E" : "#FFFFFF"
+            let ink = dark ? "#F2F2F2" : "#0E0E0E"
+            let secondary = dark ? "#A3A3A3" : "#595959"
+            let muted = dark ? "#8A8A8A" : "#767676"
+            let border = dark ? "#3D3D3D" : "#CCCCCC"
+            let hair = dark ? "#2A2A2A" : "#E0E0E0"
+            css = """
+            [class*='_topbar_']{box-sizing:border-box!important;padding:2px 0 4px 0!important;background:\(paper)!important;border-bottom:1px solid \(hair)!important;box-shadow:none!important;border-top:none!important;min-height:0!important}
+            [class*='_textInputWrap_']{border:none!important;border-bottom:none!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;min-height:28px!important;display:flex!important;align-items:center!important}
+            input.searchTerm{font-family:Baskerville,Georgia,serif!important;font-size:17px!important;line-height:1.2!important;color:\(ink)!important;background:transparent!important;border:none!important;outline:none!important;padding:2px 2px!important;box-shadow:none!important}
+            input.searchTerm:focus{box-shadow:none!important;outline:1px solid \(border)!important;outline-offset:2px!important}
+            button.clear-input{color:\(muted)!important;background:transparent!important;border:none!important;box-shadow:none!important;opacity:0.9!important;font-size:14px!important;transform:none!important}
+            [class*='_triggerBtn_']{color:\(muted)!important;background:transparent!important;border:none!important;box-shadow:none!important;opacity:0.7!important;transform:scale(0.88)!important}
+            body,.page,.contentArea,.mainWrap{background:\(paper)!important;color:\(ink)!important}
+            .definitionHead,.definitionHeadtib{font-family:'Noto Serif Tibetan',serif!important;font-size:40px!important;line-height:1.3!important;color:\(ink)!important;margin:6px 0 6px 0!important;font-weight:400!important;padding:0!important}
+            .dictName{font-family:-apple-system,BlinkMacSystemFont,sans-serif!important;font-size:10px!important;font-weight:500!important;letter-spacing:0.12em!important;text-transform:uppercase!important;color:\(secondary)!important;border:none!important;text-decoration:none!important;border-bottom:none!important;margin:10px 0 1px 0!important;padding:4px 0 0 0!important;border-top:none!important}
+            .dictName:first-of-type{margin-top:2px!important;padding-top:0!important}
+            .dictName *{text-decoration:none!important;border-bottom:none!important}
+            .definition,.definitions{font-family:Baskerville,Georgia,'Noto Serif Tibetan',serif!important;font-size:15px!important;line-height:1.38!important;color:\(ink)!important;margin:0 0 2px 0!important;padding:0!important;text-indent:0!important;margin-left:0!important;padding-left:0!important}
+            .definitions{border-top:none!important;padding-left:0!important;margin-left:0!important}
+            .wrapDefinitionView,.mainWrap.wrapDefinitionView{padding-left:0!important}
+            a.link,.link{color:\(ink)!important;text-decoration:underline!important;text-underline-offset:2px!important}
+            .sideBarInnerWrap,.title,.subtitle{color:\(muted)!important}
+            """
+        } else {
+            css = "[class*='_topbar_']{box-sizing:border-box!important;padding:4px 4px 0 4px!important}"
+        }
+        let escaped = css.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "")
+        let js = "var s=document.createElement('style');s.setAttribute('data-ttime','1');s.textContent=\"\(escaped)\";(document.head||document.documentElement).appendChild(s);"
         config.userContentController.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         let web = PassiveWebView(frame: .zero, configuration: config)
         web.navigationDelegate = self
         web.translatesAutoresizingMaskIntoConstraints = false
         web.setValue(false, forKey: "drawsBackground")
         web.wantsLayer = true
-        web.layer?.cornerRadius = t.brutal ? 4 : 12
+        // Not artwork: keep a slight radius so the page edge is not a hard clip.
+        web.layer?.cornerRadius = t.brutal ? t.cellRadius : 12
         web.layer?.masksToBounds = true
         web.setContentHuggingPriority(.init(1), for: .vertical)
         web.setContentCompressionResistancePriority(.init(1), for: .vertical)
@@ -265,18 +298,24 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         let header = PanelTabs.makeHeader(selected: .dictionary, panel: { [weak self] in self?.panel }) { [weak self] in self?.close() }
 
         statusLabel.font = NSFont.systemFont(ofSize: 10)
-        statusLabel.textColor = t.ink.withAlphaComponent(0.7)
+        statusLabel.textColor = t.brutal ? t.mutedText : t.ink.withAlphaComponent(0.7)
         statusLabel.maximumNumberOfLines = 2
         statusLabel.setContentCompressionResistancePriority(.init(1), for: .horizontal)
 
-        let root = NSStackView(views: [header, web, statusLabel])
+        var body: [NSView] = [header, web]
+        if t.brutal {
+            let rule = RuleView(vertical: false)
+            body.append(rule)
+        }
+        body.append(statusLabel)
+        let root = NSStackView(views: body)
         root.orientation = .vertical
         root.alignment = .leading
-        root.spacing = 9
+        root.spacing = t.rootSpacing
         root.edgeInsets = PanelTabs.insets
         root.translatesAutoresizingMaskIntoConstraints = false
         for v in [header, web, statusLabel] {
-            v.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -44).isActive = true
+            v.widthAnchor.constraint(equalTo: root.widthAnchor, constant: -(PanelTabs.insets.left + PanelTabs.insets.right)).isActive = true
         }
 
         let container = DraggableView()
@@ -294,7 +333,7 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
             web.heightAnchor.constraint(greaterThanOrEqualToConstant: 200),
         ])
         let grip = ResizeGrip()
-        grip.constrain = { wanted in PanelTabs.proposed(wanted) }
+        grip.constrain = { wanted in PanelTabs.proposed(wanted, tab: .dictionary) }
         container.addSubview(grip)
         NSLayoutConstraint.activate([
             grip.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -9),

@@ -27,33 +27,87 @@ struct Theme {
     let id: StyleID
     var brutal: Bool { id == .brutal }
 
+    // MARK: Colour
+
     /// The window's background.
     let paper: NSColor
-    /// Text, and the strongest lines.
+    /// Primary text and strongest fills (selection).
     let ink: NSColor
-    /// Outlines of buttons and cards.
-    let line: NSColor
-    /// The fill of a soft button.
+    /// Secondary body text (taglines, status).
+    let secondaryText: NSColor
+    /// Muted / instruction text.
+    let mutedText: NSColor
+    /// Interactive control outlines (buttons).
+    let controlBorder: NSColor
+    /// Decorative hairlines and rules (not interactive).
+    let separator: NSColor
+    /// Legacy alias used by older call sites; maps to controlBorder.
+    var line: NSColor { controlBorder }
+    /// Quiet fill for vowel/mark tiles.
     let tile: NSColor
-    /// The fill of the answer card.
+    /// The fill of the answer card (Bubblegum).
     let card: NSColor
     /// The toolbar's bar.
     let bar: NSColor
+    let panelBorderColor: NSColor
+
+    // MARK: Geometry
+
     let panelRadius: CGFloat
     let panelBorder: CGFloat
-    let panelBorderColor: NSColor
+    let cellRadius: CGFloat
+    let tileRadius: CGFloat
+    let actionRadius: CGFloat
+    let presetRadius: CGFloat
+    let artRadius: CGFloat
+    let toolbarRadius: CGFloat
+
+    let stackerCell: CGSize
+    let symbolsCell: CGSize
+    let stackerGlyphSize: CGFloat
+    let symbolsGlyphSize: CGFloat
+    let glyphCaptionSize: CGFloat
+    let stackerGapX: CGFloat
+    let stackerGapY: CGFloat
+    let symbolsGapX: CGFloat
+    let symbolsGapY: CGFloat
+    let rootSpacing: CGFloat
+    let sectionSpacing: CGFloat
+    let presetHeight: CGFloat
+    let railTracking: CGFloat
+    let railSize: CGFloat
+    /// Stacker illustration column height (Brutalist 50:50 composition).
+    let stackerArtHeight: CGFloat
+    /// Stacker illustration / compose column width (Brutalist).
+    let composeColumnWidth: CGFloat
+    /// Gutter between the two Stacker composition columns.
+    let composeGutter: CGFloat
+    /// Category rail width inside the alphabet (Brutalist).
+    let railWidth: CGFloat
+    /// Symbols banner height; width is the content width.
+    let symbolsBannerHeight: CGFloat
+    /// Nominal Tibetan preview point size (scaled down to fit).
+    let previewNominalSize: CGFloat
+    /// Action button height (Insert / Copy / Clear).
+    let actionButtonHeight: CGFloat
+    /// Background wash for prefix-mismatched (still available) cells.
+    let dimmedFill: NSColor
+    /// Background wash for functionally unavailable cells.
+    let unavailableFill: NSColor
+    /// Subtle hover / focus wash (Brutalist interaction states).
+    let hoverFill: NSColor
+    /// Roman glyph captions (Didot); stronger than muted so punctuation stays legible.
+    let glyphCaption: NSColor
+
     /// nil follows the system's light or dark mode.
     let appearance: NSAppearance?
 
     /// Whether the system is in dark mode (for artwork that cannot recolour itself).
     static var systemIsDark: Bool {
-        // NSApp does not exist yet when MenuIcon runs at launch; ask the system's setting.
         guard let app = NSApp else { return systemSettingIsDark }
         return app.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 
-    /// The system's light/dark setting, read straight from the preferences (it needs no
-    /// application object, and is current when the appearance-changed notification fires).
     static var systemSettingIsDark: Bool {
         CFPreferencesSynchronize(kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost)
         let v = CFPreferencesCopyValue("AppleInterfaceStyle" as CFString, kCFPreferencesAnyApplication,
@@ -68,29 +122,72 @@ struct Theme {
                 blue: CGFloat(hex & 0xFF) / 255, alpha: a)
     }
 
-    /// A colour that is one thing in light mode and another in dark.
     private static func dynamic(light: NSColor, dark: NSColor) -> NSColor {
         NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light }
     }
 
     private static let bubblegumTheme = Theme(
         id: .bubblegum,
-        paper: srgb(0xFCE7E9), ink: srgb(0xA8445F), line: srgb(0xEA8798),
+        paper: srgb(0xFCE7E9), ink: srgb(0xA8445F),
+        secondaryText: srgb(0xA8445F).withAlphaComponent(0.75),
+        mutedText: srgb(0xA8445F).withAlphaComponent(0.7),
+        controlBorder: srgb(0xEA8798),
+        separator: srgb(0xEA8798).withAlphaComponent(0.45),
         tile: srgb(0xFEE8D4, 0.85), card: NSColor.white.withAlphaComponent(0.7), bar: srgb(0xE4BBC5),
-        panelRadius: 28, panelBorder: 3, panelBorderColor: srgb(0xEA8798),
-        appearance: NSAppearance(named: .aqua))  // the brand is light
+        panelBorderColor: srgb(0xEA8798),
+        panelRadius: 28, panelBorder: 3,
+        cellRadius: 12, tileRadius: 12, actionRadius: 12, presetRadius: 12, artRadius: 20, toolbarRadius: 15 * 0.7,
+        stackerCell: NSSize(width: 38, height: 38),
+        symbolsCell: NSSize(width: 56, height: 46),
+        stackerGlyphSize: 15, symbolsGlyphSize: 18, glyphCaptionSize: 9,
+        stackerGapX: 4, stackerGapY: 5, symbolsGapX: 4, symbolsGapY: 4,
+        rootSpacing: 9, sectionSpacing: 9, presetHeight: 26, railTracking: 0, railSize: 10,
+        stackerArtHeight: 0, composeColumnWidth: 0, composeGutter: 0, railWidth: 82,
+        symbolsBannerHeight: 0, previewNominalSize: 46, actionButtonHeight: 32,
+        dimmedFill: NSColor.clear, unavailableFill: NSColor.clear, hoverFill: NSColor.clear,
+        glyphCaption: srgb(0xA8445F).withAlphaComponent(0.75),
+        appearance: NSAppearance(named: .aqua))
 
     private static let brutalTheme = Theme(
         id: .brutal,
         paper: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
-        ink: dynamic(light: srgb(0x0E0E0E), dark: srgb(0xF4F4F4)),
-        line: dynamic(light: NSColor.black.withAlphaComponent(0.55), dark: NSColor.white.withAlphaComponent(0.55)),
-        tile: dynamic(light: NSColor.black.withAlphaComponent(0.06), dark: NSColor.white.withAlphaComponent(0.12)),
+        ink: dynamic(light: srgb(0x0E0E0E), dark: srgb(0xF2F2F2)),
+        secondaryText: dynamic(light: srgb(0x595959), dark: srgb(0xA3A3A3)),
+        mutedText: dynamic(light: srgb(0x767676), dark: srgb(0x8A8A8A)),
+        controlBorder: dynamic(light: srgb(0xCCCCCC), dark: srgb(0x3D3D3D)),
+        separator: dynamic(light: srgb(0xE0E0E0), dark: srgb(0x2A2A2A)),
+        // Quieter vowel/mark wash so the bottom of the alphabet is not heavier than consonants.
+        tile: dynamic(light: srgb(0xF7F7F7), dark: srgb(0x161616)),
         card: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
         bar: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
-        panelRadius: 22, panelBorder: 1,
-        panelBorderColor: dynamic(light: NSColor.black.withAlphaComponent(0.18), dark: NSColor.white.withAlphaComponent(0.25)),
+        // Slightly softer than controlBorder so the floating panel edge is present but not heavy.
+        panelBorderColor: dynamic(light: srgb(0xD8D8D8), dark: srgb(0x333333)),
+        panelRadius: 18, panelBorder: 1,
+        cellRadius: 5, tileRadius: 5, actionRadius: 5, presetRadius: 4, artRadius: 0, toolbarRadius: 12,
+        // Measured min height with the full stacker inventory + Sanskrit stress set is 48 pt
+        // at glyph 15 / Didot 10; 50 pt keeps ~2 pt slack above the tallest ink.
+        stackerCell: NSSize(width: 40, height: 50),
+        symbolsCell: NSSize(width: 56, height: 52),
+        stackerGlyphSize: 15, symbolsGlyphSize: 18, glyphCaptionSize: 10,
+        // Gap 2 keeps the nine-column Marks row inside 476 with a 92 pt rail.
+        stackerGapX: 2, stackerGapY: 2, symbolsGapX: 14, symbolsGapY: 2,
+        rootSpacing: 6, sectionSpacing: 4, presetHeight: 24, railTracking: 1.1, railSize: 9,
+        // 50:50 composition columns; symbols banner target 476×120 (aspect-fill).
+        stackerArtHeight: 174, composeColumnWidth: 232, composeGutter: 12, railWidth: 92,
+        symbolsBannerHeight: 120, previewNominalSize: 56, actionButtonHeight: 26,
+        dimmedFill: dynamic(light: srgb(0xF0F0F0), dark: srgb(0x1A1A1A)),
+        // Very quiet wash — unavailable must not outrank ordinary consonants.
+        unavailableFill: dynamic(light: srgb(0xF2F2F2), dark: srgb(0x141414)),
+        hoverFill: dynamic(light: srgb(0xF4F4F4), dark: srgb(0x1A1A1A)),
+        glyphCaption: dynamic(light: srgb(0x666666), dark: srgb(0xA3A3A3)),
         appearance: nil)
+
+    /// Shared disabled treatment for primary and secondary actions.
+    var disabledActionFill: NSColor { brutal ? hoverFill : tile }
+    var disabledActionInk: NSColor { brutal ? mutedText : ink.withAlphaComponent(0.45) }
+    /// Legacy aliases.
+    var disabledPrimaryFill: NSColor { disabledActionFill }
+    var disabledPrimaryInk: NSColor { disabledActionInk }
 
     // MARK: Type
 
@@ -103,22 +200,31 @@ struct Theme {
         return base.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size) } ?? base
     }
 
-    /// A row or section name. Brutalist: small capitals, widely tracked.
+    /// A row or section name. Brutalist: small capitals, tracked.
     func railLabel(_ s: String, width: CGFloat) -> NSTextField {
         let l: NSTextField
         if brutal {
             l = NSTextField(labelWithString: "")
             l.attributedStringValue = NSAttributedString(string: s.uppercased(), attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium), .kern: 1.6,
-                .foregroundColor: ink.withAlphaComponent(0.85)])
+                .font: NSFont.systemFont(ofSize: railSize, weight: .medium), .kern: railTracking,
+                .foregroundColor: secondaryText])
         } else {
             l = NSTextField(labelWithString: s)
             l.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
             l.textColor = ink.withAlphaComponent(0.75)
         }
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.widthAnchor.constraint(equalToConstant: brutal ? width + 32 : width).isActive = true
+        l.widthAnchor.constraint(equalToConstant: brutal ? railWidth : width).isActive = true
+        l.lineBreakMode = .byTruncatingTail
         return l
+    }
+
+    /// Baskerville for long dictionary definitions; Georgia, then the system serif.
+    func textSerif(_ size: CGFloat) -> NSFont {
+        if let f = NSFont(name: "Baskerville", size: size) { return f }
+        if let f = NSFont(name: "Georgia", size: size) { return f }
+        let base = NSFont.systemFont(ofSize: size)
+        return base.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size) } ?? base
     }
 
     /// A caption in the style's text face (serif when brutalist).
@@ -131,9 +237,8 @@ struct Theme {
 
     // MARK: Switching
 
-    /// Rebuilds everything that has been drawn, after the style or the system
-    /// appearance changed. Open windows reappear where they were.
     static func restyleAll() {
+        GlyphCaptionLayout.clearCaches()
         MenuIcon.sync()
         Toolbar.shared.rebuild()
         StackerPanel.rebuild()
@@ -143,7 +248,6 @@ struct Theme {
 
     private static var observing = false
 
-    /// Rebuilds when macOS switches between light and dark.
     static func observeSystemAppearance() {
         guard !observing else { return }
         observing = true
@@ -164,7 +268,7 @@ extension NSView {
     }
 }
 
-/// A one-point rule in the ink colour, faint.
+/// A one-point decorative rule.
 final class RuleView: NSView {
     init(vertical: Bool) {
         super.init(frame: .zero)
@@ -177,7 +281,7 @@ final class RuleView: NSView {
 
     override func viewDidChangeEffectiveAppearance() { paint() }
     override func viewDidMoveToWindow() { paint() }
-    private func paint() { layer?.backgroundColor = resolved(Theme.current.ink.withAlphaComponent(0.22)) }
+    private func paint() { layer?.backgroundColor = resolved(Theme.current.separator) }
 }
 
 /// The input-source icon in the menu bar. macOS reads it from Resources/icon.tiff,
@@ -187,8 +291,6 @@ enum MenuIcon {
     static let path = "/Users/Shared/T-Time/icon.tiff"
 
     static func sync() {
-        // Pink: the full-colour cup. Brutalist: a white pot on a black tile, which reads
-        // on a light or a dark menu bar alike (macOS cannot tell an app which it is).
         let name = Prefs.style == .brutal ? "icon-mono" : "icon-colour"
         guard let src = Bundle.main.url(forResource: name, withExtension: "tiff"),
               let data = try? Data(contentsOf: src) else { return }

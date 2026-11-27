@@ -1,7 +1,12 @@
 import Cocoa
+import CoreText
 
-/// A pink, bubbly button. Layer-backed and borderless: a native bezel would draw
-/// grey in this window, which never becomes key.
+/// Top-left origin host for the alphabet document inside `NSScrollView`.
+private final class FlippedHostView: NSView {
+    override var isFlipped: Bool { true }
+}
+
+/// Layer-backed borderless button. Native bezels draw grey in non-key panels.
 final class BubbleButton: NSButton {
     var onClick: (() -> Void)?
     var glyph = ""
@@ -10,6 +15,19 @@ final class BubbleButton: NSButton {
     /// The caption goes beside the glyph instead of under it (compact chips).
     var inlineCaption = false
     var filled = false { didSet { paint() } }
+    /// Which ink envelope to share when Brutalist lays out a glyph+caption cell.
+    var inventory: GlyphCaptionLayout.Inventory = .stackerConsonant
+    /// Dimmed but enabled (typing prefix mismatch). Distinct from `isEnabled == false`.
+    var dimmed = false {
+        didSet {
+            if Theme.current.brutal { paint() }
+            else { applyAlpha() }
+        }
+    }
+    /// Use the tighter preset radius (Brutalist) instead of the action radius.
+    var presetChrome = false
+    /// Borderless, clear chrome (Brutalist close control).
+    var quietChrome = false
 
     convenience init(glyph: String, caption: String = "", glyphSize: CGFloat = 18, tip: String, label: String,
                      onClick: @escaping () -> Void) {
@@ -20,6 +38,7 @@ final class BubbleButton: NSButton {
         self.onClick = onClick
         isBordered = false
         wantsLayer = true
+        layerContentsRedrawPolicy = .onSetNeedsDisplay
         layer?.cornerRadius = 12
         layer?.borderWidth = 1.5
         toolTip = tip
@@ -32,6 +51,10 @@ final class BubbleButton: NSButton {
 
     private var glyphLabel: NSTextField?
     private var captionLabel: NSTextField?
+    /// Shared-baseline cells, plus Brutalist text-only tiles (inherent “a”).
+    private var usesSharedBaseline: Bool {
+        Theme.current.brutal && (isCell || (look == .tile && !glyph.isEmpty))
+    }
 
     private func ensureLabels() -> (NSTextField, NSTextField) {
         if let g = glyphLabel, let c = captionLabel { return (g, c) }
@@ -49,18 +72,31 @@ final class BubbleButton: NSButton {
         return (g, c)
     }
 
-    // The labels are only drawing; every click belongs to the button.
     override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
 
     @objc private func fire() { onClick?() }
     override var acceptsFirstResponder: Bool { false }
 
     override var isEnabled: Bool {
-        didSet { alphaValue = isEnabled ? 1 : 0.4 }
+        didSet {
+            if Theme.current.brutal { paint() }
+            else { applyAlpha() }
+        }
     }
 
-    /// `soft`: the style's ordinary button. `tile`: a quiet filled pill (vowels,
-    /// marks). `heading`: brutalist tabs, which are just serif words.
+    private func applyAlpha() {
+        if Theme.current.brutal {
+            // Brutalist uses fill + ink colour for state (including inactive tabs); stay opaque.
+            alphaValue = 1
+        } else {
+            // Bubblegum: keep the long-standing opacities.
+            if !isEnabled { alphaValue = 0.4 }
+            else if dimmed { alphaValue = 0.25 }
+            else { alphaValue = 1 }
+        }
+    }
+
+    /// `soft`: ordinary button. `tile`: vowel/mark wash. `heading`: Brutalist tabs.
     enum Look { case soft, tile, heading }
     var look = Look.soft { didSet { paint() } }
 
@@ -71,7 +107,108 @@ final class BubbleButton: NSButton {
 
     override func layout() {
         super.layout()
-        if Theme.current.brutal { layer?.cornerRadius = isCell ? 9 : min(bounds.height / 2, 16) }
+        let t = Theme.current
+        if t.brutal {
+            switch look {
+            case .heading: break
+            case .tile: layer?.cornerRadius = t.tileRadius
+            case .soft:
+                if isCell { layer?.cornerRadius = t.cellRadius }
+                else { layer?.cornerRadius = presetChrome ? t.presetRadius : t.actionRadius }
+            }
+        }
+        needsDisplay = true
+    }
+
+    override var isFlipped: Bool { false }
+
+    override func draw(_ dirtyRect: NSRect) {
+        // Layer paints the chrome; Brutalist cells draw shaped Tibetan + Didot here
+        // so positioning uses ink baselines, not NSTextField line boxes.
+        guard usesSharedBaseline, let ctx = NSGraphicsContext.current?.cgContext else {
+            super.draw(dirtyRect)
+            return
+        }
+        let t = Theme.current
+        if filled {
+            // Asymmetric inset: keep ~5 pt below the caption inside the selection fill
+            // (tsheg “space” was flush against the black edge with a uniform inset).
+            let inset = NSRect(x: bounds.minX + 3, y: bounds.minY + 1,
+                               width: bounds.width - 6, height: bounds.height - 4)
+            let path = NSBezierPath(roundedRect: inset, xRadius: t.cellRadius, yRadius: t.cellRadius)
+            t.ink.setFill()
+            path.fill()
+        }
+        let ink: NSColor
+        let captionInk: NSColor
+        if filled {
+            ink = t.paper
+            captionInk = t.paper.withAlphaComponent(0.88)
+        } else if !isEnabled {
+            ink = t.mutedText
+            captionInk = t.mutedText
+        } else if dimmed {
+            ink = t.secondaryText
+            captionInk = t.mutedText
+        } else {
+            ink = t.ink
+            captionInk = t.glyphCaption
+        }
+        let font: NSFont
+        if TibetanFont.contains(glyph) {
+            font = TibetanFont.font(glyphSize)
+        } else if caption.isEmpty {
+            font = t.serif(glyphSize)
+        } else {
+            font = GlyphCaptionLayout.tibetan(glyphSize)
+        }
+        let gLine = CTLineCreateWithAttributedString(NSAttributedString(string: glyph, attributes: [
+            .font: font, .foregroundColor: ink,
+        ]))
+
+        if caption.isEmpty {
+            // Inherent “a”: centre the Roman ink inside the selection inset (≈5 pt pad).
+            let area = NSRect(x: bounds.minX + 3, y: bounds.minY + 5,
+                              width: bounds.width - 6, height: bounds.height - 8)
+            var a: CGFloat = 0, d: CGFloat = 0, l: CGFloat = 0
+            let tw = CTLineGetTypographicBounds(gLine, &a, &d, &l)
+            let inkH = a + d
+            ctx.saveGState()
+            ctx.textMatrix = .identity
+            ctx.translateBy(x: area.midX - tw / 2,
+                            y: area.minY + (area.height - inkH) / 2 + d)
+            CTLineDraw(gLine, ctx)
+            ctx.restoreGState()
+            return
+        }
+
+        let env = GlyphCaptionLayout.cached(inventory)
+            ?? GlyphCaptionLayout.InkEnvelope(above: glyphSize * 1.15, below: glyphSize * 0.55, width: glyphSize)
+        let spec = GlyphCaptionLayout.Spec(
+            cellSize: bounds.size, glyphSize: glyphSize,
+            captionSize: t.glyphCaptionSize, pad: 2, centerEnvelope: true)
+        let plan = GlyphCaptionLayout.plan(spec: spec, envelope: env)
+        let bx = GlyphCaptionLayout.baselineX(for: glyph, font: font, cellWidth: bounds.width)
+        ctx.saveGState()
+        ctx.textMatrix = .identity
+        ctx.translateBy(x: bx, y: plan.baselineY)
+        CTLineDraw(gLine, ctx)
+        ctx.restoreGState()
+
+        let capFont = GlyphCaptionLayout.didot(t.glyphCaptionSize)
+        let cap = NSAttributedString(string: caption, attributes: [
+            .font: capFont, .foregroundColor: captionInk,
+        ])
+        let capLine = CTLineCreateWithAttributedString(cap)
+        var a: CGFloat = 0, d: CGFloat = 0, l: CGFloat = 0
+        let cw = CTLineGetTypographicBounds(capLine, &a, &d, &l)
+        // Floor keeps ~5 pt of selection padding under captions (shared for all cells).
+        let capBaseline = (plan.captionBand - (a + d + l)) / 2 + d
+        ctx.saveGState()
+        ctx.textMatrix = .identity
+        ctx.translateBy(x: (bounds.width - cw) / 2, y: max(5, capBaseline))
+        CTLineDraw(capLine, ctx)
+        ctx.restoreGState()
     }
 
     func paint() {
@@ -80,52 +217,113 @@ final class BubbleButton: NSButton {
         var captionFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .medium)
         var labelFont: NSFont? = nil
         if t.brutal {
-            ink = filled && look != .heading ? t.paper : t.ink
-            layer?.cornerRadius = isCell ? 9 : min(max(bounds.height, 28) / 2, 16)
+            // Primary (filled) actions stay paper-on-ink when enabled; when disabled they
+            // keep the fill but soften the label so AppKit does not grey it illegibly.
+            if look == .heading {
+                // Active: full ink. Inactive: secondary (not opacity — that looked disabled).
+                ink = filled ? t.ink : t.secondaryText
+            } else if filled {
+                ink = isEnabled ? t.paper : t.disabledActionInk
+            } else if !isEnabled {
+                ink = t.disabledActionInk
+            } else if dimmed {
+                ink = t.secondaryText
+            } else {
+                ink = t.ink
+            }
             switch look {
             case .heading:
+                layer?.cornerRadius = 0
                 layer?.backgroundColor = NSColor.clear.cgColor
                 layer?.borderWidth = 0
                 labelFont = t.serif(16)
-                alphaValue = filled ? 1 : 0.4
             case .tile:
-                layer?.backgroundColor = resolved(filled ? t.ink : t.tile)
-                layer?.borderWidth = 0
-            case .soft:
+                layer?.cornerRadius = t.tileRadius
                 if filled {
-                    layer?.backgroundColor = resolved(t.ink); layer?.borderWidth = 0
-                } else if isCell {
-                    layer?.backgroundColor = NSColor.clear.cgColor; layer?.borderWidth = 0
+                    // Inset selection drawn in `draw(_:)` (including inherent “a”).
+                    layer?.backgroundColor = NSColor.clear.cgColor
+                } else if !isEnabled {
+                    // Quiet: muted ink only — no grey block competing with consonants.
+                    layer?.backgroundColor = NSColor.clear.cgColor
+                } else if dimmed {
+                    layer?.backgroundColor = resolved(t.dimmedFill)
                 } else {
                     layer?.backgroundColor = NSColor.clear.cgColor
-                    layer?.borderWidth = 1; layer?.borderColor = resolved(t.line)
+                }
+                layer?.borderWidth = 0
+            case .soft:
+                layer?.cornerRadius = isCell ? t.cellRadius : (presetChrome ? t.presetRadius : t.actionRadius)
+                if filled && isCell {
+                    layer?.backgroundColor = NSColor.clear.cgColor
+                    layer?.borderWidth = 0
+                } else if filled {
+                    // Enabled primary: ink fill. Disabled: same grey wash as secondary actions.
+                    layer?.backgroundColor = resolved(isEnabled ? t.ink : t.disabledActionFill)
+                    layer?.borderWidth = 0
+                } else if isCell {
+                    if !isEnabled {
+                        layer?.backgroundColor = NSColor.clear.cgColor
+                    } else if dimmed {
+                        layer?.backgroundColor = resolved(t.dimmedFill)
+                    } else {
+                        layer?.backgroundColor = NSColor.clear.cgColor
+                    }
+                    layer?.borderWidth = 0
+                } else if quietChrome {
+                    layer?.backgroundColor = NSColor.clear.cgColor
+                    layer?.borderWidth = 0
+                } else if !isEnabled {
+                    // Disabled secondary matches disabled primary.
+                    layer?.backgroundColor = resolved(t.disabledActionFill)
+                    layer?.borderWidth = 0
+                } else {
+                    layer?.backgroundColor = NSColor.clear.cgColor
+                    layer?.borderWidth = 1
+                    layer?.borderColor = resolved(t.controlBorder)
                 }
             }
-            captionFont = t.serif(11)
+            captionFont = GlyphCaptionLayout.didot(t.glyphCaptionSize)
+            applyAlpha()
         } else {
+            layer?.cornerRadius = 12
+            layer?.borderWidth = 1.5
             layer?.backgroundColor = (filled ? Toolbar.plum : Toolbar.cream.withAlphaComponent(0.85)).cgColor
             layer?.borderColor = (filled ? Toolbar.plum : StackerPanel.pinkStrong).cgColor
             ink = filled ? NSColor.white : Toolbar.plum
+            dimmed = false
+            applyAlpha()
         }
-        let font = TibetanFont.contains(glyph) ? TibetanFont.font(glyphSize)
-            : labelFont ?? NSFont.systemFont(ofSize: glyphSize, weight: caption.isEmpty || inlineCaption ? .semibold : .regular)
+        let font: NSFont
+        if TibetanFont.contains(glyph) {
+            font = TibetanFont.font(glyphSize)
+        } else if let labelFont {
+            font = labelFont
+        } else if t.brutal && look == .tile && caption.isEmpty {
+            // Inherent vowel “a”: Didot Roman on the selection fill.
+            font = t.serif(glyphSize)
+        } else {
+            font = NSFont.systemFont(ofSize: glyphSize, weight: caption.isEmpty || inlineCaption ? .medium : .regular)
+        }
         let para = NSMutableParagraphStyle()
         para.alignment = .center
-        if caption.isEmpty || inlineCaption {
-            // One line: an ordinary button title.
+        if usesSharedBaseline {
+            attributedTitle = NSAttributedString(string: "")
+            glyphLabel?.isHidden = true
+            captionLabel?.isHidden = true
+            needsDisplay = true
+        } else if caption.isEmpty || inlineCaption {
             let text = NSMutableAttributedString(string: glyph, attributes: [
                 .font: font, .foregroundColor: ink, .paragraphStyle: para])
             if inlineCaption {
+                let capColor = t.brutal ? (filled ? t.paper.withAlphaComponent(0.75) : t.secondaryText) : ink.withAlphaComponent(0.75)
                 text.append(NSAttributedString(string: "  " + caption, attributes: [
-                    .font: captionFont,
-                    .foregroundColor: ink.withAlphaComponent(0.75), .paragraphStyle: para]))
+                    .font: captionFont, .foregroundColor: capColor, .paragraphStyle: para]))
             }
             attributedTitle = text
             glyphLabel?.isHidden = true
             captionLabel?.isHidden = true
         } else {
-            // A glyph over a key. Noto Serif Tibetan has tall line boxes that a
-            // single title would push the caption out with, so each gets a label.
+            // Bubblegum: glyph over key via two labels (fixed offsets).
             attributedTitle = NSAttributedString(string: "")
             let g = ensureLabels()
             g.0.isHidden = false
@@ -195,6 +393,8 @@ final class StackerPanel: NSObject {
     private let emptyHint = NSTextField(labelWithString: "Click letters below, or type them: top to bottom.")
     private let typedLabel = NSTextField(labelWithString: "")
     private let preview = NSTextField(labelWithString: "")
+    /// Brutalist Core Text preview; Bubblegum keeps `preview` (NSTextField).
+    private let stackPreview = StackPreviewView()
     private let shortestLabel = NSTextField(labelWithString: "")
     private let canonicalLabel = NSTextField(labelWithString: "")
     private let codesLabel = NSTextField(wrappingLabelWithString: "")
@@ -239,6 +439,17 @@ final class StackerPanel: NSObject {
     private var presetHeights: [NSLayoutConstraint] = []
     private var wideOnly: [NSLayoutConstraint] = []     // controls that fill the card
     private var compactOnly: [NSLayoutConstraint] = []  // controls in the footer
+    private let lettersColumn = NSStackView()
+    private let lettersScroll = NSScrollView()
+    private var lettersScrollHeight: NSLayoutConstraint?
+    private var brutalButtonsWidth: NSLayoutConstraint?
+    private var previewHeight: NSLayoutConstraint?
+    private var composeHeightConstraint: NSLayoutConstraint?
+    private var gridRule: RuleView?
+    private let composeColumn = NSStackView()
+    private let layersScroll = NSScrollView()
+    private let lettersDocument = FlippedHostView()
+    private var typedRowHidden = false
 
     var isOpen: Bool { panel?.isVisible ?? false }
     var window: NSPanel? { panel }
@@ -251,8 +462,10 @@ final class StackerPanel: NSObject {
         model.precomposed = Prefs.precomposed
         pendingClose?.cancel()
         let panel = ensurePanel()
-        PanelTabs.fit(toNavigator: panel)
+        PanelTabs.fit(toNavigator: panel, tab: .stacker)
+        adaptLettersHeight(panelHeight: panel.frame.height)
         refresh()
+        scrollAlphabetToStart()
         if !panel.isVisible { PanelTabs.place(panel, key: Self.originKey, topLeft: topLeft) }
         panel.orderFrontRegardless()
         panel.invalidateShadow()
@@ -322,11 +535,22 @@ final class StackerPanel: NSObject {
 
         // The illustration, dominant when wide, smaller on top when compact.
         art = NSImageView()
-        if let url = Bundle.main.url(forResource: Theme.current.brutal ? "stacker-art-brutal" : "stacker-art", withExtension: "webp") {
+        if Theme.current.brutal {
+            // Prefer the dedicated 4:3 PNG; fall back to the older webp.
+            if let url = Bundle.main.url(forResource: "stacker-art-brutal", withExtension: "png")
+                ?? Bundle.main.url(forResource: "stacker-art-brutal", withExtension: "webp") {
+                art.image = NSImage(contentsOf: url)
+            }
+            art.imageScaling = .scaleProportionallyUpOrDown
+            art.wantsLayer = true
+            art.layer?.cornerRadius = Theme.current.artRadius
+            art.layer?.masksToBounds = true
+            art.setAccessibilityLabel("A stencil of a Tibetan vessel on weathered concrete panels")
+        } else if let url = Bundle.main.url(forResource: "stacker-art", withExtension: "webp") {
             art.image = NSImage(contentsOf: url)
+            art.imageScaling = .scaleProportionallyUpOrDown
+            art.setAccessibilityLabel("A cat-maid carrying a tower of flatbreads, and a yak with books")
         }
-        art.imageScaling = .scaleProportionallyUpOrDown
-        art.setAccessibilityLabel("A cat-maid carrying a tower of flatbreads, and a yak with books")
         art.translatesAutoresizingMaskIntoConstraints = false
         artWidth = art.widthAnchor.constraint(equalToConstant: Self.columnWidth)
         artHeight = art.heightAnchor.constraint(equalToConstant: Self.columnWidth * artRatio)
@@ -339,14 +563,13 @@ final class StackerPanel: NSObject {
         typedRowWidth = typedRow.widthAnchor.constraint(equalToConstant: 100)
         typedRowWidth.isActive = true
 
-        // The chosen letters are drawn the way the stack is: one above the other,
-        // first letter on top. The column lives in the answer card (resultCard).
-        layersRow.orientation = .vertical
-        layersRow.spacing = 3
-        layersRow.alignment = .centerX
+        // Bubblegum: vertical stack of chips. Brutalist: horizontal chip strip.
+        layersRow.orientation = Theme.current.brutal ? .horizontal : .vertical
+        layersRow.spacing = Theme.current.brutal ? 4 : 3
+        layersRow.alignment = Theme.current.brutal ? .centerY : .centerX
         emptyHint.stringValue = "Add letters top to bottom: the first goes on top."
-        emptyHint.font = NSFont.systemFont(ofSize: 12)
-        emptyHint.textColor = Theme.current.ink.withAlphaComponent(0.7)
+        emptyHint.font = NSFont.systemFont(ofSize: Theme.current.brutal ? 10 : 12)
+        emptyHint.textColor = Theme.current.brutal ? Theme.current.mutedText : Theme.current.ink.withAlphaComponent(0.7)
         layersBox = NSView()
         layersBox.translatesAutoresizingMaskIntoConstraints = false
         layersBox.heightAnchor.constraint(equalToConstant: 20).isActive = true
@@ -356,82 +579,143 @@ final class StackerPanel: NSObject {
             v.leadingAnchor.constraint(equalTo: layersBox.leadingAnchor).isActive = true
             v.centerYAnchor.constraint(equalTo: layersBox.centerYAnchor).isActive = true
         }
+        layersScroll.drawsBackground = false
+        layersScroll.hasVerticalScroller = false
+        layersScroll.hasHorizontalScroller = true
+        layersScroll.autohidesScrollers = true
+        layersScroll.scrollerStyle = .overlay
+        layersScroll.borderType = .noBorder
+        layersScroll.translatesAutoresizingMaskIntoConstraints = false
+        layersScroll.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        layersScroll.documentView = layersRow
 
-        typedLabel.font = Theme.current.brutal ? Theme.current.serif(15) : NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
-        typedLabel.textColor = Theme.current.ink
+        typedLabel.font = Theme.current.brutal
+            ? NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+            : NSFont.monospacedSystemFont(ofSize: 13, weight: .semibold)
+        typedLabel.textColor = Theme.current.brutal ? Theme.current.secondaryText : Theme.current.ink
+        typedLabel.alignment = Theme.current.brutal ? .center : .natural
 
+        stackPreview.translatesAutoresizingMaskIntoConstraints = false
+        stackPreview.nominalSize = Theme.current.previewNominalSize
+        stackPreview.ink = Theme.current.ink
+
+        let t = Theme.current
+        GlyphCaptionLayout.warmStacker(alphabet: alphabet, glyphSize: t.stackerGlyphSize)
+        let cell = t.stackerCell
         grid = NSStackView()
         grid.orientation = .vertical
         grid.alignment = .leading
-        grid.spacing = 5
+        grid.spacing = t.stackerGapY
         let known = Set(alphabet.consonants.map(\.key))
         let example = Dictionary(uniqueKeysWithValues: (alphabet.consonants + alphabet.subjoinedOnly).map { ($0.key, $0.example) })
         var rows: [(String, [String])] = Self.rows.map { ($0.0, $0.1.filter { known.contains($0) }) }
         let placed = Set(Self.rows.flatMap(\.1))
         let rest = alphabet.consonants.map(\.key).filter { !placed.contains($0) }
         if !rest.isEmpty { rows.append(("More", rest)) }
-        rows.append(("Under a letter", alphabet.subjoinedOnly.map(\.key)))
+        rows.append((Theme.current.brutal ? "Subjoined" : "Under a letter", alphabet.subjoinedOnly.map(\.key)))
         for (name, keys) in rows where !keys.isEmpty {
-            let label = Theme.current.railLabel(name, width: 82)
-            var buttons: [NSView] = [label]
+            let label = Theme.current.railLabel(name, width: t.railWidth)
+            var cellViews: [NSView] = []
+            let isSubjoined = name == "Subjoined" || name == "Under a letter"
             for key in keys {
-                let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: 15,
+                let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: t.stackerGlyphSize,
                                      tip: "Add \(key)", label: "Add \(key)") { [weak self] in
                     self?.model.addLayer(key)
                     self?.refresh()
                 }
-                b.widthAnchor.constraint(equalToConstant: 38).isActive = true
-                let h = b.heightAnchor.constraint(equalToConstant: 38)
+                b.inventory = isSubjoined ? .stackerTile : .stackerConsonant
+                b.widthAnchor.constraint(equalToConstant: cell.width).isActive = true
+                let h = b.heightAnchor.constraint(equalToConstant: cell.height)
                 h.isActive = true
                 cellHeights.append(h)
                 cells[key] = b
-                buttons.append(b)
+                cellViews.append(b)
             }
-            let line = NSStackView(views: buttons)
-            line.spacing = 4
+            // Match vowel/marks section geometry: rail | gutter | cell strip (common column origin).
+            let strip = NSStackView(views: cellViews)
+            strip.spacing = t.stackerGapX
+            if t.brutal { strip.alignment = .centerY }
+            let line = NSStackView(views: [label, strip])
+            line.spacing = t.brutal ? 8 : t.stackerGapX
+            line.alignment = t.brutal ? .centerY : .top
             grid.addArrangedSubview(line)
         }
 
         let vowelOrder = ["i", "I", "u", "U", "e", "o", "ai", "au", "A", "-i", "-I", "ui", "ue", "uo"]
         let rank = { (k: String) in vowelOrder.firstIndex(of: k) ?? vowelOrder.count }
         var vowelRow: [NSView] = []
-        let inherent = BubbleButton(glyph: "a", glyphSize: 14, tip: "Inherent vowel a (no sign)", label: "Vowel a") { [weak self] in
+        let inherent = BubbleButton(glyph: "a", glyphSize: t.stackerGlyphSize, tip: "Inherent vowel a (no sign)", label: "Vowel a") { [weak self] in
             self?.model.setVowel("")
             self?.refresh()
         }
         vowelButtons[""] = inherent
         vowelRow.append(inherent)
         for v in alphabet.vowels.sorted(by: { rank($0.key) < rank($1.key) }) {
-            let b = BubbleButton(glyph: v.example, caption: v.key, glyphSize: 15, tip: "Vowel \(v.key)", label: "Vowel \(v.key)") { [weak self] in
+            let b = BubbleButton(glyph: v.example, caption: v.key, glyphSize: t.stackerGlyphSize, tip: "Vowel \(v.key)", label: "Vowel \(v.key)") { [weak self] in
                 self?.model.setVowel(v.key)
                 self?.refresh()
             }
+            b.inventory = .stackerTile
             vowelButtons[v.key] = b
             vowelRow.append(b)
         }
         var markRow: [NSView] = []
         for m in alphabet.marks {
-            let b = BubbleButton(glyph: m.example, caption: m.key, glyphSize: 15, tip: "Mark \(m.key)", label: "Mark \(m.key)") { [weak self] in
+            let b = BubbleButton(glyph: m.example, caption: m.key, glyphSize: t.stackerGlyphSize, tip: "Mark \(m.key)", label: "Mark \(m.key)") { [weak self] in
                 self?.model.toggleMark(m.key)
                 self?.refresh()
             }
+            b.inventory = .stackerTile
             markButtons[m.key] = b
             markRow.append(b)
         }
         for b in (vowelRow + markRow) {
-            (b as? BubbleButton)?.look = .tile
-            b.widthAnchor.constraint(greaterThanOrEqualToConstant: 34).isActive = true
-            b.heightAnchor.constraint(equalToConstant: 34).isActive = true
+            guard let button = b as? BubbleButton else { continue }
+            button.look = .tile
+            b.widthAnchor.constraint(equalToConstant: cell.width).isActive = true
+            b.heightAnchor.constraint(equalToConstant: cell.height).isActive = true
         }
+        // Inherent "a" has no caption; match tile size for the row.
+        inherent.look = .tile
+        inherent.inventory = .stackerTile
+        inherent.widthAnchor.constraint(equalToConstant: cell.width).isActive = true
+        inherent.heightAnchor.constraint(equalToConstant: cell.height).isActive = true
         vowelSection = section("Vowel", vowelRow, perRow: 8)
         marksSection = section("Marks", markRow, perRow: 9)
+
+        lettersColumn.orientation = .vertical
+        lettersColumn.alignment = .leading
+        lettersColumn.spacing = t.sectionSpacing
+        lettersColumn.translatesAutoresizingMaskIntoConstraints = false
+        lettersScroll.drawsBackground = false
+        lettersScroll.hasVerticalScroller = true
+        lettersScroll.autohidesScrollers = true
+        lettersScroll.scrollerStyle = .overlay
+        lettersScroll.borderType = .noBorder
+        lettersScroll.translatesAutoresizingMaskIntoConstraints = false
+        // Padding lives inside the flipped document (not contentInsets). Equal viewport/document
+        // heights plus non-zero contentInsets permanently clip the first/last rows.
+        lettersScroll.contentInsets = .init(top: 0, left: 0, bottom: 0, right: 0)
+        lettersScroll.scrollerInsets = NSEdgeInsets(top: 0, left: 0, bottom: 8, right: 0)
+        lettersScroll.automaticallyAdjustsContentInsets = false
+        if t.brutal {
+            let rule = RuleView(vertical: false)
+            gridRule = rule
+            lettersDocument.translatesAutoresizingMaskIntoConstraints = false
+            // Cap content width so Marks cannot force the panel past the content rectangle.
+            for line in grid.arrangedSubviews {
+                line.widthAnchor.constraint(lessThanOrEqualToConstant: PanelTabs.innerWidth).isActive = true
+            }
+            vowelSection.widthAnchor.constraint(lessThanOrEqualToConstant: PanelTabs.innerWidth).isActive = true
+            marksSection.widthAnchor.constraint(lessThanOrEqualToConstant: PanelTabs.innerWidth).isActive = true
+        }
 
         leftColumn.orientation = .vertical
         leftColumn.alignment = .centerX
         leftColumn.spacing = 10
         rightColumn.orientation = .vertical
         rightColumn.alignment = .leading
-        rightColumn.spacing = 9
+        rightColumn.spacing = t.rootSpacing
         flexible.setContentHuggingPriority(.init(1), for: .vertical)
         flexible.setContentCompressionResistancePriority(.init(1), for: .vertical)
         topRow.orientation = .horizontal
@@ -440,6 +724,10 @@ final class StackerPanel: NSObject {
         typedRow.orientation = .horizontal
         typedRow.alignment = .firstBaseline
         typedRow.spacing = 10
+        composeColumn.orientation = .vertical
+        composeColumn.alignment = .leading
+        composeColumn.spacing = 4
+        composeColumn.translatesAutoresizingMaskIntoConstraints = false
 
         root.edgeInsets = PanelTabs.insets
         root.translatesAutoresizingMaskIntoConstraints = false
@@ -498,23 +786,29 @@ final class StackerPanel: NSObject {
     private static let rows: [(String, [String])] = [
         ("Velar", ["k", "kh", "g", "gh", "ng"]), ("Palatal", ["c", "ch", "j", "dzh", "ny"]),
         ("Retroflex", ["T", "Th", "D", "Dh", "N"]), ("Dental", ["t", "th", "d", "dh", "n"]),
-        ("Labial", ["p", "ph", "b", "bh", "m"]), ("Affricate, w, z", ["ts", "tsh", "dz", "w", "zh", "z"]),
+        ("Labial", ["p", "ph", "b", "bh", "m"]), ("Affricates +", ["ts", "tsh", "dz", "w", "zh", "z"]),
         ("Others", ["'", "y", "r", "l", "sh", "Sh", "s", "h"]), ("Special", ["f", "v", "R"]),
     ]
 
     private func section(_ name: String, _ items: [NSView], perRow: Int) -> NSView {
-        let label = Theme.current.railLabel(name, width: 82)
+        let t = Theme.current
+        let label = t.railLabel(name, width: t.railWidth)
         let lines = stride(from: 0, to: items.count, by: perRow).map { i -> NSView in
             let s = NSStackView(views: Array(items[i..<min(i + perRow, items.count)]))
-            s.spacing = 4
+            s.spacing = t.stackerGapX
+            // Align the rail with the first character row, not the section's top padding.
+            if t.brutal { s.alignment = .centerY }
             return s
         }
         let column = NSStackView(views: lines)
         column.orientation = .vertical
         column.alignment = .leading
-        column.spacing = 4
+        column.spacing = t.stackerGapY
         let row = NSStackView(views: [label, column])
-        row.alignment = .top
+        // Match consonant rows: 8 pt rail gutter so every glyph column shares an origin.
+        row.spacing = t.brutal ? 8 : 8
+        // Brutalist: centre the category label on the glyph row, not the section top.
+        row.alignment = t.brutal ? .centerY : .top
         return row
     }
 
@@ -532,27 +826,32 @@ final class StackerPanel: NSObject {
         for l in [codesLabel, notesLabel] {
             l.preferredMaxLayoutWidth = Self.columnWidth - 24
         }
+        let meta = Theme.current
         codesLabel.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
-        codesLabel.textColor = Theme.current.ink.withAlphaComponent(0.7)
-        notesLabel.font = NSFont.systemFont(ofSize: 10.5)
-        notesLabel.textColor = Theme.current.ink.withAlphaComponent(0.85)
-        hintLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        hintLabel.textColor = Theme.current.ink
+        codesLabel.textColor = meta.brutal ? meta.mutedText : meta.ink.withAlphaComponent(0.7)
+        notesLabel.font = NSFont.systemFont(ofSize: 10)
+        notesLabel.textColor = meta.brutal ? meta.secondaryText : meta.ink.withAlphaComponent(0.85)
+        hintLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
+        hintLabel.textColor = meta.brutal ? meta.mutedText : meta.ink
         hintLabel.preferredMaxLayoutWidth = Self.columnWidth - 24
+        if meta.brutal {
+            hintLabel.stringValue = "Type a letter · Space adds · Return inserts · Esc closes"
+        }
 
-        insertButton = BubbleButton(glyph: "Insert  ⏎", glyphSize: 13, tip: "Put it in the document (Return)", label: "Insert") { [weak self] in
+        let actionSize: CGFloat = meta.brutal ? 10 : 13
+        insertButton = BubbleButton(glyph: "Insert  ⏎", glyphSize: actionSize, tip: "Put it in the document (Return)", label: "Insert") { [weak self] in
             self?.insertBuilt()
             self?.refresh()
         }
         insertButton.filled = true
-        copyButton = BubbleButton(glyph: "Copy", glyphSize: 13, tip: "Copy the stack", label: "Copy") { [weak self] in
+        copyButton = BubbleButton(glyph: "Copy", glyphSize: actionSize, tip: "Copy the stack", label: "Copy") { [weak self] in
             guard let b = self?.model.built else { return }
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(b.text, forType: .string)
             self?.model.setHint("Copied \(b.text).")
             self?.refresh()
         }
-        clearButton = BubbleButton(glyph: "Clear", glyphSize: 13, tip: "Start over", label: "Clear") { [weak self] in
+        clearButton = BubbleButton(glyph: "Clear", glyphSize: actionSize, tip: "Start over", label: "Clear") { [weak self] in
             self?.model.clear()
             self?.refresh()
         }
@@ -560,7 +859,8 @@ final class StackerPanel: NSObject {
         buttonsRow.distribution = .fillEqually
         buttonsRow.spacing = 6
         for (b, w) in zip([insertButton!, copyButton!, clearButton!], [104, 104, 104] as [CGFloat]) {
-            b.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            // Brutalist composition wants equal-height actions without a tall Bubblegum strip.
+            b.heightAnchor.constraint(equalToConstant: Theme.current.brutal ? Theme.current.actionButtonHeight : 32).isActive = true
             let c = b.widthAnchor.constraint(equalToConstant: w)
             compactOnly.append(c)
         }
@@ -570,12 +870,14 @@ final class StackerPanel: NSObject {
 
         // "Start from" chips: two lines of four when wide, one line when compact.
         presetLabel = label("Start from", 10)
+        let presetGlyph: CGFloat = meta.brutal ? 11 : 12
         for p in StackerModel.presets {
-            let b = BubbleButton(glyph: p.label, glyphSize: 12, tip: "Start from \(p.label)", label: "Start from \(p.label)") { [weak self] in
+            let b = BubbleButton(glyph: p.label, glyphSize: presetGlyph, tip: "Start from \(p.label)", label: "Start from \(p.label)") { [weak self] in
                 self?.model.usePreset(p.letters)
                 self?.refresh()
             }
-            let h = b.heightAnchor.constraint(equalToConstant: 30)
+            b.presetChrome = true
+            let h = b.heightAnchor.constraint(equalToConstant: meta.presetHeight)
             h.isActive = true
             presetHeights.append(h)
             presetButtons.append(b)
@@ -638,9 +940,10 @@ final class StackerPanel: NSObject {
     }
 
     private func label(_ s: String, _ size: CGFloat) -> NSTextField {
+        let t = Theme.current
         let l = NSTextField(labelWithString: s)
-        l.font = NSFont.systemFont(ofSize: size, weight: .semibold)
-        l.textColor = Theme.current.ink.withAlphaComponent(0.75)
+        l.font = NSFont.systemFont(ofSize: size, weight: t.brutal ? .regular : .semibold)
+        l.textColor = t.brutal ? t.secondaryText : t.ink.withAlphaComponent(0.75)
         return l
     }
 
@@ -651,45 +954,161 @@ final class StackerPanel: NSObject {
     /// lost on the way.
     private func applyLayout() {
         let c = compact
-        // The one-column width is that of the widest block of letters.
-        let contentWidth = max(PanelTabs.innerWidth, ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width)))
+        let t = Theme.current
+        let brutalCompose = c && t.brutal
+        // Bubblegum may grow with the widest letter row; Brutalist stays inside the content rectangle.
+        let measured = ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width))
+        let contentWidth = brutalCompose ? PanelTabs.innerWidth : max(PanelTabs.innerWidth, measured)
         typedRowWidth.constant = contentWidth
 
-        let artW: CGFloat = c ? 146 : Self.columnWidth
-        artWidth.constant = artW
-        artHeight.constant = (artW * artRatio).rounded()
-        cardWidth.constant = c ? contentWidth - artW - 104 - 2 * topRow.spacing : Self.columnWidth
-        cardMinHeight.constant = c ? artHeight.constant : 250
-        previewRowWidth.constant = cardWidth.constant - 24
-        wideOnly.forEach { $0.isActive = !c }
-        compactOnly.forEach { $0.isActive = c }
-        cellHeights.forEach { $0.constant = c ? 34 : 38 }
-        presetHeights.forEach { $0.constant = c ? 26 : 30 }
-        for b in presetButtons { b.glyphSize = c ? 11 : 12; b.paint() }
-        preview.font = TibetanFont.font(c ? 40 : 46)
-        layersRow.spacing = c ? 2 : 3
-        // Compact: the buttons stand in a column beside the answer.
-        buttonsRow.orientation = c ? .vertical : .horizontal
-        buttonsRow.distribution = c ? .fill : .fillEqually
-        hintLabel.preferredMaxLayoutWidth = c ? contentWidth - 100 : Self.columnWidth - 24
-        hintLabel.maximumNumberOfLines = c ? 1 : 0
-        hintLabel.lineBreakMode = c ? .byTruncatingTail : .byWordWrapping
-        hintLabel.setContentCompressionResistancePriority(c ? .init(250) : .defaultHigh, for: .horizontal)
+        if brutalCompose {
+            // Genuine 50:50 composition: 232 | 12 | 232, fixed height 174.
+            let col = t.composeColumnWidth
+            let artH = t.stackerArtHeight
+            topRow.spacing = t.composeGutter
+            artWidth.constant = col
+            artHeight.constant = artH
+            art.imageScaling = .scaleProportionallyUpOrDown
+            cardWidth.constant = col
+            cardMinHeight.constant = artH
+            cardMinHeight.isActive = true
+            cardStack.edgeInsets = .init(top: 0, left: 0, bottom: 0, right: 0)
+            cardStack.alignment = .centerX
+            cardStack.spacing = 4
+            preview.isHidden = true
+            stackPreview.isHidden = false
+            stackPreview.nominalSize = t.previewNominalSize
+            if previewHeight == nil {
+                previewHeight = stackPreview.heightAnchor.constraint(equalToConstant: 100)
+            }
+            // Residual after type row + actions; layer chips are added only when present
+            // (see refresh), so empty-state preview is not top-weighted by a phantom chip row.
+            let residual = artH - 18 - t.actionButtonHeight - 10
+            previewHeight?.constant = max(80, residual)
+            previewHeight?.isActive = true
+            layersRow.orientation = .horizontal
+            layersRow.spacing = 4
+            layersScroll.widthAnchor.constraint(equalToConstant: col).isActive = true
+            buttonsRow.orientation = .horizontal
+            buttonsRow.distribution = .fillEqually
+            buttonsRow.spacing = 5
+            compactOnly.forEach { $0.isActive = false }
+            wideOnly.forEach { $0.isActive = false }
+            if brutalButtonsWidth == nil {
+                brutalButtonsWidth = buttonsRow.widthAnchor.constraint(equalToConstant: col)
+            }
+            brutalButtonsWidth?.constant = col
+            brutalButtonsWidth?.isActive = true
+            previewRowWidth.constant = col
+            if composeHeightConstraint == nil {
+                composeHeightConstraint = topRow.heightAnchor.constraint(equalToConstant: artH)
+            }
+            composeHeightConstraint?.constant = artH
+            composeHeightConstraint?.isActive = true
+            hintLabel.preferredMaxLayoutWidth = contentWidth
+            hintLabel.maximumNumberOfLines = 1
+            hintLabel.lineBreakMode = .byTruncatingTail
+            hintLabel.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+            shortestLabel.font = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+            shortestLabel.textColor = t.secondaryText
+            shortestLabel.alignment = .center
+        } else {
+            brutalButtonsWidth?.isActive = false
+            previewHeight?.isActive = false
+            composeHeightConstraint?.isActive = false
+            preview.isHidden = false
+            stackPreview.isHidden = true
+            cardMinHeight.isActive = true
+            let artW: CGFloat = c ? 146 : Self.columnWidth
+            artWidth.constant = artW
+            artHeight.constant = (artW * artRatio).rounded()
+            cardWidth.constant = c ? contentWidth - artW - 104 - 2 * topRow.spacing : Self.columnWidth
+            cardMinHeight.constant = c ? artHeight.constant : 250
+            previewRowWidth.constant = cardWidth.constant - 24
+            wideOnly.forEach { $0.isActive = !c }
+            compactOnly.forEach { $0.isActive = c }
+            preview.font = TibetanFont.font(c ? 40 : 46)
+            layersRow.orientation = .vertical
+            layersRow.spacing = c ? 2 : 3
+            buttonsRow.orientation = c ? .vertical : .horizontal
+            buttonsRow.distribution = c ? .fill : .fillEqually
+            hintLabel.preferredMaxLayoutWidth = c ? contentWidth - 100 : Self.columnWidth - 24
+            hintLabel.maximumNumberOfLines = c ? 1 : 0
+            hintLabel.lineBreakMode = c ? .byTruncatingTail : .byWordWrapping
+            hintLabel.setContentCompressionResistancePriority(c ? .init(250) : .defaultHigh, for: .horizontal)
+            cardStack.edgeInsets = NSEdgeInsets(top: 10, left: 12, bottom: 12, right: 12)
+        }
+
+        let cellH = t.stackerCell.height
+        cellHeights.forEach { $0.constant = cellH }
+        presetHeights.forEach { $0.constant = t.presetHeight }
+        for b in presetButtons {
+            b.glyphSize = t.brutal ? 11 : (c ? 11 : 12)
+            b.presetChrome = true
+            b.paint()
+        }
 
         if c {
             presetChips.arrange(presetButtons)
             presetsCompact.arrange([presetLabel, presetChips])
             for line in presetLines { line.arrange([]) }
             presetsWide.arrange([])
-            typedRow.arrange([typedLabel, hintLabel])
-            cardStack.arrange([previewRow, typeRowView!])
-            root.arrange([header, topRow, typedRow, presetsCompact, grid, vowelSection, marksSection])
-            topRow.arrange([art, card, buttonsRow])
             leftColumn.arrange([])
             rightColumn.arrange([])
             root.orientation = .vertical
             root.alignment = .leading
-            root.spacing = 9
+            root.spacing = t.rootSpacing
+
+            if brutalCompose {
+                // Right column: chips · preview · typed sequence · actions — fixed height.
+                previewRow.orientation = .vertical
+                previewRow.alignment = .centerX
+                // Omit empty chip strip so the preview centres in the space above the actions.
+                if model.layers.isEmpty {
+                    previewRow.arrange([stackPreview])
+                } else {
+                    previewRow.arrange([layersScroll, stackPreview])
+                }
+                if let typeRow = typeRowView as? NSStackView {
+                    typeRow.alignment = .centerX
+                }
+                cardStack.arrange([previewRow, typeRowView!, buttonsRow])
+                composeColumn.arrange([card])
+                composeColumn.alignment = .leading
+                topRow.arrange([art, composeColumn])
+                topRow.alignment = .top
+                // Typing status sits with instructions, not inside the stable composition.
+                typedRow.arrange([typedLabel])
+                typedRow.isHidden = typedRowHidden
+                // Alphabet blocks live in the scroll document (see syncLettersDocument).
+                lettersColumn.arrange([])
+                syncLettersDocument()
+                if lettersScrollHeight == nil {
+                    let h = lettersScroll.heightAnchor.constraint(equalToConstant: 220)
+                    lettersScrollHeight = h
+                    h.isActive = true
+                }
+                // Width is pinned once; avoid stacking duplicate constraints on re-layout.
+                if lettersScroll.constraints.first(where: { $0.firstAttribute == .width }) == nil {
+                    lettersScroll.widthAnchor.constraint(equalToConstant: PanelTabs.innerWidth).isActive = true
+                }
+                var body: [NSView] = [header, topRow, typedRow, hintLabel, presetsCompact]
+                if let rule = gridRule { body.append(rule) }
+                body.append(lettersScroll)
+                root.arrange(body)
+                root.setCustomSpacing(8, after: topRow)
+                root.setCustomSpacing(2, after: typedRow)
+                root.setCustomSpacing(4, after: hintLabel)
+                root.setCustomSpacing(6, after: presetsCompact)
+                if let rule = gridRule { root.setCustomSpacing(4, after: rule) }
+            } else {
+                typedRow.arrange([typedLabel, hintLabel])
+                typedRow.isHidden = false
+                cardStack.arrange([previewRow, typeRowView!])
+                root.arrange([header, topRow, typedRow, presetsCompact, grid, vowelSection, marksSection])
+                topRow.arrange([art, card, buttonsRow])
+                lettersScroll.documentView = nil
+            }
         } else {
             for (i, line) in presetLines.enumerated() {
                 line.arrange(Array(presetButtons[i * 4..<min(i * 4 + 4, presetButtons.count)]))
@@ -722,7 +1141,70 @@ final class StackerPanel: NSObject {
 
     /// The size the window takes for a drag to `wanted`: the width is the
     /// navigator's. The grip calls this as the mouse moves.
-    private func proposedSize(_ wanted: NSSize) -> NSSize { PanelTabs.proposed(wanted) }
+    private func proposedSize(_ wanted: NSSize) -> NSSize {
+        let size = PanelTabs.proposed(wanted, tab: .stacker)
+        adaptLettersHeight(panelHeight: size.height)
+        return size
+    }
+
+    private var lettersDocWidth: NSLayoutConstraint?
+    private var lettersDocHeight: NSLayoutConstraint?
+    /// Top padding inside the flipped alphabet document so Velar ink clears the clip edge.
+    private static let lettersDocTopPad: CGFloat = 10
+    /// Extra bottom pad so Marks captions clear the clip edge when scrolled to the end.
+    private static let lettersDocBottomPad: CGFloat = 18
+
+    /// Keep the alphabet document sized to its full content (independent of the viewport).
+    ///
+    /// Uses `lettersDocument` (flipped) as the scroll document so y=0 is the top.
+    /// Embedding padding in the document — rather than `contentInsets` — avoids clipping
+    /// when the viewport height equals the document height at natural panel size.
+    private func syncLettersDocument() {
+        guard Theme.current.brutal, compact else { return }
+        let w = PanelTabs.innerWidth
+        let t = Theme.current
+        let cellH = t.stackerCell.height
+        let gridRows = max(grid.arrangedSubviews.count, Self.rows.count + 1)
+        let contentH = CGFloat(gridRows) * cellH + CGFloat(max(gridRows - 1, 0)) * t.stackerGapY
+            + 2 * cellH + t.stackerGapY + cellH + 2 * t.sectionSpacing
+        let docH = contentH + Self.lettersDocTopPad + Self.lettersDocBottomPad
+
+        lettersColumn.orientation = .vertical
+        lettersColumn.alignment = .leading
+        lettersColumn.spacing = t.sectionSpacing
+        lettersColumn.translatesAutoresizingMaskIntoConstraints = false
+        lettersColumn.arrange([grid, vowelSection, marksSection])
+        grid.translatesAutoresizingMaskIntoConstraints = false
+        vowelSection.translatesAutoresizingMaskIntoConstraints = false
+        marksSection.translatesAutoresizingMaskIntoConstraints = false
+
+        if lettersColumn.superview !== lettersDocument {
+            lettersColumn.removeFromSuperview()
+            lettersDocument.subviews.forEach { $0.removeFromSuperview() }
+            lettersDocument.addSubview(lettersColumn)
+            NSLayoutConstraint.activate([
+                lettersColumn.leadingAnchor.constraint(equalTo: lettersDocument.leadingAnchor),
+                lettersColumn.trailingAnchor.constraint(equalTo: lettersDocument.trailingAnchor),
+                lettersColumn.topAnchor.constraint(equalTo: lettersDocument.topAnchor,
+                                                   constant: Self.lettersDocTopPad),
+            ])
+        }
+        if lettersScroll.documentView !== lettersDocument {
+            lettersScroll.documentView = lettersDocument
+        }
+        if lettersDocWidth == nil {
+            lettersDocWidth = lettersDocument.widthAnchor.constraint(equalToConstant: w)
+            lettersDocWidth?.isActive = true
+            lettersColumn.widthAnchor.constraint(equalTo: lettersDocument.widthAnchor).isActive = true
+        }
+        lettersDocWidth?.constant = w
+        if lettersDocHeight == nil {
+            lettersDocHeight = lettersDocument.heightAnchor.constraint(equalToConstant: docH)
+            lettersDocHeight?.isActive = true
+        }
+        lettersDocHeight?.constant = docH
+        lettersDocument.layoutSubtreeIfNeeded()
+    }
 
     /// The width the widest block of letters needs.
     var naturalContentWidth: CGFloat {
@@ -730,11 +1212,88 @@ final class StackerPanel: NSObject {
         return ceil(max(grid.fittingSize.width, vowelSection.fittingSize.width, marksSection.fittingSize.width))
     }
 
-    /// The height the letters need in one column; the navigator is never shorter.
+    /// Full content height (alphabet fully expanded). Bubblegum never goes below this;
+    /// Brutalist may, and then scrolls the alphabet.
     var naturalHeight: CGFloat {
         _ = ensurePanel()
+        applyLayout()
+        syncLettersDocument()
         container.layoutSubtreeIfNeeded()
+        if Theme.current.brutal, compact, lettersScroll.documentView != nil {
+            syncLettersDocument()
+            let lettersH = max(lettersDocHeight?.constant ?? 180, 180)
+            lettersScrollHeight?.isActive = false
+            let expand = lettersScroll.heightAnchor.constraint(equalToConstant: lettersH)
+            expand.isActive = true
+            container.layoutSubtreeIfNeeded()
+            let h = ceil(container.fittingSize.height)
+            expand.isActive = false
+            lettersScrollHeight?.isActive = true
+            return h
+        }
         return ceil(container.fittingSize.height)
+    }
+
+    /// Chrome above/below the alphabet scroll (header, composition, presets, …).
+    private var lettersChromeHeight: CGFloat {
+        container.layoutSubtreeIfNeeded()
+        lettersScrollHeight?.isActive = false
+        let zero = lettersScroll.heightAnchor.constraint(equalToConstant: 0)
+        zero.isActive = true
+        container.layoutSubtreeIfNeeded()
+        let chrome = ceil(container.fittingSize.height)
+        zero.isActive = false
+        lettersScrollHeight?.isActive = true
+        return chrome
+    }
+
+    /// Shortest usable Brutalist height: composition chrome + a usable alphabet viewport.
+    var minimumHeight: CGFloat {
+        _ = ensurePanel()
+        guard Theme.current.brutal else { return naturalHeight }
+        return ceil(lettersChromeHeight + 220)
+    }
+
+    /// Fits the letters scroll to the panel height (Brutalist).
+    func adaptLettersHeight(panelHeight: CGFloat) {
+        guard Theme.current.brutal, compact else { return }
+        syncLettersDocument()
+        let chrome = lettersChromeHeight
+        let available = max(160, panelHeight - chrome)
+        // Viewport stays at the remaining window height; the document keeps its full height.
+        lettersScrollHeight?.isActive = false
+        let h = lettersScroll.heightAnchor.constraint(equalToConstant: available)
+        lettersScrollHeight = h
+        h.isActive = true
+        container.layoutSubtreeIfNeeded()
+        scrollAlphabetToStart()
+    }
+
+    /// Pin the clip view to the top of the flipped alphabet document (y = 0).
+    func scrollAlphabetToStart() {
+        guard Theme.current.brutal, compact, lettersScroll.documentView != nil else { return }
+        lettersScroll.layoutSubtreeIfNeeded()
+        let clip = lettersScroll.contentView
+        clip.scroll(to: NSPoint(x: 0, y: 0))
+        lettersScroll.reflectScrolledClipView(clip)
+    }
+
+    /// Pin the clip view so the Marks row is fully visible.
+    func scrollAlphabetToEnd() {
+        guard Theme.current.brutal, compact, lettersScroll.documentView != nil else { return }
+        lettersScroll.layoutSubtreeIfNeeded()
+        let clip = lettersScroll.contentView
+        let maxY = max(0, lettersDocument.bounds.height - clip.bounds.height)
+        clip.scroll(to: NSPoint(x: 0, y: maxY))
+        lettersScroll.reflectScrolledClipView(clip)
+    }
+
+    /// Ensure a cell is fully visible inside the alphabet viewport (keyboard navigation).
+    func revealAlphabetCell(_ view: NSView) {
+        guard Theme.current.brutal, compact else { return }
+        var rect = view.convert(view.bounds, to: lettersDocument)
+        rect = rect.insetBy(dx: 0, dy: -6)
+        lettersDocument.scrollToVisible(rect)
     }
 
     // MARK: Drawing the state
@@ -744,60 +1303,110 @@ final class StackerPanel: NSObject {
         // Chosen letters, top to bottom; clicking one removes it.
         for v in layersRow.arrangedSubviews { layersRow.removeArrangedSubview(v); v.removeFromSuperview() }
         let example = Dictionary(uniqueKeysWithValues: (model.alphabet.consonants + model.alphabet.subjoinedOnly).map { ($0.key, $0.example) })
+        let brutal = Theme.current.brutal
         for (i, key) in model.layers.enumerated() {
-            let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: compact ? 15 : 17,
+            let b = BubbleButton(glyph: example[key] ?? key, caption: key, glyphSize: brutal ? 12 : (compact ? 15 : 17),
                                  tip: "Remove \(key)", label: "Remove \(key), position \(i + 1)") { [weak self] in
                 self?.model.removeLayer(at: i)
                 self?.refresh()
             }
-            b.filled = true
+            // Brutalist: quiet chips; Bubblegum keeps the filled black stack chips.
+            b.filled = !brutal
             b.inlineCaption = true
             b.paint()
-            b.widthAnchor.constraint(equalToConstant: compact ? 58 : 66).isActive = true
-            b.heightAnchor.constraint(equalToConstant: compact ? 22 : 30).isActive = true
+            b.widthAnchor.constraint(equalToConstant: brutal ? 52 : (compact ? 58 : 66)).isActive = true
+            b.heightAnchor.constraint(equalToConstant: brutal ? 22 : (compact ? 22 : 30)).isActive = true
             layersRow.addArrangedSubview(b)
         }
         layersRow.isHidden = model.layers.isEmpty
-        typedLabel.stringValue = model.typed.isEmpty ? " " : "typing: \(model.typed)▏"
+        layersScroll.isHidden = brutal && model.layers.isEmpty
+        if brutal {
+            layersRow.frame = NSRect(x: 0, y: 0, width: max(layersRow.fittingSize.width, Theme.current.composeColumnWidth), height: 22)
+            layersScroll.documentView = layersRow
+        }
+        typedRowHidden = model.typed.isEmpty
+        typedLabel.stringValue = model.typed.isEmpty ? "" : (brutal ? model.typed + "▏" : "typing: \(model.typed)▏")
+        typedRow.isHidden = brutal ? typedRowHidden : false
 
         for (key, b) in cells {
             b.isEnabled = !(model.alphabet.subjoinedOnly.contains { $0.key == key } && model.layers.isEmpty)
-            b.alphaValue = !b.isEnabled ? 0.4 : (model.matches(key) ? 1 : 0.25)
+            b.dimmed = b.isEnabled && !model.matches(key)
             b.filled = model.typedKey == key
+            b.paint()
+            if brutal, b.filled { revealAlphabetCell(b) }
         }
-        for (v, b) in vowelButtons { b.filled = v == model.vowel }
-        for (m, b) in markButtons { b.filled = model.marks.contains(m) }
+        for (v, b) in vowelButtons { b.filled = v == model.vowel; if brutal { b.paint() } }
+        for (m, b) in markButtons { b.filled = model.marks.contains(m); if brutal { b.paint() } }
 
         var shortest = "", canonical = "", codes = "", notes = "", shown = ""
+        var previewInk = Theme.current.ink
         switch model.result {
         case .empty:
             shown = "ཀྵ"
-            preview.textColor = Theme.current.ink.withAlphaComponent(0.25)
+            previewInk = Theme.current.ink.withAlphaComponent(0.25)
         case .built(let b):
             shown = b.text; shortest = b.shortest
             canonical = b.shortest == b.canonical ? "" : "full: \(b.canonical)"
             codes = b.codePoints
             notes = b.notes.prefix(2).joined(separator: "\n")
-            preview.textColor = Theme.current.ink
+            previewInk = Theme.current.ink
         case .failed(let why):
             shown = "∅"; notes = why
-            preview.textColor = Theme.current.ink.withAlphaComponent(0.25)
+            previewInk = Theme.current.ink.withAlphaComponent(0.25)
         }
         preview.stringValue = shown
+        preview.textColor = previewInk
+        stackPreview.text = shown
+        stackPreview.ink = previewInk
+        stackPreview.needsDisplay = true
         shortestLabel.stringValue = shortest
         canonicalLabel.stringValue = canonical
         codesLabel.stringValue = codes
         notesLabel.stringValue = notes
-        let hint = model.hint.isEmpty && model.result == .empty
-            ? "Type a letter, Space adds it, Return inserts, Esc closes." : model.hint
+        let defaultHint = brutal
+            ? "Type a letter · Space adds · Return inserts · Esc closes"
+            : "Type a letter, Space adds it, Return inserts, Esc closes."
+        let hint = model.hint.isEmpty && model.result == .empty ? defaultHint : model.hint
         // Compact has no room for the notes in the card: a warning takes the hint's place.
         hintLabel.stringValue = compact && !notes.isEmpty ? notes.replacingOccurrences(of: "\n", with: " ") : hint
         hintLabel.toolTip = hintLabel.stringValue
         for l in [canonicalLabel, codesLabel, notesLabel] { l.isHidden = l.stringValue.isEmpty }
-        typeRowView?.isHidden = shortest.isEmpty
+        // Brutalist keeps the type row slot for height stability; hide only its text when empty.
+        if brutal {
+            typeRowView?.isHidden = false
+            shortestLabel.stringValue = shortest.isEmpty ? " " : shortest
+            if let typeRow = typeRowView as? NSStackView {
+                for v in typeRow.arrangedSubviews where v !== shortestLabel {
+                    v.isHidden = shortest.isEmpty
+                }
+            }
+        } else {
+            typeRowView?.isHidden = shortest.isEmpty
+        }
         insertButton.isEnabled = model.built != nil
         copyButton.isEnabled = model.built != nil
         clearButton.isEnabled = !(model.layers.isEmpty && model.vowel.isEmpty && model.marks.isEmpty)
+        insertButton.paint()
+        copyButton.paint()
+        clearButton.paint()
+        // Re-fit preview inside the fixed 174 pt column; chip strip only when layers exist.
+        if brutal {
+            let layersH: CGFloat = model.layers.isEmpty ? 0 : 24
+            let residual = Theme.current.stackerArtHeight - layersH - 18 - Theme.current.actionButtonHeight - 10
+            previewHeight?.constant = max(80, residual)
+            stackPreview.nominalSize = Theme.current.previewNominalSize
+            if model.layers.isEmpty {
+                previewRow.arrange([stackPreview])
+            } else {
+                previewRow.arrange([layersScroll, stackPreview])
+            }
+        }
+        // Composition height is fixed; re-fit the scroll viewport after state changes.
+        if brutal, let panel = panel {
+            // Hidden harness panels often keep a stale frame; use the tab height then.
+            let h = panel.isVisible ? panel.frame.height : PanelTabs.height(for: .stacker)
+            adaptLettersHeight(panelHeight: max(h, minimumHeight))
+        }
         panel?.invalidateShadow()
     }
 

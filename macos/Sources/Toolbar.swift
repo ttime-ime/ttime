@@ -153,10 +153,10 @@ final class Toolbar: NSObject {
         bar.wantsLayer = true
         let t = Theme.current
         bar.layer?.backgroundColor = bar.resolved(t.bar)
-        bar.layer?.cornerRadius = t.brutal ? 14 : 15 * Self.c
+        bar.layer?.cornerRadius = t.brutal ? t.toolbarRadius : 15 * Self.c
         if t.brutal {
             bar.layer?.borderWidth = 1
-            bar.layer?.borderColor = bar.resolved(t.panelBorderColor)
+            bar.layer?.borderColor = bar.resolved(t.controlBorder)
         }
         bar.translatesAutoresizingMaskIntoConstraints = false
 
@@ -178,11 +178,10 @@ final class Toolbar: NSObject {
         pill.translatesAutoresizingMaskIntoConstraints = false
         let pillBox = NSView()
         pillBox.wantsLayer = true
-        pillBox.layer?.cornerRadius = 12 * Self.c
+        pillBox.layer?.cornerRadius = t.brutal ? t.toolbarRadius : 12 * Self.c
         pillBox.layer?.borderWidth = 1
-        pillBox.layer?.borderColor = t.brutal ? pillBox.resolved(t.line) : Self.plum.withAlphaComponent(0.4).cgColor
+        pillBox.layer?.borderColor = t.brutal ? pillBox.resolved(t.controlBorder) : Self.plum.withAlphaComponent(0.4).cgColor
         pillBox.layer?.backgroundColor = t.brutal ? NSColor.clear.cgColor : Self.cream.withAlphaComponent(0.55).cgColor
-        if t.brutal { pillBox.layer?.cornerRadius = 14 }
         pillBox.addSubview(pill)
         NSLayoutConstraint.activate([
             pill.leadingAnchor.constraint(equalTo: pillBox.leadingAnchor, constant: 2),
@@ -279,9 +278,9 @@ final class Toolbar: NSObject {
         b.layer?.cornerRadius = 9 * Self.c
         let t = Theme.current
         if t.brutal {
-            b.layer?.cornerRadius = 14
+            b.layer?.cornerRadius = t.actionRadius
             b.layer?.borderWidth = 1
-            b.layer?.borderColor = b.resolved(t.line)
+            b.layer?.borderColor = b.resolved(t.controlBorder)
             b.layer?.backgroundColor = NSColor.clear.cgColor
         } else {
             b.layer?.backgroundColor = Self.cream.withAlphaComponent(0.75).cgColor
@@ -301,7 +300,7 @@ final class Toolbar: NSObject {
     private func style(_ b: NSButton, selected: Bool) {
         let t = Theme.current
         b.layer?.backgroundColor = selected ? b.resolved(t.brutal ? t.ink : Self.plum) : NSColor.clear.cgColor
-        if t.brutal { b.layer?.cornerRadius = 12 }
+        if t.brutal { b.layer?.cornerRadius = t.actionRadius }
         b.attributedTitle = NSAttributedString(string: b.title, attributes: [
             .font: NSFont.systemFont(ofSize: 16 * Self.c, weight: .semibold),
             .foregroundColor: selected ? (t.brutal ? t.paper : NSColor.white) : (t.brutal ? t.ink : Self.plum),
