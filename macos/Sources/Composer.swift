@@ -24,6 +24,10 @@ struct Outcome: Equatable {
     var insert = ""
     /// The whole provisional run to show as marked text; empty clears it.
     var marked = ""
+    /// Typed text just before the caret that `insert` takes the place of (a Sanskrit
+    /// word being completed, or a letter given an accent); empty when `insert` is added
+    /// at the caret as it is.
+    var replacing = ""
     /// Whether T-Time consumed the key. If false the application gets it.
     var handled = false
 }
@@ -71,7 +75,8 @@ final class Composer {
         return (s.shown, s.selected)
     }
 
-    /// The word being typed in Latin mode, shown as marked text.
+    /// The word being typed in Latin mode. It is already in the document (typed as it
+    /// is, with no underline); a suggestion replaces it.
     var suggestionBuffer: String { suggester?.buffer ?? "" }
 
     // MARK: Long-press accents (Latin mode)
@@ -97,8 +102,9 @@ final class Composer {
         palette.isOpen ? (palette.options, palette.selected) : nil
     }
 
-    /// The marked text now: the word being suggested for, or the waiting letter.
-    private var shownText: String { suggester?.buffer ?? pending }
+    /// The marked text now: the waiting letter. The word being suggested for is not
+    /// marked; it is in the document.
+    private var shownText: String { suggester == nil ? pending : "" }
     /// The letter a long press would replace.
     private var heldLetter: String {
         if let s = suggester { return s.buffer.last.map(String.init) ?? "" }
@@ -107,8 +113,10 @@ final class Composer {
 
     /// Accepts the suggestion at `index` (a click); nothing happens if there is no list.
     func chooseSuggestion(index: Int) -> Outcome {
-        guard isLatin, suggester != nil, suggester!.select(index), let word = suggester!.accept() else { return Outcome() }
-        return Outcome(insert: word, marked: "", handled: true)
+        guard isLatin, suggester != nil, suggester!.select(index) else { return Outcome() }
+        let typed = suggester!.buffer
+        guard let word = suggester!.accept() else { return Outcome() }
+        return Outcome(insert: word, replacing: typed, handled: true)
     }
 
     /// Picks the highlighted variant (the held key was let go); nothing if none is highlighted.
@@ -126,8 +134,9 @@ final class Composer {
     private func chooseAccent(_ variant: String) -> Outcome {
         closePalette()
         if suggester != nil {
+            let last = suggester!.buffer.last.map(String.init) ?? ""
             suggester!.replaceLast(with: variant)
-            return Outcome(marked: suggester!.buffer, handled: true)
+            return Outcome(insert: variant, replacing: last, handled: true)
         }
         pending = ""
         return Outcome(insert: variant, marked: "", handled: true)
@@ -194,36 +203,43 @@ final class Composer {
 
     private func handleSuggesting(_ key: KeyInput) -> Outcome? {
         guard isLatin, suggester != nil else { return nil }
-        let marked: () -> String = { self.suggester?.buffer ?? "" }
+        // The word is typed straight into the document (no marked text, so no underline);
+        // the suggester only keeps a copy to look suggestions up, and a suggestion
+        // replaces the typed word.
         switch key {
         case .text(let s) where SanskritSuggester.isLetter(s):
             suggester!.type(s)
-            return Outcome(marked: marked(), handled: true)
+            return Outcome(insert: s, handled: true)
         case .text:
             // A space, digit or punctuation ends the word: it goes in as typed.
-            let word = suggester!.flush()
+            suggester!.clear()
             ttime_session_insert(session, key.textValue)
-            return Outcome(insert: word + take(ttime_session_take_committed(session)), marked: "", handled: true)
+            return Outcome(insert: take(ttime_session_take_committed(session)), handled: true)
         case .backspace:
+            // The application deletes the letter; the copy follows.
             guard suggester!.backspace() else { return nil }
-            return Outcome(marked: marked(), handled: true)
+            return Outcome(handled: false)
         case .escape:
             guard !suggester!.isEmpty else { return nil }
-            return Outcome(insert: suggester!.flush(), marked: "", handled: true)
+            suggester!.clear()
+            return Outcome(handled: true)
         case .tab:
             guard !suggester!.isEmpty else { return nil }
-            if let word = suggester!.accept() { return Outcome(insert: word, marked: "", handled: true) }
-            return Outcome(insert: suggester!.flush(), marked: "", handled: false)
+            let typed = suggester!.buffer
+            if let word = suggester!.accept() { return Outcome(insert: word, replacing: typed, handled: true) }
+            suggester!.clear()
+            return Outcome(handled: false)
         case .up, .down:
             guard !suggester!.shown.isEmpty else { break }
             suggester!.move(key.isUp ? -1 : 1)
-            return Outcome(marked: marked(), handled: true)
+            return Outcome(handled: true)
         default: break
         }
-        // Return, arrows with no list, shortcuts: the typed word is committed, then the
+        // Return, arrows with no list, shortcuts: the word stays as typed and the
         // application receives the key.
         guard !suggester!.isEmpty else { return nil }
-        return Outcome(insert: suggester!.flush(), marked: "", handled: false)
+        suggester!.clear()
+        return Outcome(handled: false)
     }
 
     /// `isRepeat` is true for the repeats of a held key (a long press).
@@ -277,6 +293,7 @@ final class Composer {
         palette.close()
         let waiting = pending
         pending = ""
-        return (suggester?.flush() ?? "") + waiting
+        suggester?.clear()
+        return waiting
     }
 }

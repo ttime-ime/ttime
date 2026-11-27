@@ -328,41 +328,42 @@ do {
     func type(_ c: Composer, _ s: String) -> Outcome { var o = Outcome(); for ch in s { o = c.handle(.text(String(ch))) }; return o }
     do {
         let c = latin()
-        check(type(c, "pr"), Outcome(insert: "", marked: "pr", handled: true), "letters become marked text")
+        check(type(c, "pr"), Outcome(insert: "r", marked: "", handled: true), "letters go straight into the document (no marked text)")
         t(c.suggestionList == nil, "no list under three letters")
         _ = type(c, "aj")
         t(c.suggestionList?.words.first == "prajñā", "list shows")
-        check(c.handle(.tab), Outcome(insert: "prajñā", marked: "", handled: true), "tab accepts")
+        check(c.handle(.tab), Outcome(insert: "prajñā", replacing: "praj", handled: true), "tab replaces the typed word")
         t(c.suggestionList == nil, "list gone after accepting")
     }
     do {
         let c = latin(); _ = type(c, "praj")
-        check(c.handle(.down), Outcome(insert: "", marked: "praj", handled: true), "down moves")
+        check(c.handle(.down), Outcome(handled: true), "down moves")
         t(c.suggestionList?.selected == 1, "second selected")
-        check(c.handle(.tab), Outcome(insert: "prajña", marked: "", handled: true), "tab accepts the selected one")
+        check(c.handle(.tab), Outcome(insert: "prajña", replacing: "praj", handled: true), "tab accepts the selected one")
     }
     do {
         let c = latin(); _ = type(c, "siva")
-        check(c.handle(.text(" ")), Outcome(insert: "siva ", marked: "", handled: true), "space keeps what was typed")
+        check(c.handle(.text(" ")), Outcome(insert: " ", handled: true), "space keeps what was typed (it is already there)")
     }
     do {
         let c = latin(); _ = type(c, "Praj")
-        check(c.handle(.tab), Outcome(insert: "Prajñā", marked: "", handled: true), "capital kept")
+        check(c.handle(.tab), Outcome(insert: "Prajñā", replacing: "Praj", handled: true), "capital kept")
     }
     do {
         let c = latin(); _ = type(c, "praj")
-        check(c.handle(.backspace), Outcome(insert: "", marked: "pra", handled: true), "backspace edits the word")
-        check(c.handle(.escape), Outcome(insert: "pra", marked: "", handled: true), "escape keeps the typed text")
+        check(c.handle(.backspace), Outcome(handled: false), "backspace is left to the application, the copy follows")
+        t(c.suggestionBuffer == "pra", "the copy lost a letter")
+        check(c.handle(.escape), Outcome(handled: true), "escape keeps the typed text")
     }
     do {
         let c = latin(); _ = type(c, "pr")
-        check(c.handle(.tab), Outcome(insert: "pr", marked: "", handled: false), "tab with no list passes through")
+        check(c.handle(.tab), Outcome(handled: false), "tab with no list passes through")
         _ = type(c, "praj")
-        check(c.handle(.enter), Outcome(insert: "praj", marked: "", handled: false), "return commits then passes")
+        check(c.handle(.enter), Outcome(handled: false), "return passes through")
         _ = type(c, "praj")
-        check(c.handle(.text("1")), Outcome(insert: "praj1", marked: "", handled: true), "digit ends the word")
+        check(c.handle(.text("1")), Outcome(insert: "1", handled: true), "digit ends the word")
         _ = type(c, "praj")
-        check(c.setLatin(false), Outcome(insert: "praj", marked: "", handled: true), "leaving Latin commits the word")
+        check(c.setLatin(false), Outcome(handled: true), "leaving Latin forgets the word, which is already typed")
     }
     do {
         let c = latin()
@@ -396,12 +397,12 @@ do {
     do {
         let c = latin(suggest: true); type(c, "pr")
         type(c, "a")
-        check(hold(c, "a"), Outcome(insert: "", marked: "pra", handled: true), "first repeat opens the palette")
+        check(hold(c, "a"), Outcome(handled: true), "first repeat opens the palette")
         t(c.accentList?.options == ["ā"] && c.accentList?.selected == nil, "palette lists the variants")
-        check(hold(c, "a"), Outcome(insert: "", marked: "pra", handled: true), "further repeats are swallowed")
-        check(c.handle(.text("1")), Outcome(insert: "", marked: "prā", handled: true), "number picks")
+        check(hold(c, "a"), Outcome(handled: true), "further repeats are swallowed")
+        check(c.handle(.text("1")), Outcome(insert: "ā", replacing: "a", handled: true), "number picks")
         t(c.accentList == nil, "palette closed after a pick")
-        t(c.handle(.text("j")).marked == "prāj", "typing goes on after the accent")
+        t(c.handle(.text("j")).insert == "j" && c.suggestionBuffer == "prāj", "typing goes on after the accent")
     }
     do {
         let c = latin(suggest: true); type(c, "pr")
@@ -410,7 +411,7 @@ do {
         _ = c.handle(.right)
         _ = c.handle(.right)
         t(c.accentList?.selected == 1, "arrows move the highlight")
-        check(c.handle(.enter), Outcome(insert: "", marked: "pṝ", handled: true), "return picks the highlighted variant")
+        check(c.handle(.enter), Outcome(insert: "ṝ", replacing: "r", handled: true), "return picks the highlighted variant")
     }
     do {
         let c = latin(suggest: true); type(c, "pn")
@@ -419,35 +420,35 @@ do {
         _ = c.handle(.tab); t(c.accentList?.selected == 0, "tab highlights the first")
         _ = c.handle(.tab); _ = c.handle(.tab); t(c.accentList?.selected == 2, "tab goes on")
         _ = c.handle(.tab); t(c.accentList?.selected == 0, "tab wraps round")
-        check(c.handle(.text(" ")), Outcome(insert: "", marked: "pṅ", handled: true), "space picks the highlighted variant")
+        check(c.handle(.text(" ")), Outcome(insert: "ṅ", replacing: "n", handled: true), "space picks the highlighted variant")
     }
     do {
         let c = latin(suggest: true); type(c, "pra")
         _ = hold(c, "a")
-        check(c.handle(.escape), Outcome(insert: "", marked: "pra", handled: true), "escape closes and keeps the plain letter")
+        check(c.handle(.escape), Outcome(handled: true), "escape closes and keeps the plain letter")
         t(c.accentList == nil, "closed by escape")
         _ = hold(c, "a")
         let o = c.handle(.text("j"))
-        t(o.marked == "praj" && c.accentList == nil, "another key keeps the plain letter and types")
+        t(o.insert == "j" && c.suggestionBuffer == "praj" && c.accentList == nil, "another key keeps the plain letter and types")
         type(c, "a"); _ = hold(c, "a")
         let b = c.handle(.backspace)
-        t(b.marked == "praj" && c.accentList == nil, "backspace closes the palette and edits")
+        t(!b.handled && c.suggestionBuffer == "praj" && c.accentList == nil, "backspace closes the palette and edits")
     }
     do {
         let c = latin(suggest: true); type(c, "pra")
         _ = hold(c, "a")
-        check(c.handle(.enter), Outcome(insert: "pra", marked: "", handled: false), "return with nothing highlighted keeps the letter and passes through")
+        check(c.handle(.enter), Outcome(handled: false), "return with nothing highlighted keeps the letter and passes through")
         type(c, "a"); _ = hold(c, "a")
-        check(c.handle(.text(" ")), Outcome(insert: "a ", marked: "", handled: true), "space with nothing highlighted ends the word")
+        check(c.handle(.text(" ")), Outcome(insert: " ", handled: true), "space with nothing highlighted ends the word")
     }
     do {
         let c = latin(suggest: true); type(c, "ak")
-        check(hold(c, "k"), Outcome(insert: "", marked: "akk", handled: true), "a letter without variants repeats as usual")
+        check(hold(c, "k"), Outcome(insert: "k", handled: true), "a letter without variants repeats as usual")
         t(c.accentList == nil, "no palette for k")
     }
     do {
         let c = latin(suggest: true); type(c, "pra")
-        t(hold(c, "u").marked == "prau", "repeat of a letter that is not the last typed is plain typing")
+        t(hold(c, "u").insert == "u" && c.suggestionBuffer == "prau", "repeat of a letter that is not the last typed is plain typing")
     }
     // Without suggestions: the letter waits as marked text.
     do {
@@ -487,12 +488,12 @@ do {
         let c = latin(suggest: true); type(c, "pra")
         check(c.chooseAccent(index: 0), Outcome(), "click on a closed palette does nothing")
         _ = hold(c, "a")
-        check(c.chooseAccent(index: 0), Outcome(insert: "", marked: "prā", handled: true), "click picks")
+        check(c.chooseAccent(index: 0), Outcome(insert: "ā", replacing: "a", handled: true), "click picks")
         // The key is still held while the variant is clicked: its repeats must not type.
-        check(hold(c, "a"), Outcome(insert: "", marked: "prā", handled: true), "repeats of the held key are ignored after a click")
-        check(hold(c, "a"), Outcome(insert: "", marked: "prā", handled: true), "and keep being ignored")
+        check(hold(c, "a"), Outcome(handled: true), "repeats of the held key are ignored after a click")
+        check(hold(c, "a"), Outcome(handled: true), "and keep being ignored")
         t(c.accentList == nil, "and do not reopen the palette")
-        t(c.handle(.text("a")).marked == "prāa", "a fresh press types again")
+        t(c.handle(.text("a")).insert == "a" && c.suggestionBuffer == "prāa", "a fresh press types again")
     }
     do {
         let c = latin(suggest: false); _ = c.handle(.text("a")); _ = hold(c, "a")
@@ -506,23 +507,42 @@ do {
         _ = hold(c, "n")
         check(c.chooseHighlightedAccent(), Outcome(), "open but nothing highlighted: nothing happens")
         _ = c.handle(.tab); _ = c.handle(.tab)
-        check(c.chooseHighlightedAccent(), Outcome(insert: "", marked: "pñ", handled: true), "letting go picks the highlighted variant")
+        check(c.chooseHighlightedAccent(), Outcome(insert: "ñ", replacing: "n", handled: true), "letting go picks the highlighted variant")
         t(c.accentList == nil, "closed after release")
     }
     do {
         let c = latin(suggest: true); type(c, "pa")
         _ = hold(c, "a")
         _ = c.handle(.escape)
-        check(hold(c, "a"), Outcome(insert: "", marked: "pa", handled: true), "escape while still held: no reopening, no typing")
+        check(hold(c, "a"), Outcome(handled: true), "escape while still held: no reopening, no typing")
         t(c.accentList == nil, "palette stays closed")
     }
     do {
         let c = latin(suggest: true)
         check(c.chooseSuggestion(index: 0), Outcome(), "click with no list does nothing")
         type(c, "praj")
-        check(c.chooseSuggestion(index: 1), Outcome(insert: "prajña", marked: "", handled: true), "click accepts that suggestion")
+        check(c.chooseSuggestion(index: 1), Outcome(insert: "prajña", replacing: "praj", handled: true), "click accepts that suggestion")
         t(c.suggestionList == nil, "list gone after a click")
     }
+}
+
+do {
+    func eq(_ got: String, _ want: String, _ label: String) {
+        if got != want { failures += 1; print("FAIL \(label): got \(got.debugDescription), want \(want.debugDescription)") }
+    }
+    eq(DictionaryLookup.term(selection: nil, before: "བོད་སྐད་"), "སྐད", "syllable before the caret, tsheg dropped")
+    eq(DictionaryLookup.term(selection: nil, before: "བོད་སྐད"), "སྐད", "no trailing tsheg")
+    eq(DictionaryLookup.term(selection: nil, before: "བོད་སྐད། "), "སྐད", "shad and space dropped")
+    eq(DictionaryLookup.term(selection: nil, before: "hello"), "", "Latin before the caret gives nothing")
+    eq(DictionaryLookup.term(selection: "བོད་སྐད་", before: "x"), "བོད་སྐད", "selection wins, trailing tsheg trimmed")
+    eq(DictionaryLookup.term(selection: "  ", before: "བོད་"), "བོད", "blank selection falls back to the caret")
+    eq(DictionaryLookup.term(selection: nil, before: nil), "", "nothing")
+    eq(DictionaryLookup.url(for: "སྐད")?.absoluteString ?? "",
+       "https://dictionary.christian-steinert.de/#/search/tib/%E0%BD%A6%E0%BE%90%E0%BD%91?activeTerm=%E0%BD%A6%E0%BE%90%E0%BD%91",
+       "search URL")
+    eq(DictionaryLookup.url(for: "a b&c#")?.absoluteString ?? "",
+       "https://dictionary.christian-steinert.de/#/search/tib/a%20b%26c%23?activeTerm=a%20b%26c%23", "URL escapes reserved characters")
+    eq(DictionaryLookup.url(for: "  ")?.absoluteString ?? "none", "none", "blank term has no URL")
 }
 
 print(failures == 0 ? "ComposerTests: all passed" : "ComposerTests: \(failures) failed")

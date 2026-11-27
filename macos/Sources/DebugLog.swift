@@ -27,3 +27,25 @@ enum DebugLog {
         }
     }
 }
+
+/// Where the time of one key goes, in milliseconds, written to the debug log as one line:
+/// `queue` is how long the key waited before T-Time got it (system and the application's
+/// side), `compose` the key policy, `insert` and `mark` the calls into the application,
+/// `caret` asking it where the cursor is, `panel` redrawing the suggestion list.
+final class KeyTiming {
+    var queue = 0.0, compose = 0.0, insert = 0.0, mark = 0.0, caret = 0.0, panel = 0.0
+    private let start = DispatchTime.now().uptimeNanoseconds
+
+    @discardableResult
+    func measure<T>(_ stage: ReferenceWritableKeyPath<KeyTiming, Double>, _ body: () -> T) -> T {
+        let t = DispatchTime.now().uptimeNanoseconds
+        defer { self[keyPath: stage] += Double(DispatchTime.now().uptimeNanoseconds - t) / 1e6 }
+        return body()
+    }
+
+    func report(keyCode: UInt16, marked: Int, state: String) {
+        let total = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e6
+        func f(_ v: Double) -> String { String(format: "%.2f", v) }
+        DebugLog.log("timing keyCode=\(keyCode) queue=\(f(queue)) compose=\(f(compose)) insert=\(f(insert)) mark=\(f(mark)) caret=\(f(caret)) panel=\(f(panel)) ours=\(f(total))ms markedLen=\(marked) \(state)")
+    }
+}

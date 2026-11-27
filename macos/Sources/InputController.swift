@@ -71,9 +71,24 @@ final class TTimeInputController: IMKInputController {
             if StackerPanel.shared.handle(keyInput(for: event)) { return true }
         } else if SymbolsPanel.shared.isOpen {
             if SymbolsPanel.shared.handle(keyInput(for: event)) { return true }
+        } else if DictionaryPanel.shared.isOpen {
+            if DictionaryPanel.shared.handle(keyInput(for: event)) { return true }
         }
-        let outcome = composer.handle(keyInput(for: event), isRepeat: event.isARepeat)
+        // With the debug log on, record where the time of this key goes (no characters).
+        // The word list loads in the background; a controller that was activated before it
+        // was ready has no suggester, so pick it up as soon as it is.
+        if composer.suggester == nil, Prefs.sanskritSuggestions, let lexicon = SanskritLexicon.shared {
+            composer.suggester = SanskritSuggester(lexicon: lexicon)
+        }
+        let timing: KeyTiming? = DebugLog.enabled ? KeyTiming() : nil
+        timing?.queue = max(0, ProcessInfo.processInfo.systemUptime - event.timestamp)
+        let outcome = timing.map { t in t.measure(\.compose) { composer.handle(keyInput(for: event), isRepeat: event.isARepeat) } }
+            ?? composer.handle(keyInput(for: event), isRepeat: event.isARepeat)
+        self.timing = timing
         apply(outcome, to: client)
+        self.timing = nil
+        timing?.report(keyCode: event.keyCode, marked: outcome.marked.utf16.count,
+                       state: "latin=\(composer.isLatin) suggester=\(composer.suggester != nil) list=\(composer.suggestionList?.words.count ?? 0)")
         if event.isARepeat, composer.accentList != nil, heldWatch == nil { watchHeldKey(CGKeyCode(event.keyCode)) }
         return outcome.handled
     }
@@ -127,8 +142,11 @@ final class TTimeInputController: IMKInputController {
         toolbar.toggleLock = { [weak self] in self?.toolbarToggleLock() }
         toolbar.openStacker = { [weak self] in self?.toggleStacker() }
         toolbar.openSymbols = { [weak self] in self?.toggleSymbols() }
+        toolbar.openDictionary = { [weak self] in self?.toggleDictionary() }
         StackerPanel.shared.cancelClose()
         SymbolsPanel.shared.cancelClose()
+        DictionaryPanel.shared.cancelClose()
+        DictionaryPanel.shared.currentTerm = { [weak self] in self?.termAtCaret() ?? "" }
         StackerPanel.shared.insert = { [weak self] text in self?.insertFromTool(text) }
         SymbolsPanel.shared.insert = { [weak self] text in self?.insertFromTool(text) }
         toolbar.show(toolbarState)
@@ -144,6 +162,7 @@ final class TTimeInputController: IMKInputController {
             Toolbar.shared.scheduleHide()
             StackerPanel.shared.scheduleClose()
             SymbolsPanel.shared.scheduleClose()
+            DictionaryPanel.shared.scheduleClose()
         }
     }
 
@@ -195,6 +214,7 @@ final class TTimeInputController: IMKInputController {
     private func toggleStacker() {
         if !StackerPanel.shared.isOpen { commitPending() }
         SymbolsPanel.shared.close()
+        DictionaryPanel.shared.close()
         StackerPanel.shared.toggle()
     }
 
@@ -202,7 +222,32 @@ final class TTimeInputController: IMKInputController {
     private func toggleSymbols() {
         if !SymbolsPanel.shared.isOpen { commitPending() }
         StackerPanel.shared.close()
+        DictionaryPanel.shared.close()
         SymbolsPanel.shared.toggle()
+    }
+
+    /// The same for the dictionary. What is being typed is fixed first, so the
+    /// syllable just typed is the one looked up.
+    private func toggleDictionary() {
+        if !DictionaryPanel.shared.isOpen { commitPending() }
+        StackerPanel.shared.close()
+        SymbolsPanel.shared.close()
+        DictionaryPanel.shared.toggle()
+    }
+
+    /// The selected text in the document, else the syllable before the caret.
+    /// Not every application can say; then this is empty.
+    private func termAtCaret() -> String {
+        guard let client = client else { return "" }
+        let sel = client.selectedRange()
+        guard sel.location != NSNotFound else { return "" }
+        if sel.length > 0 {
+            return DictionaryLookup.term(selection: client.attributedSubstring(from: sel)?.string, before: nil)
+        }
+        let n = min(40, sel.location)
+        guard n > 0 else { return "" }
+        let before = client.attributedSubstring(from: NSRange(location: sel.location - n, length: n))?.string
+        return DictionaryLookup.term(selection: nil, before: before)
     }
 
     private func commitPending() {
@@ -265,18 +310,46 @@ final class TTimeInputController: IMKInputController {
         return .other
     }
 
+    /// Set only while one key is being handled with the debug log on.
+    private var timing: KeyTiming?
+
     private func apply(_ outcome: Outcome, to client: IMKTextInput) {
         if !outcome.insert.isEmpty {
-            client.insertText(outcome.insert, replacementRange: noRange)
+            measured(\.insert) {
+                if outcome.replacing.isEmpty {
+                    client.insertText(outcome.insert, replacementRange: noRange)
+                } else if let range = rangeBeforeCaret(matching: outcome.replacing, in: client) {
+                    client.insertText(outcome.insert, replacementRange: range)
+                } else {
+                    // The caret moved since the word was typed (a click, say): leave the text alone.
+                    DebugLog.log("replacement skipped: text before the caret is not the typed word")
+                }
+            }
         }
         // Marked text is shown, or cleared, whenever the key changed it.
         if outcome.handled || !outcome.insert.isEmpty {
-            client.setMarkedText(NSAttributedString(string: outcome.marked),
-                                 selectionRange: NSRange(location: outcome.marked.utf16.count, length: 0),
-                                 replacementRange: noRange)
+            measured(\.mark) {
+                client.setMarkedText(NSAttributedString(string: outcome.marked),
+                                     selectionRange: NSRange(location: outcome.marked.utf16.count, length: 0),
+                                     replacementRange: noRange)
+            }
         }
         refreshSuggestions(client)
         refreshAccents(client)
+    }
+
+    private func measured(_ stage: ReferenceWritableKeyPath<KeyTiming, Double>, _ body: () -> Void) {
+        if let t = timing { t.measure(stage, body) } else { body() }
+    }
+
+    /// The range of `typed` just before the caret, if that is what the document holds there.
+    private func rangeBeforeCaret(matching typed: String, in client: IMKTextInput) -> NSRange? {
+        let caret = client.selectedRange()
+        let length = typed.utf16.count
+        guard caret.location != NSNotFound, caret.length == 0, caret.location >= length else { return nil }
+        let range = NSRange(location: caret.location - length, length: length)
+        guard client.attributedSubstring(from: range)?.string == typed else { return nil }
+        return range
     }
 
     /// A click on a Sanskrit suggestion.
@@ -295,7 +368,7 @@ final class TTimeInputController: IMKInputController {
     private func refreshAccents(_ client: IMKTextInput) {
         guard let list = composer.accentList else { AccentPanel.shared.hide(); return }
         var rect = NSRect.zero
-        _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
+        measured(\.caret) { _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect) }
         AccentPanel.shared.show(list.options, selected: list.selected, near: rect)
     }
 
@@ -303,7 +376,7 @@ final class TTimeInputController: IMKInputController {
     private func refreshSuggestions(_ client: IMKTextInput) {
         guard let list = composer.suggestionList else { SuggestionPanel.shared.hide(); return }
         var rect = NSRect.zero
-        _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
-        SuggestionPanel.shared.show(list.words, selected: list.selected, near: rect)
+        measured(\.caret) { _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect) }
+        measured(\.panel) { SuggestionPanel.shared.show(list.words, selected: list.selected, near: rect) }
     }
 }

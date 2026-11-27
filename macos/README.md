@@ -10,6 +10,7 @@ replaced or upgraded without touching the shell.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Sources/PanelChrome.swift`: what the Symbols and Stacker windows share: the tab bar (click, or Tab, to switch), the corner resize grip, remembering the window's top-left, and the one-column (compact) setting. Drag the grip narrower and both windows become one column: the picture and a short answer on top, the controls below.
 - `Sources/Theme.swift`: the visual styles (Bubblegum pink, and Brutalist black and white, which follows light and dark mode), chosen in the installer and in Settings. Changing the style or the system appearance rebuilds the toolbar and the panels. `MenuIcon` also swaps the input-source icon (`icon-colour.tiff` or `icon-mono.tiff`).
+- `Sources/DictionaryModel.swift`, `Sources/DictionaryPanel.swift`: the Dictionary tab and toolbar button. It shows Christian Steinert's Tibetan-English dictionary (dictionary.christian-steinert.de) from its own website in a web view; nothing from it is bundled. Opening it sends the selected text, or the syllable before the caret, to that site. The panel never takes focus, so there is no search box: the term comes from the document (applications that cannot report their text give no term). The term rules and the URL are tested; the panel was checked by rendering.
 - `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, made for T-Time, not under the code licence). Checked by rendering, not run in a live input method.
 - `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
@@ -34,7 +35,7 @@ Escape cancels; arrows, Tab and shortcuts commit what is pending and pass throug
 **Sanskrit suggestions.** In Latin mode, type a Sanskrit word without accents. From three
 letters on, a list of up to five accented words appears under it (for example `pratitya` offers
 `pratītyasamutpāda` first). Tab accepts the highlighted one, Up and Down move through the list,
-Escape or Space keep exactly what you typed; you can also click a suggestion; nothing is replaced unless you choose it. A capital
+Escape or Space keep exactly what you typed; you can also click a suggestion; nothing is replaced unless you choose it. The word is typed straight into the document (no marked text, so no underline); choosing a suggestion replaces the letters before the caret, after checking that they are the typed word (if you moved the caret in between, nothing is replaced). A capital
 first letter is kept. The word list is `data/sanskrit/iast-lexicon.tsv` (Monier-Williams and
 Edgerton headwords ranked by Digital Corpus of Sanskrit counts; licences (CC BY-NC-SA 3.0 for the dictionary headwords) in
 `data/sanskrit/README.md`), measured in `docs/reference/sanskrit-spike.md`. Turn it off in Settings.

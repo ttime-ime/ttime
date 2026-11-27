@@ -13,6 +13,9 @@
   pot for Brutalist. `Resources/icon.tiff` is now a link to `/Users/Shared/T-Time/icon.tiff`,
   which the installer and the app write; `codesign --strict` (and so notarization) may
   reject such a link, so check before a notarized release.
+- Dictionary tab and toolbar button (ཚིག): shows Christian Steinert's online Tibetan-English
+  dictionary for the selected text, or the syllable before the caret. It needs an internet
+  connection and sends that term to dictionary.christian-steinert.de when opened.
 - Accent palette in Latin mode: hold a, i, u, r, l, m, h, n, t, d or s (capitals too)
   and a strip of IAST variants opens above the letter (`a` gives `ā`, `s` gives `ś ṣ`).
   Pick with a number key, cycle with Tab then Return or Space, move with the arrow keys,
@@ -20,6 +23,14 @@
   or Escape, keeps the plain letter. Holding a letter no longer repeats it. On by default;
   switch it off in Settings.
 - The Sanskrit suggestion list can be clicked.
+- Sanskrit suggestions no longer underline the word being typed. Letters now go straight
+  into the document and choosing a suggestion (Tab, click or an accent pick) replaces the
+  typed letters, after checking they are still just before the caret; if the caret moved,
+  nothing is replaced. Previously the word was marked text, which many applications
+  underline and which cannot be turned off from an input method.
+- The key log (opt-in) now also records, per key, how long T-Time took and where the time
+  went, plus whether suggestions were on and how many were offered. It never records the
+  characters typed.
 - T-Time now remembers the Tibetan/Latin mode when you switch windows, instead of
   returning to the start mode. A lock still overrides it, and the "starts in" setting
   applies only until the first choice.
