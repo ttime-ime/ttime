@@ -21,5 +21,4 @@ _ = server
 DispatchQueue.main.async { UpdateManager.shared.checkIfDue() }
 BubblegumFonts.registerIfNeeded()
 Theme.observeSystemAppearance()
-MenuIcon.sync()
 NSApplication.shared.run()

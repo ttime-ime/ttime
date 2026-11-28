@@ -26,16 +26,12 @@ if [ -z "$USER_NAME" ] || [ "$USER_NAME" = root ] || [ -z "$USER_ID" ]; then
   say "no console user; registration happens at the next login"
 fi
 
-# The menu-bar icon: Resources/icon.tiff links here, and the app rewrites the file when
-# the style changes. Start it with the look chosen in the installer.
-SHARED="/Users/Shared/T-Time"
-/bin/mkdir -p "$SHARED" && /bin/chmod 777 "$SHARED"
+# The menu-bar icon: the app ships the colour one as Resources/icon.tiff; the Brutalist
+# choice in the installer replaces it with the mono one. (Changing the style later in
+# Settings does not change this icon.)
 if [ "$(/bin/cat "/Library/Application Support/T-Time/default-style" 2>/dev/null)" = brutal ]; then
-  ICON="$APP/Contents/Resources/icon-mono.tiff"
-else
-  ICON="$APP/Contents/Resources/icon-colour.tiff"
+  /bin/cp "$APP/Contents/Resources/icon-mono.tiff" "$APP/Contents/Resources/icon.tiff"
 fi
-/bin/cp "$ICON" "$SHARED/icon.tiff" && /bin/chmod 666 "$SHARED/icon.tiff"
 
 # Stop the old copy. The system starts the new one the next time the input source is
 # used, and the registration below starts it now. The background updater that may be

@@ -280,7 +280,6 @@ struct Theme {
 
     static func restyleAll() {
         GlyphCaptionLayout.clearCaches()
-        MenuIcon.sync()
         Toolbar.shared.rebuild()
         StackerPanel.rebuild()
         SymbolsPanel.rebuild()
@@ -324,32 +323,4 @@ final class RuleView: NSView {
     override func viewDidChangeEffectiveAppearance() { paint() }
     override func viewDidMoveToWindow() { paint() }
     private func paint() { layer?.backgroundColor = resolved(Theme.current.separator) }
-}
-
-/// The input-source icon in the menu bar. macOS reads it from Resources/icon.tiff,
-/// which is a link to `path`; this puts the style's picture there. macOS caches the
-/// icon, so a change also clears the cache and restarts the menu agents.
-enum MenuIcon {
-    static let path = "/Users/Shared/T-Time/icon.tiff"
-
-    static func sync() {
-        let name = Prefs.style == .brutal ? "icon-mono" : "icon-colour"
-        guard let src = Bundle.main.url(forResource: name, withExtension: "tiff"),
-              let data = try? Data(contentsOf: src) else { return }
-        let dest = URL(fileURLWithPath: path)
-        if let current = try? Data(contentsOf: dest), current == data { return }
-        let fm = FileManager.default
-        try? fm.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true,
-                                attributes: [.posixPermissions: 0o777])
-        guard (try? data.write(to: dest)) != nil else { return }
-        try? fm.setAttributes([.posixPermissions: 0o666], ofItemAtPath: path)
-        let cache = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/com.apple.tiswitcher.cache")
-        try? fm.removeItem(at: cache)
-        for agent in ["TextInputMenuAgent", "TextInputSwitcher"] {
-            let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-            p.arguments = [agent]
-            try? p.run()
-        }
-    }
 }

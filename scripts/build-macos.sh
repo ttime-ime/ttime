@@ -91,15 +91,9 @@ cp -R macos/Resources/en.lproj "$APP/Contents/Resources/"
 # Resource files must be readable by every user: the input method runs as the
 # logged-in user, and a source file with mode 600 would silently lose its art.
 chmod -R a+rX "$APP/Contents/Resources"
-# The input-source icon macOS shows in the menu bar is Resources/icon.tiff. It is a
-# link to a file the app rewrites to match the chosen style (see MenuIcon): a link is
-# sealed by its target's name, so changing the picture keeps the signature valid.
-ln -s /Users/Shared/T-Time/icon.tiff "$APP/Contents/Resources/icon.tiff"
-# codesign wants the link to resolve; the installer and the app keep the real file.
-if [ ! -e /Users/Shared/T-Time/icon.tiff ]; then
-  mkdir -p /Users/Shared/T-Time && chmod 777 /Users/Shared/T-Time
-  cp macos/Resources/icon-colour.tiff /Users/Shared/T-Time/icon.tiff && chmod 666 /Users/Shared/T-Time/icon.tiff
-fi
+# The input-source icon macOS shows in the menu bar is Resources/icon.tiff: the colour
+# one here; the installer swaps in the mono one when Brutalist is chosen.
+cp macos/Resources/icon-colour.tiff "$APP/Contents/Resources/icon.tiff"
 mkdir -p "$APP/Contents/Library/LaunchDaemons"
 cp macos/Resources/LaunchDaemons/*.plist "$APP/Contents/Library/LaunchDaemons/"
 [ -n "${VERSION:-}" ] && plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
@@ -135,8 +129,6 @@ else
   codesign --force --sign "$IDENTITY" --options runtime --timestamp "$APP"
   codesign --force --sign "$IDENTITY" --options runtime --timestamp "$TOOLS"
 fi
-# Not --strict: that rejects Resources/icon.tiff, a link to a file outside the bundle.
-# (Notarization may too; see macos/README.md.)
 codesign --verify --verbose=2 "$APP"
 codesign --verify --verbose=2 "$TOOLS"
 lipo -archs "$APP/Contents/MacOS/TTime"

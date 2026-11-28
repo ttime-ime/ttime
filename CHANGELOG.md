@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-rc.7
+
+- Fix the release build: the menu-bar icon is a real file again (rc.6's link outside the
+  app was rejected by notarization, so rc.6 was never published). The installer puts in the
+  mono icon when Brutalist is chosen; changing the style in Settings later does not change it.
 
 ## 0.1.0-rc.6
 
@@ -38,9 +42,7 @@
   logos for light and dark, and the panels use the concrete-wall picture.
 - The menu-bar input-source icon follows the look: the colour tile for Bubblegum, a solid
   white pot on a black tile (no outline, so it reads on a light or a dark menu bar) for
-  Brutalist. `Resources/icon.tiff` is now a link to `/Users/Shared/T-Time/icon.tiff`,
-  which the installer and the app write; `codesign --strict` (and so notarization) may
-  reject such a link, so check before a notarized release.
+  Brutalist, chosen at install time.
 - Dictionary tab (third tab beside Symbols and Stacker, a toolbar button, ཚིག, and the shortcut
   Control+Shift+F): shows
   Christian Steinert's online Tibetan-English dictionary (dictionary.christian-steinert.de) in

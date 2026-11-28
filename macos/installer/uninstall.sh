@@ -6,6 +6,6 @@ set -eu
 killall TTime 2>/dev/null || true
 killall TTimeTools 2>/dev/null || true
 rm -rf "/Library/Input Methods/T-Time.app" "/Applications/T-Time Tools.app" \
-  "/Users/Shared/T-Time" "/Library/Application Support/T-Time"
+  "/Library/Application Support/T-Time"
 pkgutil --forget io.github.ttime-ime.inputmethod.TTime.pkg >/dev/null 2>&1 || true
 echo "T-Time removed. Log out and back in to finish."
