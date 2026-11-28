@@ -71,3 +71,33 @@ jobs:
           name: T-Time-ci-unsigned
           path: build/macos/T-Time-*.pkg
           retention-days: 7
+
+  ffi-linux:
+    name: FFI smoke (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ffi-linux-${{ hashFiles('Cargo.lock') }}
+      - run: scripts/build-ffi-smoke.sh
+
+  ffi-windows:
+    name: FFI smoke (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ffi-windows-${{ hashFiles('Cargo.lock') }}
+      - run: pwsh -File scripts/build-ffi-smoke.ps1

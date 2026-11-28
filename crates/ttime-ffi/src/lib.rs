@@ -1296,4 +1296,39 @@ mod tests {
             assert!(take(ttime_dictionary_site()).starts_with("https://"));
         }
     }
+
+    /// Every function `ttime.h` declares is exported here, and nothing is exported
+    /// that the header leaves out: the Windows and Linux shells compile against it.
+    #[test]
+    fn header_matches_exports() {
+        use std::collections::BTreeSet;
+        let names = |src: &str, marker: &str| -> BTreeSet<String> {
+            src.match_indices(marker)
+                .map(|(i, _)| {
+                    let rest = &src[i + marker.len()..];
+                    rest[..rest.find('(').unwrap()].trim().to_string()
+                })
+                .collect()
+        };
+        let rust = include_str!("lib.rs");
+        let mut exported = names(rust, "extern \"C\" fn ");
+        exported.retain(|n| n.starts_with("ttime_"));
+        let header = include_str!("../include/ttime.h");
+        let declared: BTreeSet<String> = header
+            .match_indices("ttime_")
+            .filter_map(|(i, _)| {
+                let rest = &header[i..];
+                let end = rest.find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))?;
+                rest[end..]
+                    .starts_with('(')
+                    .then(|| rest[..end].to_string())
+            })
+            .collect();
+        let missing: Vec<_> = declared.difference(&exported).collect();
+        let undeclared: Vec<_> = exported.difference(&declared).collect();
+        assert!(
+            missing.is_empty() && undeclared.is_empty(),
+            "declared in ttime.h but not exported: {missing:?}; exported but not in ttime.h: {undeclared:?}"
+        );
+    }
 }

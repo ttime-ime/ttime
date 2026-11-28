@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Windows and Linux scaffolds (`windows/`, `linux/`) plus a shared C harness
+  (`ffi-smoke/`) that links `ttime-ffi` and types one EWTS syllable. CI builds and runs
+  it on Ubuntu and Windows; there is no TSF or IBus IME yet.
 - The typing behaviour (composer, long-press accents, Sanskrit suggestions, the Shift-tap
   mode lock and its timing, Stacker and Symbols window state, dictionary term rules) now
   lives in `ttime-core` and reaches the shells through the C interface (`ttime.h`), so

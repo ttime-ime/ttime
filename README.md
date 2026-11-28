@@ -4,6 +4,11 @@ A Tibetan input engine: EWTS ↔ Unicode conversion and incremental composition 
 platform-independent Rust core, with native IMEs to follow (macOS, then Windows,
 then Linux). See `docs/` for the plan, the EWTS specification and decision records.
 
+macOS has a working InputMethodKit shell (`macos/`). `windows/` and `linux/` are
+scaffolds for future TSF and IBus/Fcitx5 shells; they are not IMEs yet. The shared
+C ABI is exercised on Linux and Windows in CI by `ffi-smoke/`
+(`scripts/build-ffi-smoke.sh` / `.ps1`).
+
 ## Licence
 
 Code is licensed under either of
