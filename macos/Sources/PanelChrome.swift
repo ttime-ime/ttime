@@ -24,14 +24,18 @@ enum PanelTabs {
         set { _ = newValue }
     }
 
-    /// The navigator's width and the margins inside it. The width fits the stacker's
-    /// widest row of letters, which is wider in the Brutalist type.
-    static var width: CGFloat { Theme.current.brutal ? 520 : 480 }
-    /// Horizontal content margins are shared; Brutalist uses a tighter top inset so the
-    /// single-line header does not float under a large empty band.
+    /// The navigator's width and the margins inside it. Fits the widest letter row
+    /// (nine Marks cells + category rail) for the active theme.
+    static var width: CGFloat {
+        // Brutalist: 9×40 + 8×2 + 92 + 8 + 44 insets = 520.
+        // Bubblegum: 9×42 + 8×4 + 88 + 8 + 44 insets = 550.
+        Theme.current.bubblegum ? 550 : (Theme.current.brutal ? 520 : 480)
+    }
+    /// Horizontal content margins are shared; compose themes use a tighter top inset.
     static var insets: NSEdgeInsets {
-        Theme.current.brutal
-            ? NSEdgeInsets(top: 12, left: 22, bottom: 20, right: 22)
+        Theme.current.usesComposeLayout
+            ? NSEdgeInsets(top: Theme.current.bubblegum ? 12 : 12, left: 22,
+                           bottom: Theme.current.bubblegum ? 16 : 20, right: 22)
             : NSEdgeInsets(top: 20, left: 22, bottom: 20, right: 22)
     }
     static var innerWidth: CGFloat { width - insets.left - insets.right }
@@ -46,10 +50,10 @@ enum PanelTabs {
     }
 
     private static func heightKey(for tab: PanelTab) -> String {
-        Theme.current.brutal ? "\(heightKey).\(tab.rawValue)" : heightKey
+        Theme.current.usesComposeLayout ? "\(heightKey).\(tab.rawValue)" : heightKey
     }
 
-    /// Natural content height for a tab (Brutalist: each tab is independent).
+    /// Natural content height for a tab (each tab is independent in compose themes).
     static func naturalHeight(for tab: PanelTab) -> CGFloat {
         switch tab {
         case .stacker: return StackerPanel.shared.naturalHeight
@@ -63,16 +67,16 @@ enum PanelTabs {
     static func minimumHeight(for tab: PanelTab) -> CGFloat {
         switch tab {
         case .stacker:
-            return Theme.current.brutal ? StackerPanel.shared.minimumHeight : StackerPanel.shared.naturalHeight
+            return Theme.current.usesComposeLayout ? StackerPanel.shared.minimumHeight : StackerPanel.shared.naturalHeight
         case .symbols:
-            return Theme.current.brutal ? min(SymbolsPanel.shared.naturalHeight, 360) : StackerPanel.shared.naturalHeight
+            return Theme.current.usesComposeLayout ? min(SymbolsPanel.shared.naturalHeight, 360) : StackerPanel.shared.naturalHeight
         case .dictionary:
-            return Theme.current.brutal ? 360 : StackerPanel.shared.naturalHeight
+            return Theme.current.usesComposeLayout ? 360 : StackerPanel.shared.naturalHeight
         }
     }
 
     /// Height for a tab: remembered user size when present, else that tab's natural
-    /// height, clamped to the screen. Brutalist no longer forces Stacker's tall size
+    /// height, clamped to the screen. Compose themes no longer force Stacker's tall size
     /// onto Symbols and Dictionary.
     static func height(for tab: PanelTab = .stacker) -> CGFloat {
         let floor = minimumHeight(for: tab)
@@ -101,15 +105,11 @@ enum PanelTabs {
         let tabs = makeBar(selected: selected, panel: panel)
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
-        let closeButton = BubbleButton(glyph: "✕", glyphSize: t.brutal ? 12 : 13, tip: "Close (Esc)", label: "Close", onClick: close)
-        if t.brutal {
-            closeButton.quietChrome = true
-            closeButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
-            closeButton.heightAnchor.constraint(equalToConstant: 28).isActive = true
-        } else {
-            closeButton.widthAnchor.constraint(equalToConstant: 30).isActive = true
-            closeButton.heightAnchor.constraint(equalToConstant: 30).isActive = true
-        }
+        let closeButton = BubbleButton(glyph: "✕", glyphSize: t.bubblegum ? 12 : (t.brutal ? 12 : 13),
+                                       tip: "Close (Esc)", label: "Close", onClick: close)
+        closeButton.quietChrome = t.usesComposeLayout
+        closeButton.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        closeButton.heightAnchor.constraint(equalToConstant: 28).isActive = true
         var views: [NSView] = [tabs, spacer, closeButton]
         if t.brutal {
             // Single-line header: wordmark | navigation · close. No subtitle.
@@ -131,13 +131,21 @@ enum PanelTabs {
             let rule = RuleView(vertical: true)
             rule.heightAnchor.constraint(equalToConstant: 20).isActive = true
             views = [titleWrap, rule] + views
+        } else if t.bubblegum, Theme.bubblegumPawMotif {
+            // Optional decorative paw (echoes toolbar wordmark); not interactive.
+            let paw = NSTextField(labelWithString: "🐾")
+            paw.font = NSFont.systemFont(ofSize: 11)
+            paw.textColor = t.accent.withAlphaComponent(0.7)
+            paw.setContentHuggingPriority(.required, for: .horizontal)
+            paw.setAccessibilityElement(false)
+            views = [tabs, spacer, paw, closeButton]
         }
         let header = NSStackView(views: views)
         header.alignment = .centerY
-        header.spacing = t.brutal ? 12 : 10
+        header.spacing = t.usesComposeLayout ? 12 : 10
         header.widthAnchor.constraint(equalToConstant: innerWidth).isActive = true
-        if t.brutal {
-            header.heightAnchor.constraint(equalToConstant: 34).isActive = true
+        if t.usesComposeLayout {
+            header.heightAnchor.constraint(equalToConstant: t.bubblegum ? 32 : 34).isActive = true
         }
         return header
     }
@@ -157,16 +165,20 @@ enum PanelTabs {
                 show(tab, from: panel())
             }
             b.filled = tab == selected
-            if Theme.current.brutal {
+            let t = Theme.current
+            if t.brutal {
                 b.look = .heading
                 b.glyphSize = 16
+            } else if t.bubblegum {
+                b.look = .heading
+                b.glyphSize = 13
             }
-            b.heightAnchor.constraint(equalToConstant: Theme.current.brutal ? 28 : 30).isActive = true
-            b.widthAnchor.constraint(greaterThanOrEqualToConstant: Theme.current.brutal ? 20 : 82).isActive = true
+            b.heightAnchor.constraint(equalToConstant: t.bubblegum ? 28 : (t.brutal ? 28 : 30)).isActive = true
+            b.widthAnchor.constraint(greaterThanOrEqualToConstant: t.brutal ? 20 : 82).isActive = true
             buttons.append(b)
         }
         for b in buttons { bar.addArrangedSubview(b) }
-        bar.spacing = Theme.current.brutal ? 14 : 5
+        bar.spacing = Theme.current.bubblegum ? 6 : (Theme.current.brutal ? 14 : 5)
         return bar
     }
 

@@ -19,6 +19,11 @@ if CommandLine.arguments.contains("--register") {
 let server = IMKServer(name: "TTime_Connection", bundleIdentifier: Bundle.main.bundleIdentifier)
 _ = server
 DispatchQueue.main.async { UpdateManager.shared.checkIfDue() }
+BubblegumFonts.registerIfNeeded()
 Theme.observeSystemAppearance()
 MenuIcon.sync()
+// Warm the dictionary WKWebView after launch so the first Tab to Dictionary is not a cold start.
+DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+    DictionaryPanel.shared.prepare()
+}
 NSApplication.shared.run()

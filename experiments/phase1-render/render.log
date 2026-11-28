@@ -1,33 +1,42 @@
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker.png 486×827
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_symbols.png 480×745
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_empty.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_ordinary.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_prefix.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_sanskrit.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_tall.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_inherent_a.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_marks.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_light_unavailable_subjoined.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_scrolled_top.png 550×700
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_scrolled_marks.png 550×700
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_constrained_700.png 550×700
+GUM_CONSTRAINED h=700 floor=565 target=700
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_constrained_800.png 550×800
+GUM_CONSTRAINED h=800 floor=565 target=800
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_constrained_900.png 550×900
+GUM_CONSTRAINED h=900 floor=565 target=900
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_symbols_light.png 550×620
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_symbols_light_selected.png 550×620
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_dark_empty.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_stacker_dark_sanskrit.png 550×1032
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/bubblegum_symbols_dark.png 550×620
 wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_empty.png 520×960
 wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_ordinary.png 520×960
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_prefix.png 520×960
 wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_sanskrit.png 520×960
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_tall.png 520×960
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_inherent_a.png 520×960
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_light_unavailable_subjoined.png 520×960
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_scrolled_top.png 520×700
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_scrolled_marks.png 520×700
 wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_symbols_light.png 520×684
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_constrained_600.png 520×600
-CONSTRAINED h=600 floor=526 target=600
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_constrained_700.png 520×700
-CONSTRAINED h=700 floor=526 target=700
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_constrained_800.png 520×800
-CONSTRAINED h=800 floor=526 target=800
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_constrained_900.png 520×900
-CONSTRAINED h=900 floor=526 target=900
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_constrained_1000.png 520×960
-CONSTRAINED h=1000 floor=526 target=960
 wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_dark_empty.png 520×960
-wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_stacker_dark_sanskrit.png 520×960
 wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/brutal_symbols_dark.png 520×684
-NATURAL_HEIGHT bubblegum=827.0 brutal_stacker=960.0 brutalMin=526.0 brutal_symbols=684.0
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/p36_tiles_flat.png 550×700
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/p36_tiles_biscuit.png 550×700
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/p36_header_plain.png 550×220
+wrote /Users/daniel/Code/ttime-ime/ttime/experiments/phase1-render/out/p36_header_paw.png 550×220
+NATURAL_HEIGHT bubblegum=1032.0 gumMin=565.0 gum_symbols=620.0 brutal_stacker=960.0 brutalMin=526.0 brutal_symbols=684.0
 SCREEN_AVAILABLE=949.0
-PANEL_WIDTH=520.0 inner=476.0
-COMPOSE_COL=232.0 GUTTER=12.0 ART_H=174.0
-SYMBOLS_BANNER_H=120.0 gapX=14.0
-RAIL_W=92.0 STACKER_GAP_X=2.0
-STACKER_CELL=40x50 SYMBOLS_CELL=56x52
-TAB_HEIGHTS symbols=684.0 stacker=925.0 dictionary=640.0
+PANEL_WIDTH=550.0 inner=506.0
+COMPOSE_COL=247.0 GUTTER=12.0 ART_H=224.0 COMPOSE_SPAN=506.0
+SYMBOLS_BANNER_H=0.0 symbolsGapX_derived=16.666666666666668
+RAIL_W=88.0 STACKER_GAP_X=4.0 STACKER_GAP_Y=3.0
+STACKER_CELL=42x52 SYMBOLS_CELL=58x54 CELL_RADIUS=8.5
+ROOT_SPACING=6.0 SECTION_SPACING=4.0 ACTION_H=26.0
+TAB_HEIGHTS symbols=620.0 stacker=925.0 dictionary=640.0
+UI_FONT=Nunito-Bold family=Nunito
+DELTA_NATURAL_STACKER phase3=1092 phase36=1032 saved=60

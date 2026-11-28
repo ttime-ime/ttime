@@ -24,9 +24,22 @@ final class StackPreviewView: NSView {
     override var isOpaque: Bool { false }
     override var isFlipped: Bool { false }
 
+    override func viewDidChangeEffectiveAppearance() { needsDisplay = true }
+    override func viewDidMoveToWindow() { needsDisplay = true }
+
     override func draw(_ dirtyRect: NSRect) {
+        let t = Theme.current
+        // Cream display case for Bubblegum; clear for Brutalist.
+        if t.bubblegum {
+            let path = NSBezierPath(roundedRect: bounds, xRadius: 16, yRadius: 16)
+            t.surface.setFill()
+            path.fill()
+            t.controlBorder.setStroke()
+            path.lineWidth = 1
+            path.stroke()
+        }
         guard !text.isEmpty, let ctx = NSGraphicsContext.current?.cgContext else { return }
-        let area = bounds.insetBy(dx: pad, dy: pad)
+        let area = bounds.insetBy(dx: pad + (t.bubblegum ? 4 : 0), dy: pad + (t.bubblegum ? 4 : 0))
         guard area.width > 4, area.height > 4 else { return }
 
         var lo: CGFloat = 10
@@ -55,17 +68,53 @@ final class StackPreviewView: NSView {
         let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [
             .font: font, .foregroundColor: ink,
         ]))
-        let image = CTLineGetImageBounds(line, ctx)
-        // Centre ink optically; bias downward so the placeholder sits nearer the actions.
-        let slack = max(0, area.height - inkSize.height)
-        let opticalDown = min(slack * 0.42, max(6, slack * 0.35))
-        let originX = area.midX - image.midX
-        let originY = area.midY - image.midY - opticalDown
+        // Ink bounds relative to the typographic origin (baseline at 0,0), measured offscreen.
+        let inkRect = measureInkRect(text, size: best)
+        let slack = max(0, area.height - inkRect.height)
+        // Bubblegum: slight optical lift so stacks don't sit heavy in the cream case.
+        // Brutalist: bias down toward the typographic weight of Tibetan stacks.
+        let opticalDown: CGFloat
+        if t.bubblegum {
+            opticalDown = -min(8, max(3, slack * 0.08))
+        } else {
+            opticalDown = min(slack * 0.42, max(6, slack * 0.35))
+        }
+        // Place typographic origin so the ink rectangle's centre sits on the area centre.
+        let originX = area.midX - inkRect.midX
+        let originY = area.midY - opticalDown - inkRect.midY
         ctx.saveGState()
         ctx.textMatrix = .identity
         ctx.translateBy(x: originX, y: originY)
         CTLineDraw(line, ctx)
         ctx.restoreGState()
+    }
+
+    /// Ink image bounds relative to baseline origin (0,0) in an identity CTM.
+    private func measureInkRect(_ s: String, size: CGFloat) -> CGRect {
+        let font = TibetanFont.font(size)
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: s, attributes: [
+            .font: font, .foregroundColor: NSColor.black,
+        ]))
+        let w = max(ceil(size * 8), 160)
+        let h = max(ceil(size * 6), 160)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(w * 2), pixelsHigh: Int(h * 2),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { return .zero }
+        rep.size = NSSize(width: w, height: h)
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        guard let gc = NSGraphicsContext(bitmapImageRep: rep) else { return .zero }
+        NSGraphicsContext.current = gc
+        let ctx = gc.cgContext
+        ctx.scaleBy(x: 2, y: 2)
+        ctx.textMatrix = .identity
+        // Baseline at a known point; return bounds relative to that point.
+        let ox = w * 0.5, oy = h * 0.45
+        ctx.translateBy(x: ox, y: oy)
+        let b = CTLineGetImageBounds(line, ctx)
+        return CGRect(x: b.minX, y: b.minY, width: b.width, height: b.height)
     }
 
     private func measureInk(_ s: String, size: CGFloat) -> CGSize {

@@ -51,6 +51,14 @@ enum GlyphCaptionLayout {
             ?? .systemFont(ofSize: size)
     }
 
+    /// Roman caption face for the active theme (Didot / Nunito).
+    static func captionFont(_ size: CGFloat) -> NSFont {
+        if Theme.current.bubblegum {
+            return BubblegumFonts.ui(size, weight: .semibold)
+        }
+        return didot(size)
+    }
+
     static func tibetan(_ size: CGFloat) -> NSFont {
         TibetanFont.font(size)
     }
@@ -93,7 +101,7 @@ enum GlyphCaptionLayout {
     }
 
     static func captionBandHeight(captionSize: CGFloat, pad: CGFloat) -> CGFloat {
-        let font = didot(captionSize)
+        let font = captionFont(captionSize)
         let line = CTLineCreateWithAttributedString(NSAttributedString(string: "rgya", attributes: [.font: font]))
         var a: CGFloat = 0, d: CGFloat = 0, l: CGFloat = 0
         _ = CTLineGetTypographicBounds(line, &a, &d, &l)

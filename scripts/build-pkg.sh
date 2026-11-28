@@ -74,6 +74,12 @@ done
   echo
   cat macos/Resources/OFL-NotoSerifTibetan.txt
   echo
+  echo "====================== Bundled font: Nunito ======================"
+  echo "Used for Bubblegum interface typography. Copyright The Nunito Project Authors."
+  echo "Licensed under the SIL Open Font License 1.1:"
+  echo
+  cat macos/Resources/Fonts/OFL-Nunito.txt
+  echo
   echo "=============================== Artwork ==============================="
   echo "The illustrations and logos were made for T-Time and are not covered by the"
   echo "licences above."

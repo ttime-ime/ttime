@@ -26,12 +26,23 @@ private final class BannerView: NSView {
         wantsLayer = true
         layer?.cornerRadius = Theme.current.artRadius
         layer?.masksToBounds = true
-        layer?.borderWidth = Theme.current.brutal ? 0 : 2
-        layer?.borderColor = StackerPanel.pinkStrong.cgColor
+        // Quiet outline for Bubblegum; none for Brutalist.
+        layer?.borderWidth = Theme.current.bubblegum ? 1 : 0
         translatesAutoresizingMaskIntoConstraints = false
         setAccessibilityLabel(accessibilityDescription)
+        paintBorder()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidChangeEffectiveAppearance() { paintBorder() }
+    override func viewDidMoveToWindow() { paintBorder() }
+    private func paintBorder() {
+        guard Theme.current.bubblegum else {
+            layer?.borderColor = NSColor.clear.cgColor
+            return
+        }
+        layer?.borderColor = resolved(Theme.current.controlBorder)
+    }
 
     private lazy var sizeConstraints: (NSLayoutConstraint, NSLayoutConstraint) = {
         let w = widthAnchor.constraint(equalToConstant: frame.width)
@@ -356,8 +367,12 @@ final class SymbolsPanel: NSObject {
 
     /// The table is as many columns as fit the navigator's width.
     private func loadSize() {
-        // 7×56 + 6×14 = 476 at the standard content width.
-        columns = max(5, Int((PanelTabs.innerWidth + Self.gapX) / Self.step))
+        // Bubblegum keeps a fixed 7-column confectionery box; Brutalist fills the width.
+        if Theme.current.bubblegum {
+            columns = 7
+        } else {
+            columns = max(5, Int((PanelTabs.innerWidth + Self.gapX) / Self.step))
+        }
         tableHeight = compactTableHeight
     }
     private let compactTableHeight: CGFloat = 330
@@ -370,7 +385,7 @@ final class SymbolsPanel: NSObject {
         banner.setWidth(tableWidth)
         hintLabel.preferredMaxLayoutWidth = tableWidth
         var body: [NSView] = [header, banner, scroll]
-        if Theme.current.brutal {
+        if Theme.current.usesComposeLayout {
             let rule = RuleView(vertical: false)
             rule.widthAnchor.constraint(equalToConstant: tableWidth).isActive = true
             body.append(rule)
@@ -386,6 +401,9 @@ final class SymbolsPanel: NSObject {
             // ~4 pt more air between the panorama and the first symbol row.
             root.setCustomSpacing(16, after: banner)
             root.setCustomSpacing(6, after: scroll)
+        } else if Theme.current.bubblegum {
+            root.setCustomSpacing(10, after: banner)
+            root.setCustomSpacing(8, after: scroll)
         }
     }
 
@@ -400,8 +418,7 @@ final class SymbolsPanel: NSObject {
         let available = max(140, height - chrome)
         // Use remaining window space; when that exceeds the document the clip view
         // simply shows paper below the last row (user-enlarged windows only).
-        tableHeight = Theme.current.brutal ? max(docH, available) : available
-        _ = docH
+        tableHeight = Theme.current.usesComposeLayout ? max(docH, available) : available
         scrollHeight.constant = tableHeight
         container.layoutSubtreeIfNeeded()
     }
@@ -426,6 +443,8 @@ final class SymbolsPanel: NSObject {
         let cell = Self.cellSize
         let rowPitch = cell.height + Self.gapY
         let t = Theme.current
+        // Edge-align with the shared content rectangle (not independently centred).
+        let originX: CGFloat = 0
         for (i, e) in model.results.enumerated() {
             let name = e.label.isEmpty ? e.name.capitalized : e.label
             let b = BubbleButton(glyph: e.display, caption: Self.shown(e.ewts), glyphSize: t.symbolsGlyphSize,
@@ -436,7 +455,8 @@ final class SymbolsPanel: NSObject {
             }
             b.inventory = .symbols
             b.translatesAutoresizingMaskIntoConstraints = true
-            b.frame = NSRect(x: CGFloat(i % columns) * step, y: CGFloat(i / columns) * rowPitch,
+            b.frame = NSRect(x: originX + CGFloat(i % columns) * step,
+                             y: CGFloat(i / columns) * rowPitch,
                              width: cell.width, height: cell.height)
             b.filled = i == model.selected
             documentView.addSubview(b)
@@ -444,7 +464,7 @@ final class SymbolsPanel: NSObject {
         }
         let rows = (model.results.count + columns - 1) / columns
         let height = max(CGFloat(rows) * rowPitch - Self.gapY, 1)
-        documentView.frame = NSRect(x: 0, y: 0, width: CGFloat(columns) * step, height: height)
+        documentView.frame = NSRect(x: 0, y: 0, width: PanelTabs.innerWidth, height: height)
         if cells.indices.contains(model.selected) { documentView.scrollToVisible(cells[model.selected].frame.insetBy(dx: 0, dy: -4)) }
 
         // One line on the selected symbol (or what was just done), one on the keys.
@@ -453,12 +473,13 @@ final class SymbolsPanel: NSObject {
             let name = e.label.isEmpty ? e.name.capitalized : e.label
             first = name + (e.ewts.map { "  ·  type \(Self.shown($0))" } ?? "") + "  ·  " + e.codePoints
         }
+        let titleFont: NSFont = t.brutal ? t.serif(14)
+            : (t.bubblegum ? BubblegumFonts.ui(11, weight: .semibold) : NSFont.systemFont(ofSize: 11, weight: .semibold))
+        let metaFont: NSFont = t.bubblegum ? BubblegumFonts.ui(10, weight: .medium) : NSFont.systemFont(ofSize: 10)
         let text = NSMutableAttributedString(string: first, attributes: [
-            .font: t.brutal ? t.serif(14) : NSFont.systemFont(ofSize: 11, weight: .semibold),
-            .foregroundColor: t.ink])
+            .font: titleFont, .foregroundColor: t.ink])
         text.append(NSAttributedString(string: "\nClick or Return inserts · arrows move · Tab: next panel · Esc closes", attributes: [
-            .font: NSFont.systemFont(ofSize: 10),
-            .foregroundColor: t.brutal ? t.mutedText : t.ink.withAlphaComponent(0.7)]))
+            .font: metaFont, .foregroundColor: t.secondaryText]))
         hintLabel.attributedStringValue = text
         panel?.invalidateShadow()
     }

@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-/// Renders Stacker/Symbols panels for Phase 2.1 validation screenshots.
+/// Renders Stacker/Symbols panels for Phase 3 Bubblegum + Brutalist regression screenshots.
 
 import AppKit
 import Foundation
@@ -10,6 +10,7 @@ final class App: NSObject, NSApplicationDelegate {
     }
 
     private func run() {
+        BubblegumFonts.registerIfNeeded()
         let out = URL(fileURLWithPath: CommandLine.arguments.count > 1
                       ? CommandLine.arguments[1]
                       : FileManager.default.currentDirectoryPath)
@@ -21,8 +22,6 @@ final class App: NSObject, NSApplicationDelegate {
             view.wantsLayer = true
             view.layoutSubtreeIfNeeded()
             let sz = size ?? (view.bounds.size.width > 1 ? view.bounds.size : view.fittingSize)
-            // Pin the frame so a shorter capture does not crop a taller bottom-origin layout
-            // from the top (header / composition). Auto Layout then reflows into `sz`.
             view.frame = NSRect(origin: .zero, size: sz)
             view.layoutSubtreeIfNeeded()
             guard let rep = view.bitmapImageRepForCachingDisplay(in: NSRect(origin: .zero, size: sz)) else {
@@ -43,39 +42,125 @@ final class App: NSObject, NSApplicationDelegate {
             return (StackerPanel.shared.naturalHeight, StackerPanel.shared.minimumHeight)
         }
 
-        // —— Bubblegum regression ——
+        func saveStacker(_ name: String, appearance: NSAppearance?, height: CGFloat, adapt: Bool = true) {
+            // `adaptLettersHeight` pins the alphabet to the top — skip it when capturing a scrolled state.
+            if adapt { StackerPanel.shared.adaptLettersHeight(panelHeight: height) }
+            if let v = StackerPanel.shared.contentView {
+                save(v, name: name, appearance: appearance,
+                     size: NSSize(width: PanelTabs.width, height: height))
+            }
+        }
+
+        // —— Bubblegum light ——
         Prefs.style = .bubblegum
+        NSApp.appearance = NSAppearance(named: .aqua)
         GlyphCaptionLayout.clearCaches()
         let gum = measureStacker()
         StackerPanel.shared.refresh()
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "bubblegum_stacker.png", appearance: NSAppearance(named: .aqua))
-        }
-        SymbolsPanel.shared = SymbolsPanel()
-        if let v = SymbolsPanel.shared.contentView {
-            save(v, name: "bubblegum_symbols.png", appearance: NSAppearance(named: .aqua))
+        StackerPanel.shared.adaptLettersHeight(panelHeight: gum.natural)
+        saveStacker("bubblegum_stacker_light_empty.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        StackerPanel.shared.model.clear()
+        StackerPanel.shared.model.addLayer("k")
+        StackerPanel.shared.refresh()
+        saveStacker("bubblegum_stacker_light_ordinary.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        StackerPanel.shared.model.clear()
+        StackerPanel.shared.model.type("r")
+        StackerPanel.shared.refresh()
+        saveStacker("bubblegum_stacker_light_prefix.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        StackerPanel.shared.model.clear()
+        for key in ["k", "Sh"] { StackerPanel.shared.model.addLayer(key) }
+        StackerPanel.shared.model.setVowel("i")
+        StackerPanel.shared.refresh()
+        saveStacker("bubblegum_stacker_light_sanskrit.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        StackerPanel.shared.model.clear()
+        for key in ["ch", "g", "ng", "ny"] { StackerPanel.shared.model.addLayer(key) }
+        StackerPanel.shared.refresh()
+        saveStacker("bubblegum_stacker_light_tall.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        StackerPanel.shared.model.clear()
+        StackerPanel.shared.model.setVowel("")
+        StackerPanel.shared.refresh()
+        saveStacker("bubblegum_stacker_light_inherent_a.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        StackerPanel.shared = StackerPanel()
+        StackerPanel.shared.model.clear()
+        StackerPanel.shared.refresh()
+        StackerPanel.shared.adaptLettersHeight(panelHeight: gum.natural)
+        StackerPanel.shared.scrollAlphabetToEnd()
+        saveStacker("bubblegum_stacker_light_marks.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+        saveStacker("bubblegum_stacker_light_unavailable_subjoined.png", appearance: NSAppearance(named: .aqua), height: gum.natural)
+
+        let shortH: CGFloat = 700
+        StackerPanel.shared = StackerPanel()
+        StackerPanel.shared.model.clear()
+        StackerPanel.shared.refresh()
+        let gumFloor = StackerPanel.shared.minimumHeight
+        let gumTarget = max(gumFloor, shortH)
+        StackerPanel.shared.adaptLettersHeight(panelHeight: gumTarget)
+        saveStacker("bubblegum_stacker_scrolled_top.png", appearance: NSAppearance(named: .aqua), height: gumTarget, adapt: false)
+        StackerPanel.shared.scrollAlphabetToEnd()
+        saveStacker("bubblegum_stacker_scrolled_marks.png", appearance: NSAppearance(named: .aqua), height: gumTarget, adapt: false)
+
+        for h in [700, 800, 900] as [CGFloat] {
+            StackerPanel.shared = StackerPanel()
+            StackerPanel.shared.model.clear()
+            for key in ["k", "Sh"] { StackerPanel.shared.model.addLayer(key) }
+            StackerPanel.shared.model.setVowel("ai")
+            StackerPanel.shared.refresh()
+            let floor = StackerPanel.shared.minimumHeight
+            let target = max(floor, min(h, gum.natural))
+            StackerPanel.shared.adaptLettersHeight(panelHeight: target)
+            saveStacker("bubblegum_stacker_constrained_\(Int(h)).png", appearance: NSAppearance(named: .aqua), height: target)
+            print("GUM_CONSTRAINED h=\(Int(h)) floor=\(Int(floor)) target=\(Int(target))")
         }
 
-        // —— Brutalist light ——
+        SymbolsPanel.shared = SymbolsPanel()
+        let gumSymbolsNatural = SymbolsPanel.shared.naturalHeight
+        SymbolsPanel.shared.refresh()
+        if let v = SymbolsPanel.shared.contentView {
+            save(v, name: "bubblegum_symbols_light.png", appearance: NSAppearance(named: .aqua),
+                 size: NSSize(width: PanelTabs.width, height: gumSymbolsNatural))
+        }
+        if !SymbolsPanel.shared.model.results.isEmpty {
+            SymbolsPanel.shared.model.select(0)
+            SymbolsPanel.shared.refresh()
+            if let v = SymbolsPanel.shared.contentView {
+                save(v, name: "bubblegum_symbols_light_selected.png", appearance: NSAppearance(named: .aqua),
+                     size: NSSize(width: PanelTabs.width, height: gumSymbolsNatural))
+            }
+        }
+
+        // Bubblegum dark
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        GlyphCaptionLayout.clearCaches()
+        StackerPanel.shared = StackerPanel()
+        StackerPanel.shared.refresh()
+        StackerPanel.shared.adaptLettersHeight(panelHeight: gum.natural)
+        saveStacker("bubblegum_stacker_dark_empty.png", appearance: NSAppearance(named: .darkAqua), height: gum.natural)
+        for key in ["k", "Sh"] { StackerPanel.shared.model.addLayer(key) }
+        StackerPanel.shared.model.setVowel("ai")
+        StackerPanel.shared.refresh()
+        saveStacker("bubblegum_stacker_dark_sanskrit.png", appearance: NSAppearance(named: .darkAqua), height: gum.natural)
+        SymbolsPanel.shared = SymbolsPanel()
+        SymbolsPanel.shared.refresh()
+        if let v = SymbolsPanel.shared.contentView {
+            save(v, name: "bubblegum_symbols_dark.png", appearance: NSAppearance(named: .darkAqua),
+                 size: NSSize(width: PanelTabs.width, height: gumSymbolsNatural))
+        }
+        NSApp.appearance = nil
+
+        // —— Brutalist regression ——
         Prefs.style = .brutal
         NSApp.appearance = NSAppearance(named: .aqua)
         GlyphCaptionLayout.clearCaches()
         let brutal = measureStacker()
         StackerPanel.shared.refresh()
         StackerPanel.shared.adaptLettersHeight(panelHeight: brutal.natural)
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "brutal_stacker_light_empty.png", appearance: NSAppearance(named: .aqua),
-                 size: NSSize(width: PanelTabs.width, height: brutal.natural))
-        }
-
-        // Ordinary Tibetan: ཀ
-        func saveStacker(_ name: String, appearance: NSAppearance?, height: CGFloat) {
-            StackerPanel.shared.adaptLettersHeight(panelHeight: height)
-            if let v = StackerPanel.shared.contentView {
-                save(v, name: name, appearance: appearance,
-                     size: NSSize(width: PanelTabs.width, height: height))
-            }
-        }
+        saveStacker("brutal_stacker_light_empty.png", appearance: NSAppearance(named: .aqua), height: brutal.natural)
 
         StackerPanel.shared.model.clear()
         StackerPanel.shared.model.addLayer("k")
@@ -83,57 +168,10 @@ final class App: NSObject, NSApplicationDelegate {
         saveStacker("brutal_stacker_light_ordinary.png", appearance: NSAppearance(named: .aqua), height: brutal.natural)
 
         StackerPanel.shared.model.clear()
-        StackerPanel.shared.model.type("r")
-        StackerPanel.shared.refresh()
-        saveStacker("brutal_stacker_light_prefix.png", appearance: NSAppearance(named: .aqua), height: brutal.natural)
-
-        StackerPanel.shared.model.clear()
         for key in ["k", "Sh"] { StackerPanel.shared.model.addLayer(key) }
         StackerPanel.shared.model.setVowel("i")
         StackerPanel.shared.refresh()
         saveStacker("brutal_stacker_light_sanskrit.png", appearance: NSAppearance(named: .aqua), height: brutal.natural)
-
-        // Tall multi-consonant: ch+g+ng+ny
-        StackerPanel.shared.model.clear()
-        for key in ["ch", "g", "ng", "ny"] { StackerPanel.shared.model.addLayer(key) }
-        StackerPanel.shared.refresh()
-        saveStacker("brutal_stacker_light_tall.png", appearance: NSAppearance(named: .aqua), height: brutal.natural)
-
-        // Inherent vowel selected (empty layers, vowel "").
-        StackerPanel.shared.model.clear()
-        StackerPanel.shared.model.setVowel("")
-        StackerPanel.shared.refresh()
-        saveStacker("brutal_stacker_light_inherent_a.png", appearance: NSAppearance(named: .aqua), height: brutal.natural)
-
-        // Unavailable subjoined (no layers yet — W/Y disabled).
-        StackerPanel.shared = StackerPanel()
-        StackerPanel.shared.model.clear()
-        StackerPanel.shared.refresh()
-        StackerPanel.shared.adaptLettersHeight(panelHeight: brutal.natural)
-        StackerPanel.shared.scrollAlphabetToEnd()
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "brutal_stacker_light_unavailable_subjoined.png", appearance: NSAppearance(named: .aqua),
-                 size: NSSize(width: PanelTabs.width, height: brutal.natural))
-        }
-
-        // Scrolled to first row (Velar) and last row (Marks) at a constrained height.
-        // Match the constrained-shot setup: adaptLettersHeight already pins scroll to top.
-        let shortH: CGFloat = 700
-        StackerPanel.shared = StackerPanel()
-        StackerPanel.shared.model.clear()
-        StackerPanel.shared.refresh()
-        let floor = StackerPanel.shared.minimumHeight
-        let target = max(floor, shortH)
-        StackerPanel.shared.adaptLettersHeight(panelHeight: target)
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "brutal_stacker_scrolled_top.png", appearance: NSAppearance(named: .aqua),
-                 size: NSSize(width: PanelTabs.width, height: target))
-        }
-        StackerPanel.shared.scrollAlphabetToEnd()
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "brutal_stacker_scrolled_marks.png", appearance: NSAppearance(named: .aqua),
-                 size: NSSize(width: PanelTabs.width, height: target))
-        }
 
         SymbolsPanel.shared = SymbolsPanel()
         let symbolsNatural = SymbolsPanel.shared.naturalHeight
@@ -143,40 +181,12 @@ final class App: NSObject, NSApplicationDelegate {
                  size: NSSize(width: PanelTabs.width, height: symbolsNatural))
         }
 
-        // Constrained displays (include 600 when above the floor)
-        for h in [600, 700, 800, 900, 1000] as [CGFloat] {
-            StackerPanel.shared = StackerPanel()
-            StackerPanel.shared.model.clear()
-            for key in ["k", "Sh"] { StackerPanel.shared.model.addLayer(key) }
-            StackerPanel.shared.model.setVowel("ai")
-            StackerPanel.shared.refresh()
-            let floor = StackerPanel.shared.minimumHeight
-            let target = max(floor, min(h, brutal.natural))
-            StackerPanel.shared.adaptLettersHeight(panelHeight: target)
-            if let v = StackerPanel.shared.contentView {
-                save(v, name: "brutal_stacker_constrained_\(Int(h)).png", appearance: NSAppearance(named: .aqua),
-                     size: NSSize(width: PanelTabs.width, height: target))
-            }
-            print("CONSTRAINED h=\(Int(h)) floor=\(Int(floor)) target=\(Int(target))")
-        }
-
-        // —— Brutalist dark ——
         NSApp.appearance = NSAppearance(named: .darkAqua)
         GlyphCaptionLayout.clearCaches()
         StackerPanel.shared = StackerPanel()
         StackerPanel.shared.refresh()
         StackerPanel.shared.adaptLettersHeight(panelHeight: brutal.natural)
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "brutal_stacker_dark_empty.png", appearance: NSAppearance(named: .darkAqua),
-                 size: NSSize(width: PanelTabs.width, height: brutal.natural))
-        }
-        for key in ["k", "Sh"] { StackerPanel.shared.model.addLayer(key) }
-        StackerPanel.shared.model.setVowel("ai")
-        StackerPanel.shared.refresh()
-        if let v = StackerPanel.shared.contentView {
-            save(v, name: "brutal_stacker_dark_sanskrit.png", appearance: NSAppearance(named: .darkAqua),
-                 size: NSSize(width: PanelTabs.width, height: brutal.natural))
-        }
+        saveStacker("brutal_stacker_dark_empty.png", appearance: NSAppearance(named: .darkAqua), height: brutal.natural)
         SymbolsPanel.shared = SymbolsPanel()
         SymbolsPanel.shared.refresh()
         if let v = SymbolsPanel.shared.contentView {
@@ -185,16 +195,56 @@ final class App: NSObject, NSApplicationDelegate {
         }
         NSApp.appearance = nil
 
-        let screen = PanelTabs.availableHeight()
+        // —— Phase 3.6 decorative comparisons (Bubblegum only; flags off afterward) ——
+        Prefs.style = .bubblegum
+        NSApp.appearance = NSAppearance(named: .aqua)
+        Theme.bubblegumBiscuitEdge = false
+        Theme.bubblegumPawMotif = false
+        GlyphCaptionLayout.clearCaches()
+        StackerPanel.shared = StackerPanel()
+        StackerPanel.shared.refresh()
+        StackerPanel.shared.adaptLettersHeight(panelHeight: 700)
+        saveStacker("p36_tiles_flat.png", appearance: NSAppearance(named: .aqua), height: 700)
+
+        Theme.bubblegumBiscuitEdge = true
+        GlyphCaptionLayout.clearCaches()
+        StackerPanel.shared = StackerPanel()
+        StackerPanel.shared.refresh()
+        StackerPanel.shared.adaptLettersHeight(panelHeight: 700)
+        saveStacker("p36_tiles_biscuit.png", appearance: NSAppearance(named: .aqua), height: 700)
+        Theme.bubblegumBiscuitEdge = false
+
+        Theme.bubblegumPawMotif = false
+        SymbolsPanel.shared = SymbolsPanel()
+        if let v = SymbolsPanel.shared.contentView {
+            save(v, name: "p36_header_plain.png", appearance: NSAppearance(named: .aqua),
+                 size: NSSize(width: PanelTabs.width, height: min(220, SymbolsPanel.shared.naturalHeight)))
+        }
+        Theme.bubblegumPawMotif = true
+        SymbolsPanel.shared = SymbolsPanel()
+        if let v = SymbolsPanel.shared.contentView {
+            save(v, name: "p36_header_paw.png", appearance: NSAppearance(named: .aqua),
+                 size: NSSize(width: PanelTabs.width, height: min(220, SymbolsPanel.shared.naturalHeight)))
+        }
+        Theme.bubblegumPawMotif = false
+
+        Prefs.style = .bubblegum
         let t = Theme.current
-        print("NATURAL_HEIGHT bubblegum=\(gum.natural) brutal_stacker=\(brutal.natural) brutalMin=\(brutal.minimum) brutal_symbols=\(symbolsNatural)")
+        let screen = PanelTabs.availableHeight()
+        let nunito = BubblegumFonts.ui(13, weight: .bold)
+        let symbolsGap = (PanelTabs.innerWidth - 7 * t.symbolsCell.width) / 6
+        let composeSpan = t.composeColumnWidth * 2 + t.composeGutter
+        print("NATURAL_HEIGHT bubblegum=\(gum.natural) gumMin=\(gum.minimum) gum_symbols=\(gumSymbolsNatural) brutal_stacker=\(brutal.natural) brutalMin=\(brutal.minimum) brutal_symbols=\(symbolsNatural)")
         print("SCREEN_AVAILABLE=\(screen)")
         print("PANEL_WIDTH=\(PanelTabs.width) inner=\(PanelTabs.innerWidth)")
-        print("COMPOSE_COL=\(t.composeColumnWidth) GUTTER=\(t.composeGutter) ART_H=\(t.stackerArtHeight)")
-        print("SYMBOLS_BANNER_H=\(t.symbolsBannerHeight) gapX=\(t.symbolsGapX)")
-        print("RAIL_W=\(t.railWidth) STACKER_GAP_X=\(t.stackerGapX)")
-        print("STACKER_CELL=\(Int(t.stackerCell.width))x\(Int(t.stackerCell.height)) SYMBOLS_CELL=\(Int(t.symbolsCell.width))x\(Int(t.symbolsCell.height))")
+        print("COMPOSE_COL=\(t.composeColumnWidth) GUTTER=\(t.composeGutter) ART_H=\(t.stackerArtHeight) COMPOSE_SPAN=\(composeSpan)")
+        print("SYMBOLS_BANNER_H=\(t.symbolsBannerHeight) symbolsGapX_derived=\(symbolsGap)")
+        print("RAIL_W=\(t.railWidth) STACKER_GAP_X=\(t.stackerGapX) STACKER_GAP_Y=\(t.stackerGapY)")
+        print("STACKER_CELL=\(Int(t.stackerCell.width))x\(Int(t.stackerCell.height)) SYMBOLS_CELL=\(Int(t.symbolsCell.width))x\(Int(t.symbolsCell.height)) CELL_RADIUS=\(t.cellRadius)")
+        print("ROOT_SPACING=\(t.rootSpacing) SECTION_SPACING=\(t.sectionSpacing) ACTION_H=\(t.actionButtonHeight)")
         print("TAB_HEIGHTS symbols=\(PanelTabs.height(for: .symbols)) stacker=\(PanelTabs.height(for: .stacker)) dictionary=\(PanelTabs.height(for: .dictionary))")
+        print("UI_FONT=\(nunito.fontName) family=\(nunito.familyName ?? "?")")
+        print("DELTA_NATURAL_STACKER phase3=\(1092) phase36=\(Int(gum.natural)) saved=\(1092 - Int(gum.natural))")
 
         NSApp.terminate(nil)
     }

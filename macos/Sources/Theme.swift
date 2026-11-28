@@ -26,6 +26,11 @@ extension Prefs {
 struct Theme {
     let id: StyleID
     var brutal: Bool { id == .brutal }
+    var bubblegum: Bool { id == .bubblegum }
+    /// 50:50 Stacker composition + alphabet scroll (both refined themes).
+    var usesComposeLayout: Bool { composeColumnWidth > 0 }
+    /// Core Text shared-baseline glyph+caption cells.
+    var usesSharedBaselineCells: Bool { true }
 
     // MARK: Colour
 
@@ -43,10 +48,20 @@ struct Theme {
     let separator: NSColor
     /// Legacy alias used by older call sites; maps to controlBorder.
     var line: NSColor { controlBorder }
-    /// Quiet fill for vowel/mark tiles.
+    /// Quiet fill for vowel/mark tiles / cream character tiles.
     let tile: NSColor
-    /// The fill of the answer card (Bubblegum).
+    /// The fill of the answer card / reading surface.
     let card: NSColor
+    /// Preview and dictionary reading surface (cream / dark chocolate).
+    let surface: NSColor
+    /// Decorative strawberry-icing accent.
+    let accent: NSColor
+    /// Selected control fill (raspberry jam).
+    let selection: NSColor
+    /// Glyph ink on a selected control.
+    let selectedInk: NSColor
+    /// Caption ink on a selected control.
+    let selectedCaption: NSColor
     /// The toolbar's bar.
     let bar: NSColor
     let panelBorderColor: NSColor
@@ -126,27 +141,43 @@ struct Theme {
         NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light }
     }
 
+    /// Confectionery Bubblegum: strawberry milk, vanilla cream, raspberry jam; follows system light/dark.
     private static let bubblegumTheme = Theme(
         id: .bubblegum,
-        paper: srgb(0xFCE7E9), ink: srgb(0xA8445F),
-        secondaryText: srgb(0xA8445F).withAlphaComponent(0.75),
-        mutedText: srgb(0xA8445F).withAlphaComponent(0.7),
-        controlBorder: srgb(0xEA8798),
-        separator: srgb(0xEA8798).withAlphaComponent(0.45),
-        tile: srgb(0xFEE8D4, 0.85), card: NSColor.white.withAlphaComponent(0.7), bar: srgb(0xE4BBC5),
-        panelBorderColor: srgb(0xEA8798),
-        panelRadius: 28, panelBorder: 3,
-        cellRadius: 12, tileRadius: 12, actionRadius: 12, presetRadius: 12, artRadius: 20, toolbarRadius: 15 * 0.7,
-        stackerCell: NSSize(width: 38, height: 38),
-        symbolsCell: NSSize(width: 56, height: 46),
-        stackerGlyphSize: 15, symbolsGlyphSize: 18, glyphCaptionSize: 9,
-        stackerGapX: 4, stackerGapY: 5, symbolsGapX: 4, symbolsGapY: 4,
-        rootSpacing: 9, sectionSpacing: 9, presetHeight: 26, railTracking: 0, railSize: 10,
-        stackerArtHeight: 0, composeColumnWidth: 0, composeGutter: 0, railWidth: 82,
-        symbolsBannerHeight: 0, previewNominalSize: 46, actionButtonHeight: 32,
-        dimmedFill: NSColor.clear, unavailableFill: NSColor.clear, hoverFill: NSColor.clear,
-        glyphCaption: srgb(0xA8445F).withAlphaComponent(0.75),
-        appearance: NSAppearance(named: .aqua))
+        paper: dynamic(light: srgb(0xFBE8EC), dark: srgb(0x302029)),
+        ink: dynamic(light: srgb(0x773047), dark: srgb(0xF8DCE4)),
+        secondaryText: dynamic(light: srgb(0xA65A72), dark: srgb(0xD5A5B6)),
+        mutedText: dynamic(light: srgb(0xC07A90), dark: srgb(0xB88A9A)),
+        controlBorder: dynamic(light: srgb(0xEDB2BE), dark: srgb(0x79505F)),
+        separator: dynamic(light: srgb(0xEFCBD4), dark: srgb(0x593B48)),
+        tile: dynamic(light: srgb(0xFFF0E2), dark: srgb(0x49303B)),
+        card: dynamic(light: srgb(0xFFF8F6), dark: srgb(0x392630)),
+        surface: dynamic(light: srgb(0xFFF8F6), dark: srgb(0x392630)),
+        accent: dynamic(light: srgb(0xE98CA4), dark: srgb(0xDF8CA6)),
+        selection: dynamic(light: srgb(0xA33D60), dark: srgb(0xAD4267)),
+        selectedInk: dynamic(light: srgb(0xFFFFFF), dark: srgb(0xFFFFFF)),
+        selectedCaption: dynamic(light: srgb(0xFFF0E2), dark: srgb(0xF8DCE4)),
+        bar: dynamic(light: srgb(0xE4BBC5), dark: srgb(0x49303B)),
+        panelBorderColor: dynamic(light: srgb(0xE98CA4), dark: srgb(0x79505F)),
+        panelRadius: 24, panelBorder: 1.5,
+        // ~23% tighter radius than Phase 3.0 (11→8.5): soft biscuit, not telephone key.
+        cellRadius: 8.5, tileRadius: 8.5, actionRadius: 8, presetRadius: 9, artRadius: 14, toolbarRadius: 15 * 0.7,
+        // Shared-baseline cells: taller than the old 38×38 fixed-offset tiles.
+        stackerCell: NSSize(width: 42, height: 52),
+        symbolsCell: NSSize(width: 58, height: 54),
+        stackerGlyphSize: 15, symbolsGlyphSize: 18, glyphCaptionSize: 10,
+        // Symbols: (506 − 7×58) / 6 ≈ 16.67 so the grid spans the content rectangle.
+        stackerGapX: 4, stackerGapY: 3, symbolsGapX: 16.67, symbolsGapY: 4,
+        rootSpacing: 6, sectionSpacing: 4, presetHeight: 24, railTracking: 0, railSize: 11,
+        // 50:50: (506 − 12) / 2 = 247; composition height trimmed ~30 pt from Phase 3.0.
+        stackerArtHeight: 224, composeColumnWidth: 247, composeGutter: 12, railWidth: 88,
+        // 0 = use artwork's natural aspect (do not crop to Brutalist's 120 pt banner).
+        symbolsBannerHeight: 0, previewNominalSize: 50, actionButtonHeight: 26,
+        dimmedFill: dynamic(light: srgb(0xF5D6DE), dark: srgb(0x3A2830)),
+        unavailableFill: dynamic(light: srgb(0xF3DDE3), dark: srgb(0x35252D)),
+        hoverFill: dynamic(light: srgb(0xFFE8EE), dark: srgb(0x423038)),
+        glyphCaption: dynamic(light: srgb(0xA65A72), dark: srgb(0xD5A5B6)),
+        appearance: nil)
 
     private static let brutalTheme = Theme(
         id: .brutal,
@@ -156,38 +187,43 @@ struct Theme {
         mutedText: dynamic(light: srgb(0x767676), dark: srgb(0x8A8A8A)),
         controlBorder: dynamic(light: srgb(0xCCCCCC), dark: srgb(0x3D3D3D)),
         separator: dynamic(light: srgb(0xE0E0E0), dark: srgb(0x2A2A2A)),
-        // Quieter vowel/mark wash so the bottom of the alphabet is not heavier than consonants.
         tile: dynamic(light: srgb(0xF7F7F7), dark: srgb(0x161616)),
         card: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
+        surface: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
+        accent: dynamic(light: srgb(0x0E0E0E), dark: srgb(0xF2F2F2)),
+        selection: dynamic(light: srgb(0x0E0E0E), dark: srgb(0xF2F2F2)),
+        selectedInk: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
+        selectedCaption: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
         bar: dynamic(light: srgb(0xFFFFFF), dark: srgb(0x0E0E0E)),
-        // Slightly softer than controlBorder so the floating panel edge is present but not heavy.
         panelBorderColor: dynamic(light: srgb(0xD8D8D8), dark: srgb(0x333333)),
         panelRadius: 18, panelBorder: 1,
         cellRadius: 5, tileRadius: 5, actionRadius: 5, presetRadius: 4, artRadius: 0, toolbarRadius: 12,
-        // Measured min height with the full stacker inventory + Sanskrit stress set is 48 pt
-        // at glyph 15 / Didot 10; 50 pt keeps ~2 pt slack above the tallest ink.
         stackerCell: NSSize(width: 40, height: 50),
         symbolsCell: NSSize(width: 56, height: 52),
         stackerGlyphSize: 15, symbolsGlyphSize: 18, glyphCaptionSize: 10,
-        // Gap 2 keeps the nine-column Marks row inside 476 with a 92 pt rail.
         stackerGapX: 2, stackerGapY: 2, symbolsGapX: 14, symbolsGapY: 2,
         rootSpacing: 6, sectionSpacing: 4, presetHeight: 24, railTracking: 1.1, railSize: 9,
-        // 50:50 composition columns; symbols banner target 476×120 (aspect-fill).
         stackerArtHeight: 174, composeColumnWidth: 232, composeGutter: 12, railWidth: 92,
         symbolsBannerHeight: 120, previewNominalSize: 56, actionButtonHeight: 26,
         dimmedFill: dynamic(light: srgb(0xF0F0F0), dark: srgb(0x1A1A1A)),
-        // Very quiet wash — unavailable must not outrank ordinary consonants.
         unavailableFill: dynamic(light: srgb(0xF2F2F2), dark: srgb(0x141414)),
         hoverFill: dynamic(light: srgb(0xF4F4F4), dark: srgb(0x1A1A1A)),
         glyphCaption: dynamic(light: srgb(0x666666), dark: srgb(0xA3A3A3)),
         appearance: nil)
 
     /// Shared disabled treatment for primary and secondary actions.
-    var disabledActionFill: NSColor { brutal ? hoverFill : tile }
-    var disabledActionInk: NSColor { brutal ? mutedText : ink.withAlphaComponent(0.45) }
+    var disabledActionFill: NSColor { brutal ? hoverFill : unavailableFill }
+    var disabledActionInk: NSColor { mutedText }
     /// Legacy aliases.
     var disabledPrimaryFill: NSColor { disabledActionFill }
     var disabledPrimaryInk: NSColor { disabledActionInk }
+
+    // MARK: Bubblegum polish experiments (harness / review)
+
+    /// Subtle 1–2 pt darker lower edge on cream tiles (biscuit thickness). Off by default.
+    static var bubblegumBiscuitEdge = false
+    /// Tiny decorative paw in the header trailing space. Off by default.
+    static var bubblegumPawMotif = false
 
     // MARK: Type
 
@@ -200,7 +236,7 @@ struct Theme {
         return base.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size) } ?? base
     }
 
-    /// A row or section name. Brutalist: small capitals, tracked.
+    /// A row or section name. Brutalist: small capitals, tracked. Bubblegum: title-case Nunito.
     func railLabel(_ s: String, width: CGFloat) -> NSTextField {
         let l: NSTextField
         if brutal {
@@ -210,11 +246,11 @@ struct Theme {
                 .foregroundColor: secondaryText])
         } else {
             l = NSTextField(labelWithString: s)
-            l.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-            l.textColor = ink.withAlphaComponent(0.75)
+            l.font = BubblegumFonts.ui(railSize, weight: .bold)
+            l.textColor = secondaryText
         }
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.widthAnchor.constraint(equalToConstant: brutal ? railWidth : width).isActive = true
+        l.widthAnchor.constraint(equalToConstant: usesComposeLayout ? railWidth : width).isActive = true
         l.lineBreakMode = .byTruncatingTail
         return l
     }
@@ -227,11 +263,16 @@ struct Theme {
         return base.fontDescriptor.withDesign(.serif).flatMap { NSFont(descriptor: $0, size: size) } ?? base
     }
 
-    /// A caption in the style's text face (serif when brutalist).
+    /// A caption in the style's text face (serif when brutalist; Nunito when Bubblegum).
     func caption(_ s: String, size: CGFloat) -> NSTextField {
         let l = NSTextField(labelWithString: s)
-        l.font = brutal ? serif(size + 3) : NSFont.systemFont(ofSize: size, weight: .semibold)
-        l.textColor = brutal ? ink : ink.withAlphaComponent(0.75)
+        if brutal {
+            l.font = serif(size + 3)
+            l.textColor = ink
+        } else {
+            l.font = BubblegumFonts.ui(size, weight: .semibold)
+            l.textColor = secondaryText
+        }
         return l
     }
 
@@ -253,7 +294,8 @@ struct Theme {
         observing = true
         DistributedNotificationCenter.default().addObserver(
             forName: NSNotification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { _ in
-            if Prefs.style == .brutal { restyleAll() }
+            // Both refined themes follow system light/dark.
+            restyleAll()
         }
     }
 }
