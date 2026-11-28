@@ -10,5 +10,5 @@ scripts/build-ffi-smoke.sh
 ./build/ffi-smoke
 ```
 
-See `ffi-smoke/README.md` and `crates/ttime-ffi/include/ttime.h`. Platform order
-in the project plan is macOS → Windows → Linux.
+See `ffi-smoke/README.md` and `crates/ttime-ffi/include/ttime.h`. macOS and a
+composer-only Windows TSF shell exist; Linux IBus/Fcitx5 is next.

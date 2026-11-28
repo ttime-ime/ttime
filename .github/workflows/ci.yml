@@ -101,3 +101,25 @@ jobs:
             target
           key: ffi-windows-${{ hashFiles('Cargo.lock') }}
       - run: pwsh -File scripts/build-ffi-smoke.ps1
+
+  windows-tsf:
+    name: Windows TSF DLL
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: windows-tsf-${{ hashFiles('Cargo.lock') }}
+      - run: pwsh -File scripts/build-windows-tsf.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: TTimeTSF-ci
+          path: |
+            build/windows/TTimeTSF.dll
+            build/windows/ttime_ffi.lib
+          retention-days: 7

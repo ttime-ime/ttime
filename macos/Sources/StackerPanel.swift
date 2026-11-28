@@ -40,10 +40,21 @@ final class BubbleButton: NSButton {
         layer?.borderWidth = 1.5
         toolTip = tip
         setAccessibilityLabel(label)
+        // A click fires on mouseDown (below); the action stays for keyboard and
+        // VoiceOver presses, which go through performClick and never reach mouseDown.
         target = self
         action = #selector(fire)
         translatesAutoresizingMaskIntoConstraints = false
         paint()
+    }
+
+    /// Fires on mouseDown, not the usual mouseUp action: Stacker/Symbols are windows of
+    /// the IME process, and by mouseUp macOS has often already deactivated the input
+    /// method for TextEdit, so insertText would be ignored. A press cannot be cancelled by
+    /// dragging off the button. super is not called, so the action does not fire as well.
+    override func mouseDown(with event: NSEvent) {
+        guard isEnabled else { return }
+        onClick?()
     }
 
     private var glyphLabel: NSTextField?

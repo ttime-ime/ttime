@@ -31,6 +31,10 @@ final class TTimeInputController: IMKInputController {
 
     /// The controller whose client currently has focus; the toolbar acts on it.
     private static weak var active: TTimeInputController?
+    /// Last document we typed into (not T-Time's own windows). Stacker/Symbols
+    /// clicks land in the IME process and can deactivate or rewire `client`;
+    /// inserts still go here.
+    private static weak var documentClient: IMKTextInput?
     private var client: IMKTextInput?
 
     private var toolbarState: Toolbar.State {
@@ -47,6 +51,12 @@ final class TTimeInputController: IMKInputController {
 
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event = event, let client = sender as? IMKTextInput else { return false }
+        // Remember the document while keys still arrive from it (panel clicks can
+        // clear or replace `self.client` via activate/deactivate).
+        if client.bundleIdentifier() != Bundle.main.bundleIdentifier {
+            self.client = client
+            Self.documentClient = client
+        }
         // The dictionary page has the keyboard: its client is this very process, so
         // letting the system deliver text to it would make T-Time talk to itself
         // (slow, and it can stall typing everywhere). Take the keys and put them
@@ -145,7 +155,19 @@ final class TTimeInputController: IMKInputController {
     }
 
     override func activateServer(_ sender: Any!) {
-        DebugLog.log("activateServer client=\((sender as? IMKTextInput)?.bundleIdentifier() ?? "?")")
+        let incoming = sender as? IMKTextInput
+        let bundle = incoming?.bundleIdentifier()
+        DebugLog.log("activateServer client=\(bundle ?? "?")")
+        // Clicks on Stacker/Symbols are windows of this process. macOS may
+        // activate us with ourselves as the client; do not take over document
+        // wiring or the insert callbacks in that case.
+        let isOurProcess = bundle == Bundle.main.bundleIdentifier
+        if isOurProcess {
+            StackerPanel.shared.cancelClose()
+            SymbolsPanel.shared.cancelClose()
+            DictionaryPanel.shared.cancelClose()
+            return
+        }
         shiftTap.reset()
         composer.reset()
         composer.setPrecomposed(Prefs.precomposed)
@@ -155,9 +177,9 @@ final class TTimeInputController: IMKInputController {
         AccentPanel.shared.hide()
         AccentPanel.shared.onPick = { [weak self] i in self?.pickAccent(i) }
         SuggestionPanel.shared.onPick = { [weak self] i in self?.pickSuggestion(i) }
-        client = sender as? IMKTextInput
-        // The mode carries over from window to window; a lock overrides it.
+        client = incoming
         if let client = client {
+            Self.documentClient = client
             apply(composer.setLatin(Self.lock.lockedLatin ?? Self.lastLatin ?? Prefs.startLatin), to: client)
             rememberMode()
         }
@@ -172,8 +194,10 @@ final class TTimeInputController: IMKInputController {
         SymbolsPanel.shared.cancelClose()
         DictionaryPanel.shared.cancelClose()
         DictionaryPanel.shared.currentTerm = { [weak self] in self?.termAtCaret() ?? "" }
-        StackerPanel.shared.insert = { [weak self] text in self?.insertFromTool(text) }
-        SymbolsPanel.shared.insert = { [weak self] text in self?.insertFromTool(text) }
+        // Use the shared document client, not `self.client`, so a later
+        // activation for our own process cannot steal inserts.
+        StackerPanel.shared.insert = { text in Self.insertIntoDocument(text) }
+        SymbolsPanel.shared.insert = { text in Self.insertIntoDocument(text) }
         toolbar.show(toolbarState)
     }
 
@@ -295,8 +319,23 @@ final class TTimeInputController: IMKInputController {
         apply(Outcome(insert: composer.commitAll(), marked: "", handled: true), to: client)
     }
 
-    private func insertFromTool(_ text: String) {
-        client?.insertText(text, replacementRange: noRange)
+    /// Puts tool text (Stacker / Symbols) into the last real document.
+    private static func insertIntoDocument(_ text: String) {
+        guard !text.isEmpty else { return }
+        let noRange = NSRange(location: NSNotFound, length: NSNotFound)
+        guard let client = documentClient ?? active?.client else {
+            DebugLog.log("insertIntoDocument: no document client")
+            return
+        }
+        DebugLog.log("insertIntoDocument client=\(client.bundleIdentifier() ?? "?") len=\(text.count)")
+        // Fix the syllable being typed first, so it is not lost when the marked run is
+        // cleared; it goes in ahead of the tool's text.
+        let pending = active?.composer.commitAll() ?? ""
+        // Clear the marked run; some hosts ignore insertText while one is open.
+        client.setMarkedText(NSAttributedString(string: ""),
+                             selectionRange: NSRange(location: 0, length: 0),
+                             replacementRange: noRange)
+        client.insertText(pending + text, replacementRange: noRange)
     }
 
     private func toolbarChoose(latin: Bool) {
