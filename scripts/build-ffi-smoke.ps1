@@ -55,7 +55,9 @@ $inc = "crates\ttime-ffi\include"
 $out = "build\ffi-smoke.exe"
 
 # /utf-8: the sources are UTF-8; Windows runners default to code page 1252 (warning C4819).
-$linkArgs = @("/nologo", "/utf-8", "/W4", "/O2", "/Fe:$out", "ffi-smoke\main.c", "/I$inc", "/link", $lib) + $nativeLibs
+# /MD: the DLL C runtime, as Rust's MSVC staticlib uses; cl's default (/MT, LIBCMT) mixes
+# two runtimes (LNK4098), which a TSF DLL loaded into other processes must not do.
+$linkArgs = @("/nologo", "/utf-8", "/W4", "/MD", "/O2", "/Fe:$out", "ffi-smoke\main.c", "/I$inc", "/link", $lib) + $nativeLibs
 & cl @linkArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
