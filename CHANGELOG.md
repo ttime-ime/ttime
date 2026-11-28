@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-- Linux IBus MVP (composer only): `linux/ibus/` builds `ibus-engine-ttime` over
-  `ttime-ffi`, with EWTS preedit, commit, Backspace/Escape, and left-Shift
-  Tibetan/Latin. Install with `scripts/install-linux-ibus.sh`; CI uploads the
-  binary (`scripts/build-linux-ibus.sh`). Fcitx5 and Stacker/Symbols UI are not
-  included yet.
+- Linux IBus engine, composer only: `linux/ibus/` builds `ibus-engine-ttime` over
+  `ttime-ffi`, with underlined provisional EWTS, commit, Backspace/Escape, and the
+  left-Shift Tibetan/Latin tap and lock. One mode lock serves every window and is saved
+  in `~/.config/t-time/ibus.ini`. Install with `scripts/install-linux-ibus.sh`; CI builds
+  it (`scripts/build-linux-ibus.sh`) but it has not been run under IBus yet. Fcitx5 and
+  the Stacker/Symbols UI are not included yet.
 - Windows text service (TSF), composer only: `windows/tsf/` builds `TTimeTSF.dll` over
   `ttime-ffi`, with underlined provisional EWTS, commit on Space and Return,
   Backspace/Escape, and the left-Shift Tibetan/Latin tap and lock. Register with

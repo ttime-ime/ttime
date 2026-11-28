@@ -47,7 +47,8 @@ separate_arguments(_ttime_native_libs NATIVE_COMMAND "${TTIME_NATIVE_LIBS}")
 
 target_link_libraries(TTimeTSF PRIVATE
   "${TTIME_FFI_LIB}"
-  msctf
+  # No msctf.lib: TSF objects come from CoCreateInstance (ole32) and their GUIDs
+  # (CLSID_TF_*, GUID_TFCAT_*) from uuid.lib.
   ole32
   oleaut32
   uuid

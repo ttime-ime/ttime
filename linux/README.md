@@ -17,7 +17,7 @@ US/Latin keyboard layout (`layout` us in the component).
 
 ## Prerequisites
 
-- Linux with IBus (GNOME Wayland is the primary test target)
+- Linux with IBus (GNOME on Wayland is the intended first target)
 - [Rust](https://rustup.rs/) (stable)
 - A C11 compiler (`cc`)
 - Development packages, e.g. Debian/Ubuntu:
@@ -50,7 +50,12 @@ ibus restart
 ```
 
 That copies the engine to `~/.local/libexec/ibus-engine-ttime` and the component
-to `~/.local/share/ibus/component/ttime.xml`.
+to `~/.local/share/ibus/component/ttime.xml`. Not yet checked: whether your
+`ibus-daemon` reads that folder. If `ibus list-engine | grep -i ttime` shows nothing
+after `ibus restart`, point IBus at it with `IBUS_COMPONENT_PATH` (it replaces the
+search path, so include the system folder too, for example
+`/usr/share/ibus/component:$HOME/.local/share/ibus/component`), or copy
+`build/linux/ttime.xml` into `/usr/share/ibus/component/` with `sudo`.
 
 Then add the input source:
 
@@ -65,11 +70,22 @@ Then add the input source:
 | Space | Commits `བཀྲ་` |
 | Backspace | Edits the preedit |
 | Escape | Cancels the preedit |
-| Left Shift tap | Toggles Tibetan / Latin |
+| Left Shift tap | Toggles Tibetan / Latin (double tap locks) |
+| Switch to another window | Starts in the mode last chosen, or the locked mode |
+| Ctrl+S, Alt+F, … | Reach the application |
 | Latin mode | ASCII passes through |
 
 Try gedit or LibreOffice. Floating UI (Stacker, Symbols, accents, Sanskrit) is
-out of scope for this MVP.
+out of scope for this MVP. None of this has been run under IBus yet; CI only builds
+the engine.
+
+## Mode memory
+
+One engine process serves every window, and the mode lock is shared by all of them,
+so a lock or the mode last chosen carries over, as on macOS. Both are saved in
+`~/.config/t-time/ibus.ini` (`[mode]` `lock`, `last`: -1 none, 0 Tibetan, 1 Latin);
+`start` (0 or 1) sets the mode before any choice. The rule is the core's
+`ttime_mode_lock_mode_on_focus`.
 
 ## FFI smoke (no IME)
 

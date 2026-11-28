@@ -96,7 +96,7 @@ jobs:
       - name: Install IBus development packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libibus-1.0-dev
+          sudo apt-get install -y pkg-config libibus-1.0-dev
       - uses: actions/cache@v6
         with:
           path: |

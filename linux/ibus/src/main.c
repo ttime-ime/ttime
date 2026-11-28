@@ -29,7 +29,8 @@ static void start_component(void) {
     g_object_ref_sink(factory);
     ibus_factory_add_engine(factory, "ttime", TTIME_TYPE_ENGINE);
 
-    if (!ibus_bus_request_name(bus, "org.freedesktop.IBus.TTime")) {
+    /* flags 0: normal name request; return 0 means failure. */
+    if (ibus_bus_request_name(bus, "org.freedesktop.IBus.TTime", 0) == 0) {
         g_warning("T-Time: could not request IBus bus name");
         exit(1);
     }

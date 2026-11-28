@@ -72,17 +72,8 @@ static gboolean ttime_engine_process_key_event(IBusEngine *engine, guint keyval,
     TTimeEngine *self = TTIME_ENGINE(engine);
     (void)keycode;
 
-    const bool is_release = (modifiers & IBUS_RELEASE_MASK) != 0;
-    const bool is_key_down = !is_release;
-    /* IBus sets IBUS_MODIFIER_MASK bits; auto-repeat is not always flagged.
-     * Use IBUS_IGNORED_MASK historically; modern IBus may not set a repeat bit.
-     * Pass false unless we detect lock+repeat patterns — long-press accents are
-     * out of scope for this MVP. */
-    const bool is_repeat = FALSE;
-
     ttime_outcome out = {0};
-    const bool handled =
-        composer_host_handle_key(&self->host, keyval, modifiers, is_key_down, is_repeat, &out);
+    const bool handled = composer_host_handle_key(&self->host, keyval, modifiers, &out);
 
     const bool has_insert = out.insert && out.insert[0];
     const bool has_marked = out.marked && out.marked[0];
@@ -91,9 +82,7 @@ static gboolean ttime_engine_process_key_event(IBusEngine *engine, guint keyval,
     }
     ttime_outcome_free(&out);
 
-    /* Never swallow Shift: the application must see the modifier. */
-    if (keyval == IBUS_Shift_L || keyval == IBUS_Shift_R) return FALSE;
-
+    /* composer_host_handle_key never takes Shift: the application sees it. */
     return handled ? TRUE : FALSE;
 }
 
