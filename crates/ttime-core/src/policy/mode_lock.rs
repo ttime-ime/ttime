@@ -1,5 +1,6 @@
-//! Policy for the left Shift tap: a single tap flips Tibetan/Latin until focus
-//! moves on; a double tap locks the mode you were already in.
+//! Policy for the left Shift tap and the mode a field starts in: a single tap flips
+//! Tibetan/Latin, and the mode is remembered when focus moves to another field or app;
+//! a double tap locks the mode you were already in.
 
 use super::shift_tap::ShiftTapKind;
 
@@ -8,12 +9,25 @@ use super::shift_tap::ShiftTapKind;
 pub struct ModeLock {
     /// `None`: unlocked. `Some(true)`: locked in Latin. `Some(false)`: locked in Tibetan.
     pub locked_latin: Option<bool>,
+    /// The mode last chosen (by a tap or the toolbar), carried to the next field;
+    /// `None` until the first choice.
+    pub last_latin: Option<bool>,
+    /// The mode before any choice (a setting): false is Tibetan.
+    pub start_latin: bool,
 }
 
 impl ModeLock {
     /// Returns the Latin setting the composer should switch to, or `None` to leave
     /// it alone. `is_latin` is the composer's mode *now*, after any earlier tap.
     pub fn left_tap(&mut self, kind: ShiftTapKind, is_latin: bool) -> Option<bool> {
+        let mode = self.tap_mode(kind, is_latin);
+        if mode.is_some() {
+            self.last_latin = mode;
+        }
+        mode
+    }
+
+    fn tap_mode(&mut self, kind: ShiftTapKind, is_latin: bool) -> Option<bool> {
         match kind {
             ShiftTapKind::Single => {
                 if self.locked_latin.is_none() {
@@ -43,6 +57,7 @@ impl ModeLock {
         if self.locked_latin.is_some() {
             self.locked_latin = Some(latin);
         }
+        self.last_latin = Some(latin);
         latin
     }
 
@@ -55,9 +70,12 @@ impl ModeLock {
         };
     }
 
-    /// The mode a client starts in when it gains focus.
+    /// The mode a client starts in when it gains focus: the locked mode, else the
+    /// mode last chosen, else the start mode.
     pub fn mode_on_focus(&self) -> bool {
-        self.locked_latin.unwrap_or(false)
+        self.locked_latin
+            .or(self.last_latin)
+            .unwrap_or(self.start_latin)
     }
 }
 
@@ -91,6 +109,30 @@ mod tests {
         assert_eq!(m.left_tap(ShiftTapKind::Double, false), Some(true));
         assert_eq!(m.locked_latin, Some(true));
         assert!(m.mode_on_focus(), "locked Latin survives focus");
+    }
+
+    #[test]
+    fn the_mode_carries_over_to_the_next_field() {
+        let mut m = ModeLock::default();
+        assert!(!m.mode_on_focus(), "Tibetan before any choice");
+        m.start_latin = true;
+        assert!(
+            m.mode_on_focus(),
+            "the start setting applies until a choice"
+        );
+        assert_eq!(m.left_tap(ShiftTapKind::Single, true), Some(false));
+        assert!(!m.mode_on_focus(), "a tap is remembered");
+        m.choose(true);
+        assert!(m.mode_on_focus(), "so is a toolbar click");
+        // A double tap undoes its first tap and locks; unlocking keeps the last mode.
+        assert_eq!(m.left_tap(ShiftTapKind::Single, true), Some(false));
+        assert_eq!(m.left_tap(ShiftTapKind::Double, false), Some(true));
+        assert_eq!(m.last_latin, Some(true));
+        m.toggle_lock(true);
+        assert!(m.mode_on_focus());
+        // A lock wins over the last mode.
+        m.locked_latin = Some(false);
+        assert!(!m.mode_on_focus());
     }
 
     #[test]

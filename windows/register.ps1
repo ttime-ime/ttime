@@ -33,7 +33,7 @@ if ($Unregister) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     Write-Host "Registered $Dll"
     Write-Host ""
-    Write-Host "Next: Settings → Time & Language → Language & region → English (United States)"
-    Write-Host "  → Language options → Keyboards → Add a keyboard → T-Time"
+    Write-Host "Next: Settings → Time & Language → Language & region → add Tibetan (PRC) if needed,"
+    Write-Host "  then Tibetan → Language options → Keyboards → Add a keyboard → T-Time"
     Write-Host "Then pick T-Time from the taskbar input menu and type in Notepad."
 }

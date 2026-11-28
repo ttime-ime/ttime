@@ -2,11 +2,21 @@
 
 ## Unreleased
 
+- Linux IBus MVP (composer only): `linux/ibus/` builds `ibus-engine-ttime` over
+  `ttime-ffi`, with EWTS preedit, commit, Backspace/Escape, and left-Shift
+  Tibetan/Latin. Install with `scripts/install-linux-ibus.sh`; CI uploads the
+  binary (`scripts/build-linux-ibus.sh`). Fcitx5 and Stacker/Symbols UI are not
+  included yet.
 - Windows text service (TSF), composer only: `windows/tsf/` builds `TTimeTSF.dll` over
   `ttime-ffi`, with underlined provisional EWTS, commit on Space and Return,
   Backspace/Escape, and the left-Shift Tibetan/Latin tap and lock. Register with
   `windows/register.ps1`; CI builds the DLL (`scripts/build-windows-tsf.ps1`) but it has
-  not been tried on Windows yet. No Stacker, Symbols or toolbar yet.
+  not been tried on Windows yet. No Stacker, Symbols or toolbar yet. It is registered
+  under Tibetan (PRC), and the mode last chosen (or locked) carries over to other
+  applications, through `HKCU\Software\T-Time`.
+- The rule for the mode a field starts in (the lock, else the mode last chosen, else the
+  start setting) is now in `ttime-core`'s mode lock, shared by macOS and Windows;
+  macOS behaves as before.
 - macOS: Stacker and Symbols clicks insert into the document even when macOS has
   switched the input method to T-Time's own window; a syllable being typed is committed
   first. The buttons still work from the keyboard and VoiceOver.

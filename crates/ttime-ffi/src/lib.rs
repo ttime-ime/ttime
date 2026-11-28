@@ -590,6 +590,39 @@ pub unsafe extern "C" fn ttime_mode_lock_get(m: *const ttime_mode_lock) -> c_int
 /// # Safety
 /// `m` must be null or a live mode lock.
 #[no_mangle]
+pub unsafe extern "C" fn ttime_mode_lock_set_last(m: *mut ttime_mode_lock, last: c_int) {
+    if !m.is_null() {
+        (*m).0.last_latin = match last {
+            -1 => None,
+            0 => Some(false),
+            _ => Some(true),
+        };
+    }
+}
+
+/// # Safety
+/// `m` must be null or a live mode lock.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_mode_lock_get_last(m: *const ttime_mode_lock) -> c_int {
+    if m.is_null() {
+        -1
+    } else {
+        tri((*m).0.last_latin)
+    }
+}
+
+/// # Safety
+/// `m` must be null or a live mode lock.
+#[no_mangle]
+pub unsafe extern "C" fn ttime_mode_lock_set_start_latin(m: *mut ttime_mode_lock, latin: bool) {
+    if !m.is_null() {
+        (*m).0.start_latin = latin;
+    }
+}
+
+/// # Safety
+/// `m` must be null or a live mode lock.
+#[no_mangle]
 pub unsafe extern "C" fn ttime_mode_lock_left_tap(
     m: *mut ttime_mode_lock,
     kind: c_int,
@@ -1252,6 +1285,16 @@ mod tests {
             assert!(ttime_mode_lock_mode_on_focus(m));
             ttime_mode_lock_toggle_lock(m, true);
             assert_eq!(ttime_mode_lock_get(m), -1);
+            assert_eq!(
+                ttime_mode_lock_get_last(m),
+                0,
+                "the double tap's mode is remembered"
+            );
+            ttime_mode_lock_set_last(m, -1);
+            ttime_mode_lock_set_start_latin(m, true);
+            assert!(ttime_mode_lock_mode_on_focus(m));
+            ttime_mode_lock_set_last(m, 0);
+            assert!(!ttime_mode_lock_mode_on_focus(m));
             ttime_mode_lock_free(m);
 
             let t = ttime_shift_tap_new();

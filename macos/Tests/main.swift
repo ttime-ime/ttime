@@ -175,6 +175,13 @@ do {
     if m.leftTap(.double, isLatin: false) != true || m.lockedLatin != true { failures += 1; print("FAIL lock Latin") }
     if m.modeOnFocus != true { failures += 1; print("FAIL locked Latin survives focus") }
     if ModeLock().modeOnFocus != false { failures += 1; print("FAIL unlocked focus starts Tibetan") }
+    let r = ModeLock()
+    r.setStartLatin(true)
+    if r.modeOnFocus != true { failures += 1; print("FAIL the start setting applies before any choice") }
+    _ = r.leftTap(.single, isLatin: true)
+    if r.modeOnFocus != false { failures += 1; print("FAIL a tap is remembered for the next field") }
+    _ = r.choose(latin: true)
+    if r.modeOnFocus != true { failures += 1; print("FAIL a toolbar click is remembered") }
 }
 do {
     let m = ModeLock()

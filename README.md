@@ -6,8 +6,9 @@ then Linux). See `docs/` for the plan, the EWTS specification and decision recor
 
 macOS has a working InputMethodKit shell (`macos/`). Windows has a composer-only
 TSF text service (`windows/tsf/`, build with `scripts/build-windows-tsf.ps1`; see
-`windows/README.md`). Linux remains a scaffold for a future IBus/Fcitx5 shell.
-The shared C ABI is also exercised by `ffi-smoke/`
+`windows/README.md`). Linux has a composer-only IBus engine (`linux/ibus/`, build
+with `scripts/build-linux-ibus.sh`; see `linux/README.md`); Fcitx5 is not included
+yet. The shared C ABI is also exercised by `ffi-smoke/`
 (`scripts/build-ffi-smoke.sh` / `.ps1`).
 
 ## Licence

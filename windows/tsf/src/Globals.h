@@ -8,7 +8,9 @@
 #include "Guids.h"
 
 #define TTIME_TEXT_SERVICE_DESC L"T-Time"
-#define TTIME_LANGID MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US)
+// Registered under Tibetan (PRC), bo-CN, so typed text is tagged Tibetan for fonts and
+// spelling; EWTS is still typed on the Latin keys of whatever keyboard is in use.
+#define TTIME_LANGID MAKELANGID(LANG_TIBETAN, SUBLANG_TIBETAN_PRC)
 
 extern HINSTANCE g_hInst;
 extern std::atomic<LONG> g_dllRefCount;

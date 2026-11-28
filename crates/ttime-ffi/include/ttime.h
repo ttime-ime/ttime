@@ -195,26 +195,33 @@ char *ttime_composer_suggestion_buffer(const ttime_composer *c);
 
 /* --- Mode lock: left-Shift tap policy --- */
 
-/* A single tap flips Tibetan/Latin until focus moves on; a double tap locks the
- * mode the user was in (and survives focus changes); while locked, single taps
- * do nothing and a double tap unlocks. Toolbar clicks are never refused. Keep one
- * instance for every client so they cannot disagree. Lock values: -1 unlocked,
- * 0 locked Tibetan, 1 locked Latin. */
+/* A single tap flips Tibetan/Latin; a double tap locks the mode the user was in;
+ * while locked, single taps do nothing and a double tap unlocks. Toolbar clicks are
+ * never refused. A field gaining focus starts in the locked mode, else the mode last
+ * chosen (by a tap or a click, in any field), else the start mode. Keep one instance
+ * for every client so they cannot disagree; a shell whose clients are separate
+ * processes (Windows) saves lock and last mode and loads them on focus.
+ * Lock and last-mode values: -1 none, 0 Tibetan, 1 Latin. */
 typedef struct ttime_mode_lock ttime_mode_lock;
 
 ttime_mode_lock *ttime_mode_lock_new(void);
 void ttime_mode_lock_free(ttime_mode_lock *m);
 void ttime_mode_lock_set(ttime_mode_lock *m, int locked);
 int ttime_mode_lock_get(const ttime_mode_lock *m);
+void ttime_mode_lock_set_last(ttime_mode_lock *m, int last);
+int ttime_mode_lock_get_last(const ttime_mode_lock *m);
+/* The mode before any choice (a setting; false, Tibetan, by default). */
+void ttime_mode_lock_set_start_latin(ttime_mode_lock *m, bool latin);
 /* `kind` as returned by ttime_shift_tap_release (1 single, 2 double); `is_latin`
  * is the mode now, after any earlier tap. Returns the mode to switch to (0
  * Tibetan, 1 Latin) or -1 to leave it alone. */
 int ttime_mode_lock_left_tap(ttime_mode_lock *m, int kind, bool is_latin);
-/* A toolbar click on a mode: returns `latin`; while locked the lock follows it. */
+/* A toolbar click on a mode: returns `latin` and remembers it; while locked the lock
+ * follows it. */
 bool ttime_mode_lock_choose(ttime_mode_lock *m, bool latin);
 /* The toolbar lock button: locks the current mode, or unlocks. */
 void ttime_mode_lock_toggle_lock(ttime_mode_lock *m, bool is_latin);
-/* The mode a client starts in when it gains focus (true: Latin). */
+/* The mode a field starts in when it gains focus (true: Latin). */
 bool ttime_mode_lock_mode_on_focus(const ttime_mode_lock *m);
 
 /* --- Shift tap: recognising a lone Shift press --- */

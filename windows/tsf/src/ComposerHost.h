@@ -35,4 +35,8 @@ private:
     ttime_mode_lock *modeLock_ = nullptr;
 
     bool HandleShift(bool left, bool isKeyDown, double timeSec, ttime_outcome *out);
+    // The lock and the last mode are shared by every application (each loads its own
+    // copy of the DLL), through HKCU\Software\T-Time; loaded on focus, saved on change.
+    void LoadMode();
+    void SaveMode();
 };

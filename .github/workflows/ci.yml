@@ -87,6 +87,33 @@ jobs:
           key: ffi-linux-${{ hashFiles('Cargo.lock') }}
       - run: scripts/build-ffi-smoke.sh
 
+  linux-ibus:
+    name: Linux IBus engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: rustup toolchain install stable --profile minimal
+      - name: Install IBus development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libibus-1.0-dev
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: linux-ibus-${{ hashFiles('Cargo.lock') }}
+      - run: scripts/build-linux-ibus.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ibus-engine-ttime-ci
+          path: |
+            build/linux/ibus-engine-ttime
+            build/linux/ttime.xml
+            build/linux/libttime_ffi.a
+          retention-days: 7
+
   ffi-windows:
     name: FFI smoke (Windows)
     runs-on: windows-latest

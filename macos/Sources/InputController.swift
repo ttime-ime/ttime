@@ -23,10 +23,6 @@ final class TTimeInputController: IMKInputController {
         if let v = v { UserDefaults.standard.set(v, forKey: lockKey) }
         else { UserDefaults.standard.removeObject(forKey: lockKey) }
     }
-    /// The mode last chosen in any window, so switching windows keeps it. Nil until
-    /// the first choice, when the Settings start mode applies.
-    private static var lastLatin: Bool?
-    private func rememberMode() { Self.lastLatin = composer.isLatin }
     private let noRange = NSRange(location: NSNotFound, length: NSNotFound)
 
     /// The controller whose client currently has focus; the toolbar acts on it.
@@ -180,8 +176,10 @@ final class TTimeInputController: IMKInputController {
         client = incoming
         if let client = client {
             Self.documentClient = client
-            apply(composer.setLatin(Self.lock.lockedLatin ?? Self.lastLatin ?? Prefs.startLatin), to: client)
-            rememberMode()
+            // The lock, else the mode last chosen in any window, else the start setting
+            // (the rule is in ttime-core; taps and toolbar clicks are remembered there).
+            Self.lock.setStartLatin(Prefs.startLatin)
+            apply(composer.setLatin(Self.lock.modeOnFocus), to: client)
         }
         Self.active = self
         let toolbar = Toolbar.shared
@@ -343,7 +341,6 @@ final class TTimeInputController: IMKInputController {
         Self.saveLock()  // a lock follows the mode you chose
         if let client = client {
             apply(composer.setLatin(latin), to: client)
-            rememberMode()
         }
         refreshToolbar()
     }
@@ -359,7 +356,6 @@ final class TTimeInputController: IMKInputController {
         case (.left, _):
             if let latin = Self.lock.leftTap(tap.kind, isLatin: composer.isLatin) {
                 apply(composer.setLatin(latin), to: client)
-                rememberMode()
             }
             if tap.kind == .double { Self.saveLock() }
             refreshToolbar()

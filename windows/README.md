@@ -15,7 +15,8 @@ Stable identifiers (do not change once published):
 
 - **CLSID:** `{B7E4C2A1-9F3D-4E8B-A1C6-2D5E8F0A1B3C}`
 - **Profile GUID:** `{C8F5D3B2-0A4E-5F9C-B2D7-3E6F9A1B2C4D}`
-- **Language:** English (United States) — EWTS is typed on a Latin keyboard
+- **Language:** Tibetan (PRC), bo-CN, so typed text is tagged Tibetan; EWTS is typed
+  on the Latin keys of whatever keyboard layout is in use
 
 ## Prerequisites
 
@@ -47,8 +48,10 @@ pwsh -File windows/register.ps1 -Unregister
 
 ## Enable and test
 
-1. Settings → Time & Language → Language & region → **English (United States)**  
-   → Language options → Keyboards → **Add a keyboard** → **T-Time**
+1. Settings → Time & Language → Language & region → **Add a language** → **Tibetan
+   (PRC)** (if it is not there yet), then Tibetan → Language options → Keyboards →
+   **Add a keyboard** → **T-Time**. Windows may add its own Tibetan keyboard with the
+   language; remove it there if you do not want it.
 2. Choose **T-Time** from the taskbar input indicator (or Win+Space).
 3. Open Notepad and try:
 
@@ -60,6 +63,7 @@ pwsh -File windows/register.ps1 -Unregister
 | Escape | Cancels the preedit |
 | Return mid-syllable | Commits it, then a new line |
 | Left Shift tap | Toggles Tibetan / Latin (double tap locks) |
+| Switch to another app | Starts in the mode last chosen, or the locked mode |
 | Latin mode | ASCII passes through |
 | Ctrl+S, Alt+F, … | Reach the application; Ctrl or Alt alone commits nothing |
 | Click another window mid-syllable | The syllable is committed where it was typed |
@@ -67,6 +71,14 @@ pwsh -File windows/register.ps1 -Unregister
 Word should behave the same for basic composition. None of this has been run on
 Windows yet; CI only builds the DLL. Floating UI (Stacker,
 Symbols, accents, Sanskrit) is out of scope for this MVP.
+
+## Mode memory
+
+The lock and the last mode are kept in `HKCU\Software\T-Time` (`ModeLock`,
+`LastMode`: DWORD 0 none, 1 Tibetan, 2 Latin), because each application loads its own
+copy of the DLL. `StartMode` (same values) sets the mode before any choice; there is no
+settings window for it yet. The rule itself (lock, else last mode, else start mode) is
+the core's `ttime_mode_lock_mode_on_focus`, the same as on macOS.
 
 ## FFI smoke (no IME)
 

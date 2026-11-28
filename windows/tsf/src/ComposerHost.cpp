@@ -10,6 +10,23 @@ ttime_outcome EmptyOutcome() {
 
 bool Down(int vk) { return (GetKeyState(vk) & 0x8000) != 0; }
 
+constexpr wchar_t kModeKey[] = L"Software\\T-Time";
+
+// -1 none, 0 Tibetan, 1 Latin, stored as DWORD 0, 1, 2 (absent is none).
+int ReadTri(const wchar_t *name) {
+    DWORD v = 0, size = sizeof(v);
+    if (RegGetValueW(HKEY_CURRENT_USER, kModeKey, name, RRF_RT_REG_DWORD, nullptr, &v, &size) !=
+        ERROR_SUCCESS) {
+        return -1;
+    }
+    return v == 1 ? 0 : v == 2 ? 1 : -1;
+}
+
+void WriteTri(const wchar_t *name, int value) {
+    DWORD v = value < 0 ? 0 : static_cast<DWORD>(value + 1);
+    RegSetKeyValueW(HKEY_CURRENT_USER, kModeKey, name, REG_DWORD, &v, sizeof(v));
+}
+
 // Modifier and lock keys on their own: they change no text and must not commit
 // the composition (on macOS they arrive as flag changes, not keys).
 bool IsModifierOnly(WPARAM vk) {
@@ -81,9 +98,21 @@ void ComposerHost::Reset() {
     ttime_shift_tap_reset(shiftTap_);
 }
 
+void ComposerHost::LoadMode() {
+    ttime_mode_lock_set(modeLock_, ReadTri(L"ModeLock"));
+    ttime_mode_lock_set_last(modeLock_, ReadTri(L"LastMode"));
+    ttime_mode_lock_set_start_latin(modeLock_, ReadTri(L"StartMode") == 1);
+}
+
+void ComposerHost::SaveMode() {
+    WriteTri(L"ModeLock", ttime_mode_lock_get(modeLock_));
+    WriteTri(L"LastMode", ttime_mode_lock_get_last(modeLock_));
+}
+
 void ComposerHost::OnActivate() {
     Reset();
-    // Tibetan unless the mode is locked.
+    LoadMode();
+    // The locked mode, else the mode last chosen in any application, else the start mode.
     ttime_outcome o = ttime_composer_set_latin(composer_, ttime_mode_lock_mode_on_focus(modeLock_));
     ttime_outcome_free(&o);
 }
@@ -107,6 +136,7 @@ bool ComposerHost::HandleShift(bool left, bool isKeyDown, double timeSec, ttime_
     if (kind != 0 && left) {
         const int want = ttime_mode_lock_left_tap(modeLock_, kind, ttime_composer_is_latin(composer_));
         if (want >= 0) *out = ttime_composer_set_latin(composer_, want == 1);
+        SaveMode();  // the last mode, and a lock set or cleared by a double tap
     }
     return false;  // the release goes to the application too
 }

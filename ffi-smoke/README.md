@@ -25,5 +25,5 @@ for the smoke itself.
 ## Header
 
 `crates/ttime-ffi/include/ttime.h` is the contract. The Windows TSF shell
-(`windows/tsf/`) and a future Linux (IBus/Fcitx5) shell call the same API; see `windows/` and
+(`windows/tsf/`) and the Linux IBus shell (`linux/ibus/`) call the same API; see `windows/` and
 `linux/`.
