@@ -188,14 +188,16 @@ pub unsafe extern "C" fn ttime_convert(utf8: *const c_char, precomposed: bool) -
     } else {
         CStr::from_ptr(utf8).to_string_lossy().into_owned()
     };
-    to_c(convert(
-        &input,
-        Options {
-            precomposed,
-            diplomatic: false,
-        },
+    to_c(
+        convert(
+            &input,
+            Options {
+                precomposed,
+                diplomatic: false,
+            },
+        )
+        .text,
     )
-    .text)
 }
 
 /// # Safety
