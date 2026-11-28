@@ -10,7 +10,8 @@ cargo build --release -p ttime-ffi
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # System libraries the Rust staticlib needs (ws2_32, bcrypt, …).
-$nativeNote = cargo rustc -p ttime-ffi --release -- --print=native-static-libs 2>&1 |
+# --color never: CI sets CARGO_TERM_COLOR=always, and colour codes end up in the library names.
+$nativeNote = cargo rustc --color never -p ttime-ffi --release -- --print=native-static-libs 2>&1 |
     Select-String -Pattern "native-static-libs:" |
     Select-Object -Last 1
 $nativeLibs = @()
@@ -30,6 +31,10 @@ if ($nativeNote) {
             }
         }
     }
+}
+
+if ($nativeLibs.Count -eq 0) {
+    Write-Error "could not read the native libraries ttime-ffi needs"
 }
 
 # Load the Visual Studio developer environment so cl.exe is on PATH.
