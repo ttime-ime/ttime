@@ -33,6 +33,9 @@ for f in glob.glob(os.path.join(sys.argv[3], 'files', '*', '*.conllu')):
         if not line[:1].isdigit(): continue
         c = line.rstrip('\n').split('\t')
         if len(c) < 10 or '-' in c[0] or c[3] in ('PUNCT', '_') or c[2] in ('_', ''): continue
+        # A few DCS lemmas carry stray half-width Hangul (U+FFB1, U+FFDE) where a
+        # letter was garbled; they are not words, so they are left out.
+        if any('\uff00' <= ch <= '\uffef' for ch in c[2]): continue
         counts[unicodedata.normalize('NFC', c[2])] += 1
 for lemma in counts: words.setdefault(lemma, False)
 

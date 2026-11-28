@@ -6,44 +6,45 @@ import Foundation
 /// tap always unlocks, so the lock can never trap the user. The toolbar's mode
 /// buttons are never refused: the lock is only against Shift taps.
 ///
-/// Pure, so it is testable. The one live instance owns the lock for every
-/// client application, so controllers cannot disagree about it.
-struct ModeLock: Equatable {
+/// The rules live in `ttime-core` (`ttime_mode_lock_*`). The one live instance
+/// owns the lock for every client application, so controllers cannot disagree.
+final class ModeLock {
+    private let ptr: OpaquePointer?
+
+    init(lockedLatin: Bool? = nil) {
+        ptr = ttime_mode_lock_new()
+        self.lockedLatin = lockedLatin
+    }
+
+    deinit { ttime_mode_lock_free(ptr) }
+
     /// nil: unlocked. true: locked in Latin. false: locked in Tibetan.
-    var lockedLatin: Bool?
+    var lockedLatin: Bool? {
+        get { Self.mode(ttime_mode_lock_get(ptr)) }
+        set { ttime_mode_lock_set(ptr, newValue.map { $0 ? 1 : 0 } ?? -1) }
+    }
 
     /// Returns the Latin setting the composer should switch to, or nil to leave
     /// it alone. `isLatin` is the composer's mode *now*, after any earlier tap.
-    mutating func leftTap(_ kind: ShiftTapKind, isLatin: Bool) -> Bool? {
-        switch kind {
-        case .single:
-            return lockedLatin == nil ? !isLatin : nil
-        case .double:
-            if lockedLatin != nil {
-                lockedLatin = nil
-                return nil
-            }
-            // The first tap of the pair already flipped the mode: flip it back
-            // and lock the mode the user was in.
-            let original = !isLatin
-            lockedLatin = original
-            return original
-        }
+    func leftTap(_ kind: ShiftTapKind, isLatin: Bool) -> Bool? {
+        Self.mode(ttime_mode_lock_left_tap(ptr, kind == .single ? 1 : 2, isLatin))
     }
 
-    /// A click on a mode in the toolbar: always allowed. The lock only stops Shift
-    /// taps, so a click while locked changes the mode and the lock follows it (it now
-    /// holds the mode you chose, across fields and apps, until you unlock).
-    mutating func choose(latin: Bool) -> Bool {
-        if lockedLatin != nil { lockedLatin = latin }
-        return latin
-    }
+    /// A click on a mode in the toolbar: always allowed. While locked, the lock
+    /// follows the mode you chose.
+    func choose(latin: Bool) -> Bool { ttime_mode_lock_choose(ptr, latin) }
 
     /// The toolbar's lock button: locks the current mode, or unlocks.
-    mutating func toggleLock(isLatin: Bool) {
-        lockedLatin = lockedLatin == nil ? isLatin : nil
-    }
+    func toggleLock(isLatin: Bool) { ttime_mode_lock_toggle_lock(ptr, isLatin) }
 
     /// The mode a client starts in when it gains focus.
-    var modeOnFocus: Bool { lockedLatin ?? false }
+    var modeOnFocus: Bool { ttime_mode_lock_mode_on_focus(ptr) }
+
+    private static func mode(_ v: Int32) -> Bool? {
+        switch v {
+        case 0: return false
+        case 1: return true
+        default: return nil
+        }
+    }
 }

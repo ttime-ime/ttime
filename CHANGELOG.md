@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- The typing behaviour (composer, long-press accents, Sanskrit suggestions, the Shift-tap
+  mode lock and its timing, Stacker and Symbols window state, dictionary term rules) now
+  lives in `ttime-core` and reaches the shells through the C interface (`ttime.h`), so
+  Windows and Linux versions can share it. The macOS Swift sources are thin wrappers;
+  nothing is drawn differently. The key-policy tests run in Rust and again through the
+  Swift wrappers.
+- The Sanskrit word list is parsed once, in the background, and shared by every window;
+  switching apps no longer waits for it.
+- Sanskrit word list: five garbled entries (stray half-width Hangul from the corpus data,
+  such as `kﾱp`) are removed, and the build script now leaves such lemmas out.
+- Symbols: paluta (U+0F85) no longer gets a dotted circle; it is punctuation, not a mark.
+- Stacker: switching between precomposed and decomposed output rebuilds the current stack.
+
 ## 0.1.0-rc.7
 
 - Fix the release build: the menu-bar icon is a real file again (rc.6's link outside the

@@ -1,22 +1,24 @@
 # macOS input method
 
 A thin InputMethodKit shell over the T-Time engine, plus a companion app
-**T-Time Tools** for converting selected text. All typing and batch conversion
-behaviour lives in `ttime-core` and reaches Swift through the C ABI in
-`crates/ttime-ffi/include/ttime.h`, so the engine can be replaced or upgraded
-without touching the shells.
+**T-Time Tools** for converting selected text. Typing policy (composer, accents,
+Sanskrit suggestions, mode lock, shift-tap timing, stacker and symbols state,
+dictionary term rules) and batch conversion live in `ttime-core` and reach Swift
+through the C ABI in `crates/ttime-ffi/include/ttime.h`, so Windows and Linux
+shells can share the same behaviour. The Swift sources named below are thin
+wrappers; drawing stays in AppKit.
 
-- `Sources/Composer.swift`: key policy over the C engine; no UI dependencies.
+- `Sources/Composer.swift`: thin wrapper over `ttime_composer` (key policy in Rust).
 - `Sources/InputController.swift`: maps `NSEvent` to `Composer` and writes marked and committed text to the client application.
 - `Sources/Toolbar.swift`: the floating, branded toolbar (mode, lock, Symbols and Stacker buttons). AppKit only, so it is built but not unit-tested; it was checked by rendering it.
 - `Sources/PanelChrome.swift`: what the Symbols, Stacker and Dictionary windows share, so they behave as one navigator: the header (title, tab bar, close button), the fixed width and shared height (the grip changes only the height), one remembered top-left, and the rule that a new tab opens with its tab bar exactly where the old one was. Always one column.
 - `Sources/Theme.swift`: the visual styles (Bubblegum pink, and Brutalist black and white, which follows light and dark mode), chosen in the installer and in Settings. Changing the style or the system appearance rebuilds the toolbar and the panels.
-- `Sources/DictionaryModel.swift`, `Sources/DictionaryPanel.swift`: the Dictionary tab and toolbar button. It shows Christian Steinert's Tibetan-English dictionary (dictionary.christian-steinert.de) from its own website in a web view; nothing from it is bundled. Control+Shift+F also opens and closes it. Opening it sends the selected text, or the syllable before the caret, to that site. The panel never takes focus, so there is no search box: the term comes from the document (applications that cannot report their text give no term). The term rules and the URL are tested; the panel was checked by rendering.
-- `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer); tested.
+- `Sources/DictionaryModel.swift`, `Sources/DictionaryPanel.swift`: the Dictionary tab and toolbar button. It shows Christian Steinert's Tibetan-English dictionary (dictionary.christian-steinert.de) from its own website in a web view; nothing from it is bundled. Control+Shift+F also opens and closes it. Opening it sends the selected text, or the syllable before the caret, to that site. The panel never takes focus, so there is no search box: the term comes from the document (applications that cannot report their text give no term). The term rules and the URL are in `ttime-core` (`ttime_dictionary_*`) and tested there and through the wrapper; the panel was checked by rendering.
+- `Sources/StackerModel.swift`: the stacker's state and rules (chosen letters, typing, the engine's answer), in `ttime-core` (`ttime_stacker_*`); tested.
 - `Sources/StackerPanel.swift`: the pink stacker window with the illustration (`Resources/stacker-art.webp`, made for T-Time, not under the code licence). Checked by rendering, not run in a live input method.
-- `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette, from `ttime-core`); the model is tested, the panel checked by rendering.
+- `Sources/SymbolsModel.swift`, `Sources/SymbolsPanel.swift`: the symbols window (same catalogue and search as the web palette); the model is in `ttime-core` (`ttime_symbols_model_*`) and tested, the panel checked by rendering.
 - `Sources/TibetanFont.swift`: registers the bundled Noto Serif Tibetan (`Resources/NotoSerifTibetan.ttf`, SIL OFL 1.1, text in `Resources/OFL-NotoSerifTibetan.txt`; a format conversion of the web playground's copy) for T-Time's own windows. macOS's built-in Tibetan fonts do not stack Sanskrit combinations such as retroflex letters under other letters. Text inserted into a document is drawn in the document's font, so for Sanskrit stacks choose a font such as Noto Serif Tibetan or Jomolhari there.
-- `Tests/main.swift`: tests for the key policy, run by the build script.
+- `Tests/main.swift`: the key-policy cases again, through the Swift wrappers and the C ABI, plus the macOS-only parts (Shift bit decoding, updater); run by the build script. The policy's own tests are `cargo test -p ttime-core`.
 
 Install (end users): open the `.pkg` from a release, follow the installer, log
 out and in, and add T-Time under System Settings > Keyboard > Input Sources. The
@@ -64,7 +66,7 @@ keeps it. There is no key-release event in an input method, so the strip stays o
 is let go (as the system's own does). With the Sanskrit suggestions on, the variant replaces the
 last letter of the word being typed; with them off, a variant letter waits as marked text until
 the next key. Holding a letter no longer repeats it. Turn it off in Settings. Logic:
-`Sources/AccentPalette.swift` and `Composer.swift` (tested), `Sources/AccentPanel.swift` (not
+`ttime-core` (`policy/accent.rs`, `policy/composer.rs`; tested), `Sources/AccentPanel.swift` (not
 run in a live input method yet; the log of 2026-11-27 showed that held-key repeats do reach T-Time).
 
 **Shift taps.** Tap left Shift to flip Tibetan and Latin; the mode is remembered when
@@ -101,7 +103,7 @@ character), click a category, arrows move, Return or a click inserts, Esc clears
 the search and then closes. Tab switches between the symbols and the stacker.
 The window opens with the cookie-icing illustration (`Resources/symbols-art.webp`, shown whole beside the table; made for T-Time, not under the code licence). The catalogue is a draft: labels have not been reviewed by a Tibetologist.
 
-**Status.** The key policy is tested. The bundle builds and passes `plutil`.
+**Status.** The key policy is tested (in `ttime-core`, and again through the Swift wrappers). The bundle builds and passes `plutil`.
 *Not yet verified:* registering and enabling the input source in System
 Settings, typing in real applications, and the `tsInputModeScriptKey` value.
 There is no universal (x86_64) build, no Developer ID signing, no

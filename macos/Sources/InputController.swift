@@ -100,8 +100,8 @@ final class TTimeInputController: IMKInputController {
         // With the debug log on, record where the time of this key goes (no characters).
         // The word list loads in the background; a controller that was activated before it
         // was ready has no suggester, so pick it up as soon as it is.
-        if composer.suggester == nil, Prefs.sanskritSuggestions, let lexicon = SanskritLexicon.shared {
-            composer.suggester = SanskritSuggester(lexicon: lexicon)
+        if composer.lexicon == nil, Prefs.sanskritSuggestions, let lexicon = SanskritLexicon.shared {
+            composer.lexicon = lexicon
         }
         let timing: KeyTiming? = DebugLog.enabled ? KeyTiming() : nil
         timing?.queue = max(0, ProcessInfo.processInfo.systemUptime - event.timestamp)
@@ -111,7 +111,7 @@ final class TTimeInputController: IMKInputController {
         apply(outcome, to: client)
         self.timing = nil
         timing?.report(keyCode: event.keyCode, marked: outcome.marked.utf16.count,
-                       state: "latin=\(composer.isLatin) suggester=\(composer.suggester != nil) list=\(composer.suggestionList?.words.count ?? 0)")
+                       state: "latin=\(composer.isLatin) suggester=\(composer.lexicon != nil) list=\(composer.suggestionList?.words.count ?? 0)")
         if event.isARepeat, composer.accentList != nil, heldWatch == nil { watchHeldKey(CGKeyCode(event.keyCode)) }
         return outcome.handled
     }
@@ -150,7 +150,7 @@ final class TTimeInputController: IMKInputController {
         composer.reset()
         composer.setPrecomposed(Prefs.precomposed)
         composer.accents = Prefs.accentPalette
-        composer.suggester = Prefs.sanskritSuggestions ? SanskritLexicon.shared.map { SanskritSuggester(lexicon: $0) } : nil
+        composer.lexicon = Prefs.sanskritSuggestions ? SanskritLexicon.shared : nil
         SuggestionPanel.shared.hide()
         AccentPanel.shared.hide()
         AccentPanel.shared.onPick = { [weak self] i in self?.pickAccent(i) }

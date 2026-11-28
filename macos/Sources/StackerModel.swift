@@ -6,17 +6,15 @@ struct StackLetter: Equatable {
     let example: String
 }
 
-/// Everything the engine's stack builder accepts.
+/// Everything the engine's stack builder accepts. It never changes, so it is read once.
 struct StackAlphabet {
     var consonants: [StackLetter] = []
     var subjoinedOnly: [StackLetter] = []
     var vowels: [StackLetter] = []
     var marks: [StackLetter] = []
 
-    static func load() -> StackAlphabet {
-        guard let json = take(ttime_stack_alphabet_json()),
-              let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any]
-        else { return StackAlphabet() }
+    static let shared: StackAlphabet = {
+        guard let obj = stackerJSON(ttime_stack_alphabet_json()) else { return StackAlphabet() }
         func list(_ name: String) -> [StackLetter] {
             (obj[name] as? [[String: String]] ?? []).compactMap { d in
                 guard let k = d["key"], let e = d["example"] else { return nil }
@@ -25,7 +23,7 @@ struct StackAlphabet {
         }
         return StackAlphabet(consonants: list("consonants"), subjoinedOnly: list("subjoinedOnly"),
                              vowels: list("vowels"), marks: list("marks"))
-    }
+    }()
 }
 
 /// A finished stack, as the engine reports it.
@@ -43,16 +41,16 @@ enum StackResult: Equatable {
     case failed(String)
 }
 
-/// Reads and frees a string returned by the C API.
-func take(_ p: UnsafeMutablePointer<CChar>?) -> String? {
+/// Reads, frees and parses a JSON object returned by the C API.
+private func stackerJSON(_ p: UnsafeMutablePointer<CChar>?) -> [String: Any]? {
     guard let p = p else { return nil }
     defer { ttime_string_free(p) }
-    return String(cString: p)
+    return (try? JSONSerialization.jsonObject(with: Data(String(cString: p).utf8))) as? [String: Any]
 }
 
-/// The stacker's state and rules, with no UI: which letters are chosen, what is
-/// being typed, and what the engine makes of it. The engine builds every stack,
-/// so what the window shows cannot disagree with typing.
+/// The stacker's state and rules, which live in `ttime-core` (`ttime_stacker_*`);
+/// this class mirrors the state for the panel after every change. The engine builds
+/// every stack, so what the window shows cannot disagree with typing.
 final class StackerModel {
     /// Starting points. Each is built by the engine like any other stack.
     static let presets: [(label: String, letters: [String])] = [
@@ -61,26 +59,35 @@ final class StackerModel {
         ("bsgrub", ["b", "s", "g", "r"]),
     ]
 
-    let alphabet: StackAlphabet
-    var precomposed = false
+    private let ptr: OpaquePointer?
+    let alphabet = StackAlphabet.shared
+
+    /// The output form; changing it rebuilds the current stack.
+    var precomposed = false {
+        didSet {
+            guard precomposed != oldValue else { return }
+            ttime_stacker_set_precomposed(ptr, precomposed)
+            refresh()
+        }
+    }
 
     private(set) var layers: [String] = []
     private(set) var vowel = ""  // "" is the inherent a
     private(set) var marks: [String] = []
     /// EWTS typed so far for the next letter.
     private(set) var typed = ""
+    /// The key that what is typed stands for: an exact match, else the only candidate.
+    private(set) var typedKey: String?
     /// A short message for the person: why a key did nothing, or what was inserted.
     private(set) var hint = ""
     private(set) var result: StackResult = .empty
 
-    init(alphabet: StackAlphabet = .load()) {
-        self.alphabet = alphabet
-        rebuild()
+    init() {
+        ptr = ttime_stacker_new(false)
+        refresh()
     }
 
-    private var consonantKeys: [String] { alphabet.consonants.map(\.key) }
-    private var subjoinedOnlyKeys: Set<String> { Set(alphabet.subjoinedOnly.map(\.key)) }
-    private var addableKeys: [String] { consonantKeys + alphabet.subjoinedOnly.map(\.key) }
+    deinit { ttime_stacker_free(ptr) }
 
     var built: BuiltStack? {
         if case .built(let b) = result { return b }
@@ -88,131 +95,70 @@ final class StackerModel {
     }
 
     /// Letters whose keys start with what has been typed (all of them when nothing is).
-    func matches(_ key: String) -> Bool { typed.isEmpty || key.hasPrefix(typed) }
-
-    /// The key that what is typed stands for: an exact match, else the only candidate.
-    var typedKey: String? {
-        if typed.isEmpty { return nil }
-        let all = addableKeys
-        if all.contains(typed) { return typed }
-        let candidates = all.filter { $0.hasPrefix(typed) }
-        return candidates.count == 1 ? candidates[0] : nil
-    }
-
-    // MARK: Changes
+    func matches(_ key: String) -> Bool { key.withCString { ttime_stacker_matches(ptr, $0) } }
 
     /// Adds a letter below the others. A letter that only exists under another
     /// one needs a letter above it.
     @discardableResult
-    func addLayer(_ key: String) -> Bool {
-        typed = ""
-        if subjoinedOnlyKeys.contains(key) && layers.isEmpty {
-            hint = "\(key) only exists under another letter. Add a letter first."
-            return false
-        }
-        layers.append(key)
-        changed()
-        return true
-    }
+    func addLayer(_ key: String) -> Bool { change { key.withCString { ttime_stacker_add_layer(ptr, $0) } } }
 
-    func removeLayer(at i: Int) {
-        guard layers.indices.contains(i) else { return }
-        layers.remove(at: i)
-        changed()
-    }
+    func removeLayer(at i: Int) { change { ttime_stacker_remove_layer(ptr, Int32(clamping: i)) } }
 
-    func setVowel(_ v: String) {
-        vowel = vowel == v ? "" : v
-        changed()
-    }
+    func setVowel(_ v: String) { change { v.withCString { ttime_stacker_set_vowel(ptr, $0) } } }
 
-    func toggleMark(_ m: String) {
-        if marks.contains(m) { marks.removeAll { $0 == m } } else { marks.append(m) }
-        changed()
-    }
+    func toggleMark(_ m: String) { change { m.withCString { ttime_stacker_toggle_mark(ptr, $0) } } }
 
     func usePreset(_ letters: [String]) {
-        layers = letters
-        vowel = ""
-        marks = []
-        typed = ""
-        changed()
+        change { letters.joined(separator: " ").withCString { ttime_stacker_use_preset(ptr, $0) } }
     }
 
-    func clear() {
-        layers = []
-        vowel = ""
-        marks = []
-        typed = ""
-        changed()
-    }
+    func clear() { change { ttime_stacker_clear(ptr) } }
 
-    func setHint(_ s: String) { hint = s }
+    func setHint(_ s: String) { change { s.withCString { ttime_stacker_set_hint(ptr, $0) } } }
 
-    func type(_ s: String) {
-        typed += s
-        hint = ""
-    }
+    func type(_ s: String) { change { s.withCString { ttime_stacker_type(ptr, $0) } } }
 
     /// Adds the letter that is typed. False if what is typed names no letter.
     @discardableResult
-    func confirmTyped() -> Bool {
-        guard let key = typedKey else {
-            if !typed.isEmpty { hint = "\(typed) is not a letter the stacker knows." }
-            return false
-        }
-        return addLayer(key)
-    }
+    func confirmTyped() -> Bool { change { ttime_stacker_confirm_typed(ptr) } }
 
     /// Deletes the last typed character, else the last letter. False if nothing was left to delete.
     @discardableResult
-    func backspace() -> Bool {
-        if !typed.isEmpty {
-            typed.removeLast()
-            hint = ""
-            return true
-        }
-        guard !layers.isEmpty else { return false }
-        layers.removeLast()
-        changed()
-        return true
-    }
+    func backspace() -> Bool { change { ttime_stacker_backspace(ptr) } }
 
     /// Takes the finished stack to insert it, and starts the next one.
     func consume() -> BuiltStack? {
-        guard let b = built else { return nil }
-        layers = []
-        vowel = ""
-        marks = []
-        typed = ""
-        rebuild()
-        hint = "Inserted \(b.text). Next time, type \(b.shortest)."
+        let b = built
+        change { ttime_string_free(ttime_stacker_consume(ptr)) }
         return b
     }
 
-    // MARK: Building
-
-    private func changed() {
-        hint = ""
-        rebuild()
+    private func change<T>(_ body: () -> T) -> T {
+        let r = body()
+        refresh()
+        return r
     }
 
-    private func rebuild() {
-        guard !layers.isEmpty else { result = .empty; return }
-        let json = take(ttime_build_stack_json(layers.joined(separator: " "), vowel,
-                                               marks.joined(separator: " "), precomposed))
-        guard let json = json,
-              let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any]
-        else { result = .failed("The engine gave no answer."); return }
-        guard obj["ok"] as? Bool == true else {
-            result = .failed(obj["error"] as? String ?? "Cannot build this stack.")
-            return
+    private func refresh() {
+        guard let obj = stackerJSON(ttime_stacker_state_json(ptr)) else { return }
+        layers = obj["layers"] as? [String] ?? []
+        vowel = obj["vowel"] as? String ?? ""
+        marks = obj["marks"] as? [String] ?? []
+        typed = obj["typed"] as? String ?? ""
+        typedKey = obj["typedKey"] as? String
+        hint = obj["hint"] as? String ?? ""
+        guard let r = obj["result"] as? [String: Any] else { result = .empty; return }
+        switch r["kind"] as? String {
+        case "built":
+            result = .built(BuiltStack(text: r["text"] as? String ?? "",
+                                       canonical: r["canonical"] as? String ?? "",
+                                       shortest: r["shortest"] as? String ?? "",
+                                       codePoints: r["codePoints"] as? String ?? "",
+                                       notes: r["notes"] as? [String] ?? []))
+        case "failed":
+            result = .failed(r["error"] as? String ?? "Cannot build this stack.")
+        default:
+            result = .empty
         }
-        let notes = (obj["diagnostics"] as? [[String: Any]] ?? []).compactMap { $0["message"] as? String }
-        result = .built(BuiltStack(text: obj["text"] as? String ?? "",
-                                   canonical: obj["canonical"] as? String ?? "",
-                                   shortest: obj["shortest"] as? String ?? "",
-                                   codePoints: obj["codePoints"] as? String ?? "",
-                                   notes: notes))
     }
 }

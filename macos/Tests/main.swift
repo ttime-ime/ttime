@@ -1,5 +1,9 @@
 import Foundation
 
+// The policy itself is tested in ttime-core (`cargo test`). These run the same
+// cases through the Swift wrappers and the C ABI, plus the macOS-only parts
+// (Shift bit decoding, updater, client quirks).
+
 var failures = 0
 func check(_ got: Outcome, _ want: Outcome, _ label: String) {
     if got != want { failures += 1; print("FAIL \(label): got \(got), want \(want)") }
@@ -78,7 +82,7 @@ do {
 // --- Shift taps ---
 let L = ShiftTap.leftKeyCode, R = ShiftTap.rightKeyCode
 let lBit = ShiftTap.leftShiftBit, rBit = ShiftTap.rightShiftBit
-func tap(_ t: inout ShiftTap, _ code: UInt16, _ bit: UInt, at time: Double, hold: Double = 0.1) -> ShiftTapEvent? {
+func tap(_ t: ShiftTap, _ code: UInt16, _ bit: UInt, at time: Double, hold: Double = 0.1) -> ShiftTapEvent? {
     _ = t.flagsChanged(keyCode: code, flags: bit, time: time)
     return t.flagsChanged(keyCode: code, flags: 0, time: time + hold)
 }
@@ -86,19 +90,19 @@ func expect(_ got: ShiftTapEvent?, _ want: ShiftTapEvent?, _ label: String) {
     if got != want { failures += 1; print("FAIL \(label): got \(String(describing: got)), want \(String(describing: want))") }
 }
 do {
-    var t = ShiftTap()
-    expect(tap(&t, L, lBit, at: 0), ShiftTapEvent(side: .left, kind: .single), "left tap")
-    expect(tap(&t, R, rBit, at: 5), ShiftTapEvent(side: .right, kind: .single), "right tap")
+    let t = ShiftTap()
+    expect(tap(t, L, lBit, at: 0), ShiftTapEvent(side: .left, kind: .single), "left tap")
+    expect(tap(t, R, rBit, at: 5), ShiftTapEvent(side: .right, kind: .single), "right tap")
 }
 do {
-    var t = ShiftTap()
+    let t = ShiftTap()
     _ = t.flagsChanged(keyCode: L, flags: lBit, time: 0)
     t.keyDown()
     expect(t.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "Shift+letter is not a tap")
-    expect(tap(&t, L, lBit, at: 1), ShiftTapEvent(side: .left, kind: .single), "tap after a chord works")
+    expect(tap(t, L, lBit, at: 1), ShiftTapEvent(side: .left, kind: .single), "tap after a chord works")
 }
 do {
-    var t = ShiftTap()
+    let t = ShiftTap()
     _ = t.flagsChanged(keyCode: L, flags: lBit | ShiftTap.commandBit, time: 0)
     expect(t.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "Shift+Command is not a tap")
     _ = t.flagsChanged(keyCode: L, flags: lBit, time: 1)
@@ -107,41 +111,41 @@ do {
     expect(t.flagsChanged(keyCode: L, flags: 0, time: 1.2), nil, "Control touched while held spoils the tap")
 }
 do {
-    var t = ShiftTap()
-    expect(tap(&t, L, lBit, at: 0, hold: 0.6), nil, "a long press is not a tap")
+    let t = ShiftTap()
+    expect(tap(t, L, lBit, at: 0, hold: 0.6), nil, "a long press is not a tap")
 }
 do {
-    var t = ShiftTap()
+    let t = ShiftTap()
     _ = t.flagsChanged(keyCode: L, flags: lBit, time: 0)
     _ = t.flagsChanged(keyCode: R, flags: lBit | rBit, time: 0.05)
     expect(t.flagsChanged(keyCode: L, flags: rBit, time: 0.1), nil, "both Shifts: left release is no tap")
     expect(t.flagsChanged(keyCode: R, flags: 0, time: 0.12), nil, "both Shifts: right release is no tap")
 }
 do {
-    var t = ShiftTap()
-    expect(tap(&t, L, lBit, at: 0), ShiftTapEvent(side: .left, kind: .single), "first tap of a pair")
-    expect(tap(&t, L, lBit, at: 0.3), ShiftTapEvent(side: .left, kind: .double), "second tap is a double")
-    expect(tap(&t, L, lBit, at: 0.6), ShiftTapEvent(side: .left, kind: .single), "third tap starts a new pair")
+    let t = ShiftTap()
+    expect(tap(t, L, lBit, at: 0), ShiftTapEvent(side: .left, kind: .single), "first tap of a pair")
+    expect(tap(t, L, lBit, at: 0.3), ShiftTapEvent(side: .left, kind: .double), "second tap is a double")
+    expect(tap(t, L, lBit, at: 0.6), ShiftTapEvent(side: .left, kind: .single), "third tap starts a new pair")
 }
 do {
-    var t = ShiftTap()
-    _ = tap(&t, L, lBit, at: 0)
-    expect(tap(&t, L, lBit, at: 0.9), ShiftTapEvent(side: .left, kind: .single), "taps too far apart are two singles")
+    let t = ShiftTap()
+    _ = tap(t, L, lBit, at: 0)
+    expect(tap(t, L, lBit, at: 0.9), ShiftTapEvent(side: .left, kind: .single), "taps too far apart are two singles")
 }
 do {
-    var t = ShiftTap()
-    _ = tap(&t, R, rBit, at: 0)
-    expect(tap(&t, L, lBit, at: 0.2), ShiftTapEvent(side: .left, kind: .single), "left does not pair with right")
-    expect(tap(&t, R, rBit, at: 0.4), ShiftTapEvent(side: .right, kind: .double), "pairing is per side")
+    let t = ShiftTap()
+    _ = tap(t, R, rBit, at: 0)
+    expect(tap(t, L, lBit, at: 0.2), ShiftTapEvent(side: .left, kind: .single), "left does not pair with right")
+    expect(tap(t, R, rBit, at: 0.4), ShiftTapEvent(side: .right, kind: .double), "pairing is per side")
 }
 do {
-    var t = ShiftTap()
-    _ = tap(&t, L, lBit, at: 0)
+    let t = ShiftTap()
+    _ = tap(t, L, lBit, at: 0)
     t.keyDown()
-    expect(tap(&t, L, lBit, at: 0.3), ShiftTapEvent(side: .left, kind: .single), "a key between taps breaks the pair")
+    expect(tap(t, L, lBit, at: 0.3), ShiftTapEvent(side: .left, kind: .single), "a key between taps breaks the pair")
 }
 do {
-    var t = ShiftTap()
+    let t = ShiftTap()
     _ = t.flagsChanged(keyCode: L, flags: lBit, time: 0)
     t.reset()
     expect(t.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "reset forgets a held Shift")
@@ -149,12 +153,12 @@ do {
 
 // --- Mode lock ---
 do {
-    var m = ModeLock()
+    let m = ModeLock()
     if m.leftTap(.single, isLatin: false) != true { failures += 1; print("FAIL single tap flips to Latin") }
     if m.leftTap(.single, isLatin: true) != false { failures += 1; print("FAIL single tap flips back") }
 }
 do {
-    var m = ModeLock()
+    let m = ModeLock()
     // First tap flipped Tibetan to Latin; the second tap of the pair arrives.
     if m.leftTap(.double, isLatin: true) != false || m.lockedLatin != false {
         failures += 1; print("FAIL double tap undoes the flip and locks Tibetan: \(m)")
@@ -166,14 +170,14 @@ do {
     }
 }
 do {
-    var m = ModeLock()
+    let m = ModeLock()
     // Latin, then a pair: first tap flipped Latin to Tibetan.
     if m.leftTap(.double, isLatin: false) != true || m.lockedLatin != true { failures += 1; print("FAIL lock Latin") }
     if m.modeOnFocus != true { failures += 1; print("FAIL locked Latin survives focus") }
     if ModeLock().modeOnFocus != false { failures += 1; print("FAIL unlocked focus starts Tibetan") }
 }
 do {
-    var m = ModeLock()
+    let m = ModeLock()
     if m.choose(latin: true) != true || m.choose(latin: false) != false { failures += 1; print("FAIL toolbar click picks a mode") }
     m.toggleLock(isLatin: true)
     if m.lockedLatin != true { failures += 1; print("FAIL toolbar lock locks the current mode") }
@@ -226,6 +230,13 @@ do {
     if case .failed = m.result {} else { failures += 1; print("FAIL engine refuses W on top: \(m.result)") }
     m.usePreset(["k", "Sh"])
     if m.built?.text != "ཀྵ" { failures += 1; print("FAIL preset kSha: \(m.result)") }
+    m.usePreset(["k", "Sh"])
+    // Compare code points: Swift's == treats U+0F69 and U+0F40 U+0FB5 as equal.
+    if m.built?.codePoints != "0F40 0FB5" { failures += 1; print("FAIL decomposed kSha: \(m.result)") }
+    m.precomposed = true
+    if m.built?.codePoints != "0F69" { failures += 1; print("FAIL precomposed rebuilds: \(m.result)") }
+    m.precomposed = false
+    if m.typedKey != nil { failures += 1; print("FAIL nothing typed has no key") }
     if m.alphabet.consonants.count < 30 || m.alphabet.vowels.isEmpty || m.alphabet.marks.isEmpty {
         failures += 1; print("FAIL alphabet is loaded")
     }
@@ -250,29 +261,35 @@ do {
     if !m.backspace() { failures += 1; print("FAIL backspace edits the search") }
     m.clearQuery()
     if m.backspace() { failures += 1; print("FAIL backspace with an empty search passes through") }
-    let mark = SymbolEntry(id: "x", category: "marks", text: "\u{0F7E}", ewts: "M", name: "", label: "", note: "", codePoints: "")
-    if mark.display != "\u{25CC}\u{0F7E}" { failures += 1; print("FAIL combining mark gets a base") }
+    m.clearQuery()
+    m.type("anusvara")
+    if m.results.first(where: { $0.id == "anusvara" })?.display != "\u{25CC}\u{0F7E}" { failures += 1; print("FAIL combining mark gets a base") }
+    m.clearQuery()
+    m.type("paluta")
+    if let p = m.results.first(where: { $0.id == "paluta" }) {
+        if p.display != p.text { failures += 1; print("FAIL paluta is punctuation, no dotted circle: \(p.display)") }
+    } else { failures += 1; print("FAIL search finds paluta") }
 }
 do {
     // What macOS really sends an input method: only the generic Shift bit (0x20000),
     // no per-key device bits (seen in a log from a real run).
     let sh = ShiftTap.shiftMask
-    var t = ShiftTap()
-    expect(tap(&t, L, sh, at: 0), ShiftTapEvent(side: .left, kind: .single), "generic bits: left tap")
-    expect(tap(&t, L, sh, at: 0.3), ShiftTapEvent(side: .left, kind: .double), "generic bits: left double")
-    expect(tap(&t, R, sh, at: 5), ShiftTapEvent(side: .right, kind: .single), "generic bits: right tap")
-    expect(tap(&t, R, sh, at: 5.2), ShiftTapEvent(side: .right, kind: .double), "generic bits: right double")
-    var c = ShiftTap()
+    let t = ShiftTap()
+    expect(tap(t, L, sh, at: 0), ShiftTapEvent(side: .left, kind: .single), "generic bits: left tap")
+    expect(tap(t, L, sh, at: 0.3), ShiftTapEvent(side: .left, kind: .double), "generic bits: left double")
+    expect(tap(t, R, sh, at: 5), ShiftTapEvent(side: .right, kind: .single), "generic bits: right tap")
+    expect(tap(t, R, sh, at: 5.2), ShiftTapEvent(side: .right, kind: .double), "generic bits: right double")
+    let c = ShiftTap()
     _ = c.flagsChanged(keyCode: L, flags: sh, time: 0)
     c.keyDown()
     expect(c.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "generic bits: Shift+letter is not a tap")
-    var b = ShiftTap()
+    let b = ShiftTap()
     _ = b.flagsChanged(keyCode: L, flags: sh, time: 0)
     _ = b.flagsChanged(keyCode: R, flags: sh, time: 0.05)
     expect(b.flagsChanged(keyCode: L, flags: sh, time: 0.1), nil, "generic bits: both Shifts, left release")
     expect(b.flagsChanged(keyCode: R, flags: 0, time: 0.12), nil, "generic bits: both Shifts, right release")
-    expect(tap(&b, L, sh, at: 3), ShiftTapEvent(side: .left, kind: .single), "generic bits: tap after both Shifts")
-    var m = ShiftTap()
+    expect(tap(b, L, sh, at: 3), ShiftTapEvent(side: .left, kind: .single), "generic bits: tap after both Shifts")
+    let m = ShiftTap()
     _ = m.flagsChanged(keyCode: L, flags: sh | ShiftTap.commandBit, time: 0)
     expect(m.flagsChanged(keyCode: L, flags: 0, time: 0.1), nil, "generic bits: Shift+Command is not a tap")
 }
@@ -316,17 +333,12 @@ do {
     func t(_ ok: Bool, _ label: String) { if !ok { failures += 1; print("FAIL \(label)") } }
     let tsv = "prajñā\t100\tb\nprajña\t10\t-\nprājña\t5\t-\npratītyasamutpāda\t20\tb\npratyaya\t50\tb\nśiva\t80\t-\nśivā\t3\t-\nsiva\t1\t-\nśūnyatā\t40\tb\n"
     let lex = SanskritLexicon(tsv: tsv)
-    t(SanskritLexicon.fold("śūnyatā") == "sunyata", "fold")
-    t(lex.suggest("praj") == ["prajñā", "prajña", "prājña"], "prefix ranked by count: \(lex.suggest("praj"))")
-    t(lex.suggest("siva") == ["śiva", "śivā", "siva"], "ambiguous key ranked: \(lex.suggest("siva"))")
-    t(lex.suggest("pra").first == "prajñā" && lex.suggest("pra").count == 5, "limit five")
-    t(lex.suggest("zzz").isEmpty, "no match")
-    t(lex.suggest("Sunya") == ["śūnyatā"], "capitals and accents ignored")
+    t(lex.count == 9, "word list parsed through the C API")
 
     func latin() -> Composer {
         let c = Composer()
         _ = c.setLatin(true)
-        c.suggester = SanskritSuggester(lexicon: lex)
+        c.lexicon = lex
         return c
     }
     func type(_ c: Composer, _ s: String) -> Outcome { var o = Outcome(); for ch in s { o = c.handle(.text(String(ch))) }; return o }
@@ -370,6 +382,11 @@ do {
         check(c.setLatin(false), Outcome(handled: true), "leaving Latin forgets the word, which is already typed")
     }
     do {
+        let a = latin(), b = latin()
+        _ = type(a, "praj")
+        t(a.suggestionList != nil && b.suggestionList == nil, "one shared list, separate state per composer")
+    }
+    do {
         let c = latin()
         check(c.handle(.tab), Outcome(), "tab with no word is not ours")
         let off = Composer(); _ = off.setLatin(true)
@@ -380,18 +397,13 @@ do {
 // Long-press accent palette
 do {
     func t(_ ok: Bool, _ label: String) { if !ok { failures += 1; print("FAIL \(label)") } }
-    for (k, vs) in AccentPalette.lower {
-        for v in vs { t(v.precomposedStringWithCanonicalMapping == v && v.unicodeScalars.count == 1, "NFC single scalar \(k)->\(v)") }
-    }
-    t(AccentPalette.variants(for: "S") == ["Ś", "Ṣ"], "capitals give capitals")
-    t(AccentPalette.variants(for: "k").isEmpty && AccentPalette.variants(for: "ab").isEmpty, "no variants")
 
     let lex = SanskritLexicon(tsv: "prajñā\t100\tb\nprajña\t10\t-\nsūtra\t30\tb\n")
     func latin(suggest: Bool) -> Composer {
         let c = Composer()
         _ = c.setLatin(true)
         c.accents = true
-        if suggest { c.suggester = SanskritSuggester(lexicon: lex) }
+        if suggest { c.lexicon = lex }
         return c
     }
     func type(_ c: Composer, _ s: String) { for ch in s { _ = c.handle(.text(String(ch))) } }
