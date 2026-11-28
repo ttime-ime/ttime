@@ -2,8 +2,16 @@
 
 ## Unreleased
 
+## 0.1.0-rc.6
+
+
 ### macOS
 
+- The dictionary page is no longer loaded when T-Time starts: nothing is sent to the
+  dictionary's website until you open the Dictionary tab.
+- Symbols and Stacker: a long label (the digits) shrinks to fit its cell instead of being
+  cut off; the Stacker opens at most 780 pt tall (your own size is remembered, and is now
+  saved once when you let go of the resize grip, not on every mouse move).
 - **T-Time Tools** companion app (`/Applications/T-Time Tools.app`, same installer
   as the IME): convert between Tibetan and Wylie (EWTS) via the Services menu
   (Auto-convert, Wylie → Tibetan, Tibetan → Wylie) or a converter window with
@@ -24,7 +32,7 @@
   switching; choosing a mode on the toolbar while locked changes it, and the lock holds the mode
   you chose across fields and apps until you unlock.
 - Two looks, Bubblegum (pink, the default) and Brutalist (black and white, set in Didot
-  with tracked capitals and hairlines, and following the system's light and dark mode).
+  with tracked capitals and hairlines). Both follow the system's light and dark mode.
   The installer asks which one; Settings switches between them at any time, and the toolbar,
   Symbols and Stacker redraw at once. The Brutalist toolbar is a slim bar with its own
   logos for light and dark, and the panels use the concrete-wall picture.

@@ -80,22 +80,32 @@ enum PanelTabs {
     /// onto Symbols and Dictionary.
     static func height(for tab: PanelTab = .stacker) -> CGFloat {
         let floor = minimumHeight(for: tab)
-        let remembered = CGFloat(UserDefaults.standard.double(forKey: heightKey(for: tab)))
+        let remembered = dragging?.tab == tab ? dragging!.height
+            : CGFloat(UserDefaults.standard.double(forKey: heightKey(for: tab)))
         let natural = naturalHeight(for: tab)
         let screen = availableHeight()
-        let ideal = remembered > 0 ? remembered : min(natural, screen - 24)
+        // First time: tall enough for the answer and a good part of the letters (which scroll),
+        // not the whole alphabet; the user's own size is remembered afterwards.
+        let ideal = remembered > 0 ? remembered : min(natural, screen - 24, 780)
         return min(max(ideal, floor), max(floor, screen - 16))
     }
 
-    /// Legacy shared-height accessor (Bubblegum / grip fallback).
-    static func height() -> CGFloat { height(for: .stacker) }
+    /// The height being dragged to; written to the defaults once, when the mouse is released.
+    private static var dragging: (tab: PanelTab, height: CGFloat)?
+
+    /// Called when a resize drag ends: remembers the height.
+    static func commitDrag() {
+        guard let d = dragging else { return }
+        UserDefaults.standard.set(Double(d.height), forKey: heightKey(for: d.tab))
+        dragging = nil
+    }
 
     /// The size the window takes for a drag to `wanted`: the width is fixed.
     static func proposed(_ wanted: NSSize, tab: PanelTab = .stacker) -> NSSize {
         let floor = minimumHeight(for: tab)
         let screen = availableHeight()
         let h = min(max(wanted.height, floor), min(1400, max(floor, screen - 16)))
-        UserDefaults.standard.set(Double(h), forKey: heightKey(for: tab))
+        dragging = (tab, h)
         return NSSize(width: width, height: h)
     }
 
@@ -349,5 +359,8 @@ final class ResizeGrip: NSView {
         window.invalidateShadow()
     }
 
-    override func mouseUp(with event: NSEvent) { start = nil }
+    override func mouseUp(with event: NSEvent) {
+        start = nil
+        PanelTabs.commitDrag()
+    }
 }

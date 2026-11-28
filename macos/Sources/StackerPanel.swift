@@ -197,13 +197,21 @@ final class BubbleButton: NSButton {
         CTLineDraw(gLine, ctx)
         ctx.restoreGState()
 
-        let capFont = GlyphCaptionLayout.captionFont(t.glyphCaptionSize)
-        let cap = NSAttributedString(string: caption, attributes: [
-            .font: capFont, .foregroundColor: captionInk,
-        ])
-        let capLine = CTLineCreateWithAttributedString(cap)
+        var capSize = t.glyphCaptionSize
+        var capLine = CTLineCreateWithAttributedString(NSAttributedString(string: caption, attributes: [
+            .font: GlyphCaptionLayout.captionFont(capSize), .foregroundColor: captionInk,
+        ]))
         var a: CGFloat = 0, d: CGFloat = 0, l: CGFloat = 0
-        let cw = CTLineGetTypographicBounds(capLine, &a, &d, &l)
+        var cw = CTLineGetTypographicBounds(capLine, &a, &d, &l)
+        // A long caption (the digits, "0123456789") is shrunk to fit its cell, not clipped.
+        let room = bounds.width - 6
+        if cw > room {
+            capSize = max(6.5, capSize * room / cw)
+            capLine = CTLineCreateWithAttributedString(NSAttributedString(string: caption, attributes: [
+                .font: GlyphCaptionLayout.captionFont(capSize), .foregroundColor: captionInk,
+            ]))
+            cw = CTLineGetTypographicBounds(capLine, &a, &d, &l)
+        }
         // Brutalist: ~5 pt under captions inside inset selection.
         // Bubblegum: keep caption ink ≥ ~4.5 pt above the tile edge (baseline − descent).
         let bottomClearance: CGFloat = t.bubblegum ? 4.5 : 5

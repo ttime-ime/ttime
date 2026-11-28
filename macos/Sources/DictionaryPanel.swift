@@ -120,13 +120,6 @@ final class DictionaryPanel: NSObject, WKNavigationDelegate {
         DispatchQueue.main.async { [weak self] in self?.lookUp(term) }
     }
 
-    /// Build the WKWebView ahead of first open (call from idle after IME launch).
-    func prepare() {
-        _ = ensurePanel()
-        guard let web = web, web.url == nil, let home = URL(string: DictionaryLookup.site) else { return }
-        web.load(URLRequest(url: home))
-    }
-
     func close() {
         pendingClose?.cancel()
         guard let panel = panel else { return }
